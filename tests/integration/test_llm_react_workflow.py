@@ -155,6 +155,15 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
             [record.action.kind for record in impact.action_history],
             [record.action.kind for record in root_cause.action_history],
         )
+        impact_evaluation = impact.run_evaluation
+        assert impact_evaluation is not None
+        self.assertTrue(impact_evaluation.goal_success)
+        self.assertTrue(impact_evaluation.stop_correct)
+        self.assertEqual(impact.conclusion_level, ConclusionLevel.SIGNAL.value)
+        root_evaluation = root_cause.run_evaluation
+        assert root_evaluation is not None
+        self.assertTrue(root_evaluation.goal_success)
+        self.assertTrue(root_evaluation.stop_correct)
 
     def test_scratch_cu_cmp_replans_after_observation_and_keeps_auditable_links(
         self,
@@ -208,6 +217,18 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
             state.planner_decisions[-1].decision_type,
             DecisionType.STOP.value,
         )
+        run_evaluation = state.run_evaluation
+        assert run_evaluation is not None
+        evaluations = run_evaluation.decision_evaluations
+        self.assertEqual(len(evaluations), len(state.planner_decisions))
+        self.assertTrue(all(item.decision_valid for item in evaluations))
+        self.assertTrue(all(not item.redundant for item in evaluations))
+        self.assertTrue(all(item.evidence_gain for item in evaluations[:4]))
+        self.assertFalse(evaluations[4].evidence_gain)
+        self.assertFalse(evaluations[4].redundant)
+        self.assertFalse(evaluations[-1].evidence_gain)
+        self.assertTrue(run_evaluation.goal_success)
+        self.assertTrue(run_evaluation.stop_correct)
         self.assertEqual(RCAState.from_dict(state.to_dict()), state)
 
     def test_qwen_stop_is_downgraded_by_evidence_gate_without_failing_run(
@@ -231,6 +252,13 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
             ConclusionLevel.INCONCLUSIVE.value,
         )
         self.assertEqual(state.stop_reason, StopReason.DATA_UNAVAILABLE.value)
+        run_evaluation = state.run_evaluation
+        assert run_evaluation is not None
+        self.assertTrue(
+            run_evaluation.decision_evaluations[-1].decision_valid
+        )
+        self.assertFalse(run_evaluation.goal_success)
+        self.assertFalse(run_evaluation.stop_correct)
         self.assertTrue(state.report is None or state.report.markdown)
 
     def test_two_invalid_next_actions_fallback_from_current_state(self) -> None:
@@ -291,6 +319,7 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
             )
         )
         self.assertEqual(state.evidence_gaps, [])
+        self.assertIsNone(state.run_evaluation)
 
     def test_two_invalid_intent_outputs_fallback_before_first_action(self) -> None:
         client = InvalidIntentClient()
@@ -332,6 +361,7 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
             state.action_history[0].action.kind,
             "inspect_defect_pattern",
         )
+        self.assertIsNone(state.run_evaluation)
 
     def test_product_root_cause_and_history_use_mes_selected_lots(self) -> None:
         workflow = fake_llm_workflow(RecordingFakeClient())
@@ -420,6 +450,10 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
                 )
                 self.assertEqual(metadata["orchestration_mode"], "llm_react")
                 self.assertNotIn("orchestration_fallback_reason", metadata)
+                evaluation = state_response.json()["state"]["run_evaluation"]
+                self.assertIsNotNone(evaluation)
+                self.assertTrue(evaluation["goal_success"])
+                self.assertTrue(evaluation["stop_correct"])
 
     def test_api_exposes_mid_loop_fallback_metadata(self) -> None:
         app = create_app(
@@ -452,6 +486,7 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(len(state["planner_decisions"]), 1)
         self.assertTrue(state["evidence"])
+        self.assertIsNone(state["run_evaluation"])
 
     def test_api_immediate_stop_is_completed_and_never_returns_500(self) -> None:
         app = create_app(
@@ -479,6 +514,8 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
             state["conclusion_level"],
             ConclusionLevel.INCONCLUSIVE.value,
         )
+        self.assertFalse(state["run_evaluation"]["goal_success"])
+        self.assertFalse(state["run_evaluation"]["stop_correct"])
         self.assertIn(report_response.status_code, {200, 409})
 
 

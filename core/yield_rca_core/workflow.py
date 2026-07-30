@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from time import perf_counter
 
+from yield_rca_core.decision_evaluation import evaluate as evaluate_agent_decisions
 from yield_rca_core.improvement_agent import ImprovementAgent
 from yield_rca_core.intent_planner import QwenIntentPlanner, QwenIntentPlannerError
 from yield_rca_core.investigation_models import OrchestrationMode
@@ -228,12 +229,16 @@ class PurePythonRCAWorkflow:
             "hypothesis_engine_mode": "active",
             "orchestration_mode": actual_orchestration_mode,
         }
-        return RCAState.from_dict(
+        final_state = RCAState.from_dict(
             {
                 **state.to_dict(),
                 "llm_usage": [event.to_dict() for event in llm_usage],
                 "execution_metadata": metadata,
             }
+        )
+        return replace(
+            final_state,
+            run_evaluation=evaluate_agent_decisions(final_state),
         )
 
 

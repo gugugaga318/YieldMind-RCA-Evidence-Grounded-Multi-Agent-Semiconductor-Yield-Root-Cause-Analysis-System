@@ -14,6 +14,7 @@ from yield_rca_core.evidence_models import Evidence, EvidenceSourceType  # noqa:
 from yield_rca_core.investigation_models import (  # noqa: E402
     ActionKind,
     ConclusionLevel,
+    DecisionEvaluation,
     DecisionType,
     EvidenceGapStatus,
     GoalStatus,
@@ -22,6 +23,7 @@ from yield_rca_core.investigation_models import (  # noqa: E402
     InvestigationIntent,
     InvestigationQuestion,
     PlannerDecision,
+    RunEvaluation,
     StopReason,
 )
 from yield_rca_core.models import ModelValidationError, RCAJob, RCAState  # noqa: E402
@@ -123,6 +125,36 @@ def make_state() -> RCAState:
         conclusion_level=ConclusionLevel.SUPPORTED.value,
         evidence_gaps=["legacy: no additional SPC parameter gap"],
         stop_reason=StopReason.GOAL_SATISFIED.value,
+    )
+
+
+def make_run_evaluation(
+    *,
+    goal_id: str = GOAL_ID,
+    new_evidence_id: str = EVIDENCE_ID,
+) -> RunEvaluation:
+    return RunEvaluation(
+        goal_id=goal_id,
+        goal_success=True,
+        stop_correct=True,
+        summary="The evidence-backed root-cause goal stopped at the correct boundary.",
+        decision_evaluations=[
+            DecisionEvaluation(
+                decision_id="DECISION_01",
+                decision_valid=True,
+                evidence_gain=True,
+                redundant=False,
+                reason="The FDC action added the endpoint Evidence.",
+                new_evidence_ids=[new_evidence_id],
+            ),
+            DecisionEvaluation(
+                decision_id="DECISION_STOP",
+                decision_valid=True,
+                evidence_gain=False,
+                redundant=False,
+                reason="The stop decision added no Evidence and used the satisfied boundary.",
+            ),
+        ],
     )
 
 
@@ -287,6 +319,95 @@ class RCAStatePlannerTraceValidationTest(unittest.TestCase):
                 investigation_goal=make_goal(),
                 investigation_questions=[unknown_evidence_question],
             )
+
+
+class RCAStateRunEvaluationContractTest(unittest.TestCase):
+    def test_run_evaluation_round_trips_as_typed_first_class_state(self) -> None:
+        payload = make_state().to_dict()
+        payload["run_evaluation"] = make_run_evaluation().to_dict()
+
+        restored = RCAState.from_dict(payload)
+
+        self.assertIsInstance(restored.run_evaluation, RunEvaluation)
+        self.assertEqual(restored.run_evaluation, make_run_evaluation())
+        self.assertEqual(
+            RCAState.from_dict(restored.to_dict()),
+            restored,
+        )
+
+    def test_legacy_state_without_run_evaluation_defaults_to_none(self) -> None:
+        payload = make_state().to_dict()
+        payload.pop("run_evaluation")
+
+        restored = RCAState.from_dict(payload)
+
+        self.assertIsNone(restored.run_evaluation)
+        self.assertIsNone(restored.to_dict()["run_evaluation"])
+
+    def test_run_evaluation_requires_the_typed_contract_and_matching_goal(self) -> None:
+        with self.assertRaisesRegex(
+            ModelValidationError,
+            "run_evaluation must be a RunEvaluation",
+        ):
+            RCAState(
+                job=RCAJob(
+                    job_id="RCA_BAD_EVALUATION_TYPE",
+                    user_query="Invalid evaluation.",
+                ),
+                run_evaluation=cast(Any, object()),
+            )
+
+        payload = make_state().to_dict()
+        payload["run_evaluation"] = make_run_evaluation(
+            goal_id="GOAL_OTHER"
+        ).to_dict()
+        with self.assertRaisesRegex(
+            ModelValidationError,
+            "run_evaluation goal_id must match investigation_goal",
+        ):
+            RCAState.from_dict(payload)
+
+    def test_evaluation_ids_must_match_planner_decisions_in_number_and_order(
+        self,
+    ) -> None:
+        complete = make_run_evaluation()
+        cases = {
+            "missing": RunEvaluation(
+                goal_id=GOAL_ID,
+                goal_success=True,
+                stop_correct=True,
+                summary="Only one decision was evaluated.",
+                decision_evaluations=[complete.decision_evaluations[0]],
+            ),
+            "reordered": RunEvaluation(
+                goal_id=GOAL_ID,
+                goal_success=True,
+                stop_correct=True,
+                summary="The evaluations were placed in the wrong order.",
+                decision_evaluations=list(reversed(complete.decision_evaluations)),
+            ),
+        }
+        for label, evaluation in cases.items():
+            with self.subTest(label=label):
+                payload = make_state().to_dict()
+                payload["run_evaluation"] = evaluation.to_dict()
+                with self.assertRaisesRegex(
+                    ModelValidationError,
+                    "must match planner_decisions in number and order",
+                ):
+                    RCAState.from_dict(payload)
+
+    def test_evaluation_new_evidence_ids_must_exist_in_final_evidence(self) -> None:
+        payload = make_state().to_dict()
+        payload["run_evaluation"] = make_run_evaluation(
+            new_evidence_id="EV_UNKNOWN"
+        ).to_dict()
+
+        with self.assertRaisesRegex(
+            ModelValidationError,
+            "decision evaluation references unknown evidence_ids",
+        ):
+            RCAState.from_dict(payload)
 
 
 if __name__ == "__main__":

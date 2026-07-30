@@ -41,6 +41,7 @@ from yield_rca_core.investigation_models import (
     InvestigationGoal,
     InvestigationQuestion,
     PlannerDecision,
+    RunEvaluation,
     StopReason,
 )
 
@@ -828,6 +829,7 @@ class RCAState:
     conclusion_level: str | None = None
     evidence_gaps: list[str] = field(default_factory=list)
     stop_reason: str | None = None
+    run_evaluation: RunEvaluation | None = None
     schema_version: str = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -888,6 +890,10 @@ class RCAState:
                 StopReason(self.stop_reason)
             except ValueError as exc:
                 raise ModelValidationError("stop_reason is invalid") from exc
+        if self.run_evaluation is not None and not isinstance(
+            self.run_evaluation, RunEvaluation
+        ):
+            raise ModelValidationError("run_evaluation must be a RunEvaluation")
         _validate_json_object(self.execution_metadata, "execution_metadata")
         self._validate_evidence_references()
         self._validate_task_references()
@@ -1049,10 +1055,14 @@ class RCAState:
 
         if (
             self.investigation_goal is None
-            and (self.investigation_questions or self.planner_decisions)
+            and (
+                self.investigation_questions
+                or self.planner_decisions
+                or self.run_evaluation is not None
+            )
         ):
             raise ModelValidationError(
-                "investigation_questions and planner_decisions require investigation_goal"
+                "investigation trace and run_evaluation require investigation_goal"
             )
         if self.investigation_goal is None:
             return
@@ -1106,6 +1116,29 @@ class RCAState:
                     f"{sorted(unknown_question_updates)}"
                 )
 
+        if self.run_evaluation is None:
+            return
+        if self.run_evaluation.goal_id != goal_id:
+            raise ModelValidationError(
+                "run_evaluation goal_id must match investigation_goal"
+            )
+        evaluation_decision_ids = [
+            evaluation.decision_id
+            for evaluation in self.run_evaluation.decision_evaluations
+        ]
+        if evaluation_decision_ids != decision_ids:
+            raise ModelValidationError(
+                "run_evaluation decision_evaluations must match "
+                "planner_decisions in number and order"
+            )
+        known_evidence_ids = set(self.evidence_by_id)
+        for evaluation in self.run_evaluation.decision_evaluations:
+            self._validate_reference_set(
+                evaluation.new_evidence_ids,
+                known_evidence_ids,
+                "decision evaluation",
+            )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "job": self.job.to_dict(),
@@ -1139,6 +1172,9 @@ class RCAState:
             "conclusion_level": self.conclusion_level,
             "evidence_gaps": list(self.evidence_gaps),
             "stop_reason": self.stop_reason,
+            "run_evaluation": (
+                self.run_evaluation.to_dict() if self.run_evaluation else None
+            ),
             "schema_version": self.schema_version,
         }
 
@@ -1195,5 +1231,10 @@ class RCAState:
             conclusion_level=data.get("conclusion_level"),
             evidence_gaps=list(data.get("evidence_gaps", [])),
             stop_reason=data.get("stop_reason"),
+            run_evaluation=(
+                RunEvaluation.from_dict(data["run_evaluation"])
+                if data.get("run_evaluation") is not None
+                else None
+            ),
             schema_version=data.get("schema_version", SCHEMA_VERSION),
         )

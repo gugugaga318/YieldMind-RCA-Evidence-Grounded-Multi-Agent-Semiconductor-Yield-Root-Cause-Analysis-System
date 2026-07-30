@@ -67,6 +67,7 @@ class ControlledReactWorkflowIntegrationTest(unittest.TestCase):
             {item.evidence_id for item in state.evidence},
         )
         self.assertEqual(state.execution_metadata, {})
+        self.assertIsNone(state.run_evaluation)
         self.assertIsNotNone(state.report)
 
     def test_controlled_fallback_stops_before_an_action_would_cross_tool_budget(
@@ -98,6 +99,7 @@ class ControlledReactWorkflowIntegrationTest(unittest.TestCase):
         self.assertEqual(len(tool_latencies), 1)
         self.assertEqual(state.goal_status, "budget_exhausted")
         self.assertEqual(state.stop_reason, "budget_exhausted")
+        self.assertIsNone(state.run_evaluation)
 
 
 if __name__ == "__main__":

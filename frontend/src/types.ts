@@ -96,6 +96,23 @@ export interface PlannerDecision {
     | null;
 }
 
+export interface DecisionEvaluation {
+  decision_id: string;
+  decision_valid: boolean;
+  evidence_gain: boolean;
+  redundant: boolean;
+  reason: string;
+  new_evidence_ids: string[];
+}
+
+export interface RunEvaluation {
+  goal_id: string;
+  goal_success: boolean;
+  stop_correct: boolean;
+  summary: string;
+  decision_evaluations: DecisionEvaluation[];
+}
+
 export interface EvidenceEntity {
   entity_type: string;
   entity_id: string;
@@ -255,6 +272,7 @@ export interface RCAState {
     decision_summary: string;
   }>;
   planner_decisions?: PlannerDecision[];
+  run_evaluation?: RunEvaluation | null;
   goal_status?: GoalStatus | null;
   conclusion_level?: ConclusionLevel | null;
   evidence_gaps?: string[];

@@ -5,7 +5,7 @@
 - Target branch: `feature/autonomous-qwen-react`
 - Model provider: DashScope
 - Model: `qwen-plus`
-- Current implementation stage: Batch 20.9.4 Specialist Agent V2
+- Current implementation stage: Batch 20.9.5 Agent Decision Evaluation
 
 ## Goal
 
@@ -150,6 +150,39 @@ Per run:
 Each metric is a boolean accompanied by a plain-language reason. There is no
 additional weighted score system in this version.
 
+### Deterministic Evaluation Runtime
+
+The evaluator runs after final Tool and LLM usage metadata has been assembled.
+It does not call Qwen or use an LLM judge. It derives all five metrics from the
+committed `PlannerDecision`, `ActionRecord`, Finding, Evidence, Question,
+Hypothesis, budget, and terminal-state contracts.
+
+For each committed action, the evaluator requires the registered Agent,
+completed ActionRecord, Finding references, Evidence references, stable scope,
+and execution order to agree. Evidence gain contains only Evidence IDs first
+introduced by that ActionRecord. An RCA reasoning action can therefore have no
+new Evidence while still being useful and non-redundant. A repeated
+`Action + Scope` is invalid and redundant.
+
+Run success requires an answered Goal, closed Questions, no remaining Evidence
+gap, and an Evidence-gated conclusion appropriate to the intent. In
+particular, an impact-scope or SPC investigation may succeed at `signal`; an
+`inconclusive` or `conflicted` result never claims Goal success. Stop
+correctness checks the declared stop reason against the actual evidence,
+question, contradiction, action, and budget boundary. A structurally valid but
+premature stop therefore remains `decision_valid=true` while
+`stop_correct=false`.
+
+`RunEvaluation` is a typed optional field on `RCAState` and is exposed through
+the API and frontend type contract. It is generated only for a complete,
+non-fallback `llm_react` run. Fixed and controlled compatibility modes, intent
+fallback, and mid-loop fallback keep `run_evaluation=null`, because the current
+contract cannot honestly attribute a controlled-policy stop to Qwen.
+
+Only decisions committed after runtime validation are evaluated. Invalid raw
+Qwen attempts that trigger retry or fallback remain visible through LLM usage
+and fallback metadata; they are not converted into synthetic Decision IDs.
+
 ## Specialist V2 Boundary
 
 Specialist V2 is enabled only for `llm_react`. The `fixed` and
@@ -219,7 +252,7 @@ These automated tests do not call the real DashScope service.
 3. 20.9.2: Qwen intent Planner. Complete.
 4. 20.9.3: Qwen next-action Planner and retry/fallback. Complete.
 5. 20.9.4: Specialist Agent V2. Complete.
-6. 20.9.5: Agent decision evaluation.
+6. 20.9.5: Agent decision evaluation. Complete.
 7. 20.9.6: Frontend Agent trace.
 8. 20.9.7: Qwen smoke test and final evaluation.
 

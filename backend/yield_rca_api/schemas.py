@@ -184,6 +184,27 @@ class PlannerDecisionResponse(APIModel):
     ] | None = None
 
 
+class DecisionEvaluationResponse(APIModel):
+    """Deterministic quality metrics for one committed planner decision."""
+
+    decision_id: str
+    decision_valid: bool
+    evidence_gain: bool
+    redundant: bool
+    reason: str
+    new_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class RunEvaluationResponse(APIModel):
+    """Run-level outcome metrics and their per-decision audit records."""
+
+    goal_id: str
+    goal_success: bool
+    stop_correct: bool
+    summary: str
+    decision_evaluations: list[DecisionEvaluationResponse] = Field(min_length=1)
+
+
 class AgentFindingResponse(APIModel):
     """Serialized AgentFinding with task identity and first-class Evidence."""
 
@@ -273,6 +294,7 @@ class RCAJobStateResponse(APIModel):
     )
     action_history: list[dict[str, Any]] = Field(default_factory=list)
     planner_decisions: list[PlannerDecisionResponse] = Field(default_factory=list)
+    run_evaluation: RunEvaluationResponse | None = None
     goal_status: str | None = None
     conclusion_level: str | None = None
     evidence_gaps: list[str] = Field(default_factory=list)
