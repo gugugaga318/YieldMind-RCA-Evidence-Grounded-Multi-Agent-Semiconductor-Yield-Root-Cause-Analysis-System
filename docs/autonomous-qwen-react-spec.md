@@ -5,7 +5,7 @@
 - Target branch: `feature/autonomous-qwen-react`
 - Model provider: DashScope
 - Model: `qwen-plus`
-- Current implementation stage: Batch 20.9.6 Frontend Agent Trace
+- Current implementation stage: Batch 20.9.7 Qwen Smoke Test + Final Evaluation
 
 ## Goal
 
@@ -280,6 +280,139 @@ fallback with no committed Qwen decision continues to use the controlled
 timeline. Native `controlled_react` and `fixed` execution retain their
 existing compatibility views.
 
+## Batch 20.9.7 Evaluation Boundary
+
+Batch 20.9.7 closes the autonomous Planner delivery with three deliberately
+separate verification lanes. A deterministic Fake Client evaluation proves
+the architecture and runtime contracts without network variability. The
+existing fixed-workflow evaluation remains the compatibility baseline. A real
+DashScope Qwen call is an optional, paid smoke test and is never silently
+treated as equivalent to the deterministic acceptance suite.
+
+### Verification Lanes and Status
+
+| Lane | Purpose | Required for deterministic acceptance | Current status |
+| --- | --- | --- | --- |
+| Autonomous Fake final evaluation | Exercise `llm_react`, Specialist V2, Evidence/Hypothesis gates, and decision evaluation end to end with repeatable outputs | Yes | **PASS** — 10/10 autonomous and fallback scenarios passed |
+| Fixed-workflow baseline | Protect the existing fixed workflow, RCA accuracy, abstention, citation integrity, and latency regression baseline | Yes | **PASS** — 10/10 established scenarios passed |
+| Real Qwen smoke | Verify that the current prompts and strict JSON contracts can complete one bounded live DashScope investigation | No; explicitly opt-in | **SKIPPED** — `DASHSCOPE_API_KEY` and `RUN_REAL_QWEN_TEST=1` are not configured |
+
+The recorded Fake-Qwen run produced 28/28 valid decisions, 18/20 ACT
+decisions with new Evidence, 0/20 redundant ACT decisions, 6/6 successful
+positive investigation goals, and 6/6 correct positive-run stops. The two ACT
+decisions without Evidence gain are RCA-reasoning steps that reused existing
+Evidence without being redundant.
+
+The three statuses are reported independently:
+
+- `PASS` means that the lane was executed and all of its assertions passed.
+- `FAIL` means that the lane was executed and at least one required assertion
+  failed.
+- `SKIPPED` is allowed only for the optional real Qwen smoke when the API key
+  or explicit paid-test opt-in is absent. A skipped live call must never be
+  reported as a pass.
+
+The required deterministic delivery passes only when both the Autonomous Fake
+final evaluation and fixed-workflow baseline pass. The optional live smoke may
+remain skipped. If the live smoke is explicitly enabled, the separate optional
+test command reports its actual pass or fail result without changing the
+deterministic results. The deterministic runner never initiates a paid call,
+so its own artifact continues to label that separate lane as skipped.
+
+### Metric Boundary
+
+The final autonomous evaluation reuses exactly the five metrics defined by the
+Evaluation Contract:
+
+- Per decision: `decision_valid`, `evidence_gain`, and `redundant`.
+- Per run: `goal_success` and `stop_correct`.
+
+Each boolean retains its existing plain-language reason. Batch 20.9.7 does not
+introduce a weighted score, combined score, LLM-as-judge score, or additional
+public metric. Scenario counts and lane statuses are reporting facts, not new
+quality scores.
+
+### Acceptance Matrix
+
+| Acceptance case | Required observation |
+| --- | --- |
+| Intent-sensitive planning | An impact-scope request and a root-cause request produce different bounded action chains instead of both running every Agent |
+| Scratch + Cu CMP replanning | The trace shows observation-driven replanning across Defect/WAT, MES commonality, shared-defect validation, FDC/SPC, RCA reasoning, and terminal STOP |
+| Decision trace integrity | Every committed ACT joins by typed ID to exactly one ActionRecord and only its produced Finding and Evidence records |
+| Evidence gain semantics | Evidence-collecting actions report gain; RCA reasoning may report `evidence_gain=false` and `redundant=false` because it adds analysis without inventing Evidence |
+| Evidence-gated conclusion | A supported claim with zero Evidence is downgraded to inconclusive, while a supported claim with only partial defect Evidence and no supported Hypothesis remains a signal |
+| Correct stop boundary | A successful run closes the original questions and reports `goal_success=true` and `stop_correct=true`; a premature stop remains visibly unsuccessful |
+| Specialist V2 boundary | Qwen can choose only pre-bound same-domain Tool candidates, the local Tool budget is enforced, and effective Evidence closure remains exact |
+| Compatibility handoff | Intent or mid-loop Planner fallback preserves completed work, resumes the controlled path, and leaves `run_evaluation=null` instead of attributing the controlled stop to Qwen |
+| Fixed compatibility baseline | The established fixed evaluation retains its RCA, abstention, traceability, and citation-integrity acceptance results |
+| Typed delivery surface | API state and the frontend Agent trace preserve the five metrics and do not infer joins from array position |
+
+### Reproducible Commands
+
+Run the autonomous deterministic final evaluation:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_autonomous_qwen_evaluation.py
+```
+
+The runner is expected to write stable, secret-free artifacts to:
+
+```text
+outputs/autonomous_qwen_react_evaluation/results.json
+outputs/autonomous_qwen_react_evaluation/report.md
+```
+
+Run the focused autonomous regression tests:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/integration/test_autonomous_evaluation_suite.py tests/integration/test_llm_react_workflow.py tests/integration/test_specialist_v2_workflow.py tests/unit/test_decision_evaluation.py -q
+```
+
+Run the fixed-workflow evaluation baseline:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_evaluation.py
+```
+
+The optional Qwen smoke test is skipped by default:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/integration/test_qwen_optional.py -q
+```
+
+To opt in to the paid live call, set the key only in the local process and
+enable the explicit test flag:
+
+```powershell
+$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
+$previousRunFlag = [Environment]::GetEnvironmentVariable("RUN_REAL_QWEN_TEST", "Process")
+$qwenSecret = Read-Host "DashScope API key" -AsSecureString
+try {
+    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+    $env:RUN_REAL_QWEN_TEST = "1"
+    .\.venv\Scripts\python.exe -m pytest tests/integration/test_qwen_optional.py -q
+} finally {
+    if ($null -eq $previousApiKey) {
+        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+    } else {
+        $env:DASHSCOPE_API_KEY = $previousApiKey
+    }
+    if ($null -eq $previousRunFlag) {
+        Remove-Item Env:RUN_REAL_QWEN_TEST -ErrorAction SilentlyContinue
+    } else {
+        $env:RUN_REAL_QWEN_TEST = $previousRunFlag
+    }
+    Remove-Variable qwenSecret, previousApiKey, previousRunFlag -ErrorAction SilentlyContinue
+}
+```
+
+The API key must not be committed, copied into an evaluation artifact, printed
+in a report, or exposed through API/frontend state. The live smoke should use a
+small impact-scope investigation to bound cost, while still requiring the real
+Intent Planner, Next-action Planner, Specialist V2, terminal decision, and
+typed evaluation path. A compatibility fallback during that live test is a
+smoke-test failure, not a successful autonomous Qwen run.
+
 ## Planned Delivery Batches
 
 1. 20.9.0: Git baseline. Complete.
@@ -289,7 +422,7 @@ existing compatibility views.
 5. 20.9.4: Specialist Agent V2. Complete.
 6. 20.9.5: Agent decision evaluation. Complete.
 7. 20.9.6: Frontend Agent trace. Complete.
-8. 20.9.7: Qwen smoke test and final evaluation.
+8. 20.9.7: Qwen smoke test and final evaluation. Complete.
 
 Automated tests use a Fake Client. Real DashScope calls are optional smoke
 tests and require `DASHSCOPE_API_KEY`.

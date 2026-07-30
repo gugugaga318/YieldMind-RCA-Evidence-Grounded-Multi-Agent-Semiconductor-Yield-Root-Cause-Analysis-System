@@ -30,6 +30,7 @@ services:
       YIELD_RCA_DATABASE_URL: postgresql://${POSTGRES_USER:-yield_rca}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-yield_rca}
       YIELD_RCA_DATASET: ${YIELD_RCA_DATASET:-multi_case}
       YIELD_RCA_AGENT_MODE: ${YIELD_RCA_AGENT_MODE:-deterministic}
+      YIELD_RCA_ORCHESTRATION_MODE: ${YIELD_RCA_ORCHESTRATION_MODE:-fixed}
       YIELD_RCA_LLM_PROVIDER: ${YIELD_RCA_LLM_PROVIDER:-dashscope}
       YIELD_RCA_LLM_MODEL: ${YIELD_RCA_LLM_MODEL:-qwen-plus}
       YIELD_RCA_LLM_BASE_URL: ${YIELD_RCA_LLM_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}

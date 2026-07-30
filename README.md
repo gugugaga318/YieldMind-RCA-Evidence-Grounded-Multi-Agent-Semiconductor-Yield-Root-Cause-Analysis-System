@@ -428,12 +428,14 @@ Validate the complete LLM path without a paid API call:
 
 ```powershell
 $env:YIELD_RCA_AGENT_MODE="fake"
+$env:YIELD_RCA_ORCHESTRATION_MODE="llm_react"
 ```
 
 Run against Qwen after adding the key to the local `.env` file:
 
 ```text
 YIELD_RCA_AGENT_MODE=llm
+YIELD_RCA_ORCHESTRATION_MODE=llm_react
 YIELD_RCA_LLM_MODEL=qwen-plus
 DASHSCOPE_API_KEY=<local-secret>
 ```
@@ -448,6 +450,64 @@ docker compose up --build -d backend frontend
 The Dashboard displays Agent mode, model, prompt version, token usage, LLM
 latency, and Tool call count. API keys are runtime-only and are never included
 in logs or frontend responses.
+
+### Batch 20.9.7 deterministic final evaluation
+
+Run the repeatable Fake-Qwen autonomous matrix together with the existing
+fixed-workflow compatibility baseline:
+
+```powershell
+& .\.venv\Scripts\python.exe scripts\run_autonomous_qwen_evaluation.py
+```
+
+The command performs no paid network call. A passing run reports Autonomous
+Fake `10/10`, fixed Workflow `10/10`, and writes stable, secret-free artifacts
+to:
+
+```text
+outputs/autonomous_qwen_react_evaluation/results.json
+outputs/autonomous_qwen_react_evaluation/report.md
+```
+
+The optional real-Qwen status remains separate from deterministic acceptance.
+
+### Optional paid Qwen smoke test
+
+The real-Qwen integration smoke test runs a bounded `LOT_A_001` impact-scope
+investigation through Intent Planner, Next-action Planner, Specialist V2, and
+the final deterministic decision evaluation. It is skipped unless both a
+non-empty `DASHSCOPE_API_KEY` and the explicit opt-in
+`RUN_REAL_QWEN_TEST=1` are present. The test can make paid DashScope requests;
+it disables HTTP retries and stops before a thirteenth LLM call.
+
+Run it from the repository root without putting the key in shell history:
+
+```powershell
+$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
+$previousRunFlag = [Environment]::GetEnvironmentVariable("RUN_REAL_QWEN_TEST", "Process")
+$qwenSecret = Read-Host "DashScope API key" -AsSecureString
+try {
+    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+    $env:RUN_REAL_QWEN_TEST = "1"
+    & .\.venv\Scripts\python.exe tests\integration\test_qwen_optional.py -v
+} finally {
+    if ($null -eq $previousApiKey) {
+        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+    } else {
+        $env:DASHSCOPE_API_KEY = $previousApiKey
+    }
+    if ($null -eq $previousRunFlag) {
+        Remove-Item Env:RUN_REAL_QWEN_TEST -ErrorAction SilentlyContinue
+    } else {
+        $env:RUN_REAL_QWEN_TEST = $previousRunFlag
+    }
+    Remove-Variable qwenSecret, previousApiKey, previousRunFlag -ErrorAction SilentlyContinue
+}
+```
+
+Without the key or opt-in flag, the same command reports the paid smoke test as
+skipped rather than passed. Do not commit `.env`, test output containing raw
+model responses, or any API credential.
 
 ## RCA Reasoning Engine
 

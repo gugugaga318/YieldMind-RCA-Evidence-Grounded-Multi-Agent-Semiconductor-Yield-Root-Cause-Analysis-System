@@ -51,6 +51,18 @@ Select `YIELD_RCA_AGENT_MODE=deterministic`, `fake`, or `llm`. Real Qwen mode
 requires `DASHSCOPE_API_KEY`; this secret is passed at runtime and is not a
 Docker build argument.
 
+Select the orchestration path independently:
+
+```text
+YIELD_RCA_ORCHESTRATION_MODE=fixed
+```
+
+Supported values are `fixed`, `controlled_react`, and `llm_react`. The default
+remains `fixed` for compatibility. Autonomous Batch 20.9 planning requires
+`YIELD_RCA_ORCHESTRATION_MODE=llm_react` together with
+`YIELD_RCA_AGENT_MODE=fake` for a no-cost validation or `llm` for real Qwen.
+The Compose backend explicitly receives both variables.
+
 Select the imported dataset with:
 
 ```text

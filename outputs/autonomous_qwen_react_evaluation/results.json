@@ -1,0 +1,1361 @@
+{
+  "acceptance": {
+    "evidence_gate_downgrade": true,
+    "fallback_attribution": true,
+    "intent_changes_action_chain": true,
+    "partial_evidence_hypothesis_gate": true,
+    "product_scope_starts_with_mes": true,
+    "scratch_observation_then_action": true
+  },
+  "autonomous_scenarios": [
+    {
+      "action_chain": [
+        "find_shared_exposure"
+      ],
+      "action_count": 1,
+      "action_trace": [
+        {
+          "action_kind": "find_shared_exposure",
+          "agent": "mes",
+          "execution_reason": "Impact scope requires shared process exposure before selecting affected lots.",
+          "inputs": {
+            "lot_id": "LOT_A_001"
+          },
+          "observation": "Lot LOT_A_001 has 19 additional impact Lots sharing operation 6400 on CMP_CU03/CMP_CU03_CH02.",
+          "produced_evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS"
+          ],
+          "scope": {
+            "lot_id": "LOT_A_001"
+          }
+        }
+      ],
+      "checks": {
+        "action_budget": true,
+        "actual_llm_react": true,
+        "audit_fields": true,
+        "conclusion_level": true,
+        "decision_count": true,
+        "decision_metrics": true,
+        "exact_action_chain": true,
+        "goal_status": true,
+        "goal_success": true,
+        "intent": true,
+        "job_completed": true,
+        "job_mode": true,
+        "no_orchestration_fallback": true,
+        "observation_then_replan": true,
+        "requested_llm_react": true,
+        "specialist_v2_boundary": true,
+        "stop_correct": true,
+        "stop_reason": true,
+        "terminal_stop": true,
+        "tool_budget": true,
+        "trace_integrity": true,
+        "typed_round_trip": true
+      },
+      "conclusion_level": "signal",
+      "decision_metrics": [
+        {
+          "action_kind": "find_shared_exposure",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 4 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS"
+          ],
+          "planner_reason": "Impact scope requires shared process exposure before selecting affected lots.",
+          "redundant": false
+        },
+        {
+          "action_kind": null,
+          "decision_type": "stop",
+          "decision_valid": true,
+          "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "redundant": false
+        }
+      ],
+      "goal_status": "satisfied",
+      "goal_success": true,
+      "intent": "impact_scope",
+      "job_mode": "lot",
+      "passed": true,
+      "planner_decision_count": 2,
+      "scenario_id": "AUTONOMOUS_LOT_IMPACT",
+      "stop_correct": true,
+      "stop_reason": "goal_satisfied",
+      "stop_trace": {
+        "final_conclusion_level": "signal",
+        "goal_status": "satisfied",
+        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "stop_reason": "goal_satisfied"
+      },
+      "title": "Lot impact request selects only MES exposure investigation",
+      "tool_call_count": 2
+    },
+    {
+      "action_chain": [
+        "find_shared_exposure",
+        "inspect_fdc_spc"
+      ],
+      "action_count": 2,
+      "action_trace": [
+        {
+          "action_kind": "find_shared_exposure",
+          "agent": "mes",
+          "execution_reason": "SPC analysis needs equipment, chamber, operation, and exposure-window context.",
+          "inputs": {
+            "lot_id": "LOT_A_001"
+          },
+          "observation": "Lot LOT_A_001 has 19 additional impact Lots sharing operation 6400 on CMP_CU03/CMP_CU03_CH02.",
+          "produced_evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS"
+          ],
+          "scope": {
+            "lot_id": "LOT_A_001"
+          }
+        },
+        {
+          "action_kind": "inspect_fdc_spc",
+          "agent": "fdc",
+          "execution_reason": "The process context is available; inspect FDC, OOC, and SPC evidence.",
+          "inputs": {
+            "lot_id": "LOT_A_001"
+          },
+          "observation": "CMP_CU03/CMP_CU03_CH02 shows endpoint_time +16.7%, slurry_flow -12.0%, 0 recorded OOC events, and 0 SPC OOC parameters at operation 6400.",
+          "produced_evidence_ids": [
+            "EV_SPC_BASELINE_STATUS",
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW"
+          ],
+          "scope": {
+            "lot_id": "LOT_A_001"
+          }
+        }
+      ],
+      "checks": {
+        "action_budget": true,
+        "actual_llm_react": true,
+        "audit_fields": true,
+        "conclusion_level": true,
+        "decision_count": true,
+        "decision_metrics": true,
+        "exact_action_chain": true,
+        "goal_status": true,
+        "goal_success": true,
+        "intent": true,
+        "job_completed": true,
+        "job_mode": true,
+        "no_orchestration_fallback": true,
+        "observation_then_replan": true,
+        "requested_llm_react": true,
+        "specialist_v2_boundary": true,
+        "stop_correct": true,
+        "stop_reason": true,
+        "terminal_stop": true,
+        "tool_budget": true,
+        "trace_integrity": true,
+        "typed_round_trip": true
+      },
+      "conclusion_level": "signal",
+      "decision_metrics": [
+        {
+          "action_kind": "find_shared_exposure",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 4 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS"
+          ],
+          "planner_reason": "SPC analysis needs equipment, chamber, operation, and exposure-window context.",
+          "redundant": false
+        },
+        {
+          "action_kind": "inspect_fdc_spc",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted fdc action matched its completed ActionRecord and added 3 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_SPC_BASELINE_STATUS",
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW"
+          ],
+          "planner_reason": "The process context is available; inspect FDC, OOC, and SPC evidence.",
+          "redundant": false
+        },
+        {
+          "action_kind": null,
+          "decision_type": "stop",
+          "decision_valid": true,
+          "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "redundant": false
+        }
+      ],
+      "goal_status": "satisfied",
+      "goal_success": true,
+      "intent": "spc_check",
+      "job_mode": "lot",
+      "passed": true,
+      "planner_decision_count": 3,
+      "scenario_id": "AUTONOMOUS_LOT_SPC",
+      "stop_correct": true,
+      "stop_reason": "goal_satisfied",
+      "stop_trace": {
+        "final_conclusion_level": "signal",
+        "goal_status": "satisfied",
+        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "stop_reason": "goal_satisfied"
+      },
+      "title": "SPC request selects MES scope followed by FDC/SPC",
+      "tool_call_count": 4
+    },
+    {
+      "action_chain": [
+        "inspect_defect_pattern",
+        "find_shared_exposure",
+        "validate_shared_defect_pattern",
+        "inspect_fdc_spc",
+        "run_rca_reasoning"
+      ],
+      "action_count": 5,
+      "action_trace": [
+        {
+          "action_kind": "inspect_defect_pattern",
+          "agent": "defect_wat",
+          "execution_reason": "Root-cause assessment requires an observed product-outcome pattern.",
+          "inputs": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          },
+          "observation": "Selected Lots show scratch/edge_dominant defect evidence and 1 WAT-failing Lots led by leakage; metrology has 0 out-of-spec Wafer records.",
+          "produced_evidence_ids": [
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE"
+          ],
+          "scope": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          }
+        },
+        {
+          "action_kind": "find_shared_exposure",
+          "agent": "mes",
+          "execution_reason": "The observed outcome needs shared equipment, chamber, recipe, and timing context.",
+          "inputs": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          },
+          "observation": "Lot LOT_A_001 has 19 additional impact Lots sharing operation 6400 on CMP_CU03/CMP_CU03_CH02.",
+          "produced_evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS"
+          ],
+          "scope": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          }
+        },
+        {
+          "action_kind": "validate_shared_defect_pattern",
+          "agent": "defect_wat",
+          "execution_reason": "Shared-exposure Lots require a second defect-pattern comparison before FDC RCA.",
+          "inputs": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          },
+          "observation": "Selected Lots show scratch/edge_dominant defect evidence and 20 WAT-failing Lots led by leakage; metrology has 0 out-of-spec Wafer records.",
+          "produced_evidence_ids": [
+            "EV_DEFECT_SCRATCH_SHARED_EXPOSURE",
+            "EV_WAT_LEAKAGE_SHARED_EXPOSURE"
+          ],
+          "scope": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          }
+        },
+        {
+          "action_kind": "inspect_fdc_spc",
+          "agent": "fdc",
+          "execution_reason": "The shared exposure needs FDC/SPC process-mechanism evidence.",
+          "inputs": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          },
+          "observation": "CMP_CU03/CMP_CU03_CH02 shows endpoint_time +16.7%, slurry_flow -12.0%, 0 recorded OOC events, and 0 SPC OOC parameters at operation 6400.",
+          "produced_evidence_ids": [
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_SPC_BASELINE_STATUS"
+          ],
+          "scope": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          }
+        },
+        {
+          "action_kind": "run_rca_reasoning",
+          "agent": "rca_reasoning",
+          "execution_reason": "Scope, mechanism, and product-outcome findings are available for RCA gating.",
+          "inputs": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          },
+          "observation": "Root cause: CMP_CU03_CH02 slurry delivery degradation (confidence 95%).",
+          "produced_evidence_ids": [
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE",
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS",
+            "EV_DEFECT_SCRATCH_SHARED_EXPOSURE",
+            "EV_WAT_LEAKAGE_SHARED_EXPOSURE",
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_SPC_BASELINE_STATUS"
+          ],
+          "scope": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          }
+        }
+      ],
+      "checks": {
+        "action_budget": true,
+        "actual_llm_react": true,
+        "audit_fields": true,
+        "conclusion_level": true,
+        "decision_count": true,
+        "decision_metrics": true,
+        "exact_action_chain": true,
+        "goal_status": true,
+        "goal_success": true,
+        "intent": true,
+        "job_completed": true,
+        "job_mode": true,
+        "no_orchestration_fallback": true,
+        "observation_then_replan": true,
+        "requested_llm_react": true,
+        "scratch_replanning": true,
+        "specialist_v2_boundary": true,
+        "stop_correct": true,
+        "stop_reason": true,
+        "supported_hypothesis_gate": true,
+        "terminal_stop": true,
+        "tool_budget": true,
+        "trace_integrity": true,
+        "typed_round_trip": true
+      },
+      "conclusion_level": "supported",
+      "decision_metrics": [
+        {
+          "action_kind": "inspect_defect_pattern",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added 2 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE"
+          ],
+          "planner_reason": "Root-cause assessment requires an observed product-outcome pattern.",
+          "redundant": false
+        },
+        {
+          "action_kind": "find_shared_exposure",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 4 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS"
+          ],
+          "planner_reason": "The observed outcome needs shared equipment, chamber, recipe, and timing context.",
+          "redundant": false
+        },
+        {
+          "action_kind": "validate_shared_defect_pattern",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added 2 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_DEFECT_SCRATCH_SHARED_EXPOSURE",
+            "EV_WAT_LEAKAGE_SHARED_EXPOSURE"
+          ],
+          "planner_reason": "Shared-exposure Lots require a second defect-pattern comparison before FDC RCA.",
+          "redundant": false
+        },
+        {
+          "action_kind": "inspect_fdc_spc",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted fdc action matched its completed ActionRecord and added 3 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_SPC_BASELINE_STATUS"
+          ],
+          "planner_reason": "The shared exposure needs FDC/SPC process-mechanism evidence.",
+          "redundant": false
+        },
+        {
+          "action_kind": "run_rca_reasoning",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted rca_reasoning action matched its completed ActionRecord. It added no new Evidence IDs, but this Action and Scope had not been investigated before, so it was not redundant.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "Scope, mechanism, and product-outcome findings are available for RCA gating.",
+          "redundant": false
+        },
+        {
+          "action_kind": null,
+          "decision_type": "stop",
+          "decision_valid": true,
+          "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "redundant": false
+        }
+      ],
+      "goal_status": "satisfied",
+      "goal_success": true,
+      "intent": "root_cause",
+      "job_mode": "lot",
+      "passed": true,
+      "planner_decision_count": 6,
+      "scenario_id": "AUTONOMOUS_SCRATCH_CU_CMP_ROOT_CAUSE",
+      "stop_correct": true,
+      "stop_reason": "goal_satisfied",
+      "stop_trace": {
+        "final_conclusion_level": "supported",
+        "goal_status": "satisfied",
+        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "stop_reason": "goal_satisfied"
+      },
+      "title": "Scratch and Cu CMP root cause replans after every observation",
+      "tool_call_count": 6
+    },
+    {
+      "action_chain": [
+        "inspect_defect_pattern",
+        "find_shared_exposure",
+        "validate_shared_defect_pattern",
+        "inspect_fdc_spc",
+        "validate_historical_case"
+      ],
+      "action_count": 5,
+      "action_trace": [
+        {
+          "action_kind": "inspect_defect_pattern",
+          "agent": "defect_wat",
+          "execution_reason": "Root-cause assessment requires an observed product-outcome pattern.",
+          "inputs": {
+            "lot_id": "LOT_A_001"
+          },
+          "observation": "Selected Lots show scratch/edge_dominant defect evidence and 1 WAT-failing Lots led by leakage; metrology has 0 out-of-spec Wafer records.",
+          "produced_evidence_ids": [
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE"
+          ],
+          "scope": {
+            "lot_id": "LOT_A_001"
+          }
+        },
+        {
+          "action_kind": "find_shared_exposure",
+          "agent": "mes",
+          "execution_reason": "The observed outcome needs shared equipment, chamber, recipe, and timing context.",
+          "inputs": {
+            "lot_id": "LOT_A_001"
+          },
+          "observation": "Lot LOT_A_001 has 19 additional impact Lots sharing operation 6400 on CMP_CU03/CMP_CU03_CH02.",
+          "produced_evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS"
+          ],
+          "scope": {
+            "lot_id": "LOT_A_001"
+          }
+        },
+        {
+          "action_kind": "validate_shared_defect_pattern",
+          "agent": "defect_wat",
+          "execution_reason": "Shared-exposure Lots require a second defect-pattern comparison before FDC RCA.",
+          "inputs": {
+            "lot_id": "LOT_A_001"
+          },
+          "observation": "Selected Lots show scratch/edge_dominant defect evidence and 20 WAT-failing Lots led by leakage; metrology has 0 out-of-spec Wafer records.",
+          "produced_evidence_ids": [
+            "EV_DEFECT_SCRATCH_SHARED_EXPOSURE",
+            "EV_WAT_LEAKAGE_SHARED_EXPOSURE"
+          ],
+          "scope": {
+            "lot_id": "LOT_A_001"
+          }
+        },
+        {
+          "action_kind": "inspect_fdc_spc",
+          "agent": "fdc",
+          "execution_reason": "The shared exposure needs FDC/SPC process-mechanism evidence.",
+          "inputs": {
+            "lot_id": "LOT_A_001"
+          },
+          "observation": "CMP_CU03/CMP_CU03_CH02 shows endpoint_time +16.7%, slurry_flow -12.0%, 0 recorded OOC events, and 0 SPC OOC parameters at operation 6400.",
+          "produced_evidence_ids": [
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_SPC_BASELINE_STATUS"
+          ],
+          "scope": {
+            "lot_id": "LOT_A_001"
+          }
+        },
+        {
+          "action_kind": "validate_historical_case",
+          "agent": "knowledge",
+          "execution_reason": "Historical retrieval requires current MES, FDC, and defect context for validation.",
+          "inputs": {
+            "lot_id": "LOT_A_001"
+          },
+          "observation": "Historical case RCA_CMP_2025_032 matched at 99%; documented root cause: Slurry pump degradation reduced slurry flow on Cu CMP chamber.",
+          "produced_evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "scope": {
+            "lot_id": "LOT_A_001"
+          }
+        }
+      ],
+      "checks": {
+        "action_budget": true,
+        "actual_llm_react": true,
+        "audit_fields": true,
+        "conclusion_level": true,
+        "decision_count": true,
+        "decision_metrics": true,
+        "exact_action_chain": true,
+        "goal_status": true,
+        "goal_success": true,
+        "intent": true,
+        "job_completed": true,
+        "job_mode": true,
+        "no_orchestration_fallback": true,
+        "observation_then_replan": true,
+        "requested_llm_react": true,
+        "specialist_v2_boundary": true,
+        "stop_correct": true,
+        "stop_reason": true,
+        "terminal_stop": true,
+        "tool_budget": true,
+        "trace_integrity": true,
+        "typed_round_trip": true
+      },
+      "conclusion_level": "candidate",
+      "decision_metrics": [
+        {
+          "action_kind": "inspect_defect_pattern",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added 2 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE"
+          ],
+          "planner_reason": "Root-cause assessment requires an observed product-outcome pattern.",
+          "redundant": false
+        },
+        {
+          "action_kind": "find_shared_exposure",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 4 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS"
+          ],
+          "planner_reason": "The observed outcome needs shared equipment, chamber, recipe, and timing context.",
+          "redundant": false
+        },
+        {
+          "action_kind": "validate_shared_defect_pattern",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added 2 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_DEFECT_SCRATCH_SHARED_EXPOSURE",
+            "EV_WAT_LEAKAGE_SHARED_EXPOSURE"
+          ],
+          "planner_reason": "Shared-exposure Lots require a second defect-pattern comparison before FDC RCA.",
+          "redundant": false
+        },
+        {
+          "action_kind": "inspect_fdc_spc",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted fdc action matched its completed ActionRecord and added 3 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_SPC_BASELINE_STATUS"
+          ],
+          "planner_reason": "The shared exposure needs FDC/SPC process-mechanism evidence.",
+          "redundant": false
+        },
+        {
+          "action_kind": "validate_historical_case",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted knowledge action matched its completed ActionRecord and added 1 new Evidence ID.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "planner_reason": "Historical retrieval requires current MES, FDC, and defect context for validation.",
+          "redundant": false
+        },
+        {
+          "action_kind": null,
+          "decision_type": "stop",
+          "decision_valid": true,
+          "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "redundant": false
+        }
+      ],
+      "goal_status": "satisfied",
+      "goal_success": true,
+      "intent": "historical_lookup",
+      "job_mode": "lot",
+      "passed": true,
+      "planner_decision_count": 6,
+      "scenario_id": "AUTONOMOUS_LOT_HISTORY",
+      "stop_correct": true,
+      "stop_reason": "goal_satisfied",
+      "stop_trace": {
+        "final_conclusion_level": "candidate",
+        "goal_status": "satisfied",
+        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "stop_reason": "goal_satisfied"
+      },
+      "title": "Historical lookup reaches Knowledge only after current evidence",
+      "tool_call_count": 7
+    },
+    {
+      "action_chain": [
+        "find_shared_exposure"
+      ],
+      "action_count": 1,
+      "action_trace": [
+        {
+          "action_kind": "find_shared_exposure",
+          "agent": "mes",
+          "execution_reason": "Impact scope requires shared process exposure before selecting affected lots.",
+          "inputs": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          },
+          "observation": "20 affected Lots were identified; 100% share operation 6400 on CMP_CU03/CMP_CU03_CH02.",
+          "produced_evidence_ids": [
+            "EV_ANALYTICS_AFFECTED_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD"
+          ],
+          "scope": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          }
+        }
+      ],
+      "checks": {
+        "action_budget": true,
+        "actual_llm_react": true,
+        "audit_fields": true,
+        "conclusion_level": true,
+        "decision_count": true,
+        "decision_metrics": true,
+        "exact_action_chain": true,
+        "goal_status": true,
+        "goal_success": true,
+        "intent": true,
+        "job_completed": true,
+        "job_mode": true,
+        "no_orchestration_fallback": true,
+        "observation_then_replan": true,
+        "requested_llm_react": true,
+        "specialist_v2_boundary": true,
+        "stop_correct": true,
+        "stop_reason": true,
+        "terminal_stop": true,
+        "tool_budget": true,
+        "trace_integrity": true,
+        "typed_round_trip": true
+      },
+      "conclusion_level": "signal",
+      "decision_metrics": [
+        {
+          "action_kind": "find_shared_exposure",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 4 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_ANALYTICS_AFFECTED_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD"
+          ],
+          "planner_reason": "Impact scope requires shared process exposure before selecting affected lots.",
+          "redundant": false
+        },
+        {
+          "action_kind": null,
+          "decision_type": "stop",
+          "decision_valid": true,
+          "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "redundant": false
+        }
+      ],
+      "goal_status": "satisfied",
+      "goal_success": true,
+      "intent": "impact_scope",
+      "job_mode": "product_window",
+      "passed": true,
+      "planner_decision_count": 2,
+      "scenario_id": "AUTONOMOUS_PRODUCT_IMPACT",
+      "stop_correct": true,
+      "stop_reason": "goal_satisfied",
+      "stop_trace": {
+        "final_conclusion_level": "signal",
+        "goal_status": "satisfied",
+        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "stop_reason": "goal_satisfied"
+      },
+      "title": "Product-window impact request remains a bounded MES investigation",
+      "tool_call_count": 2
+    },
+    {
+      "action_chain": [
+        "find_shared_exposure",
+        "inspect_defect_pattern",
+        "validate_shared_defect_pattern",
+        "inspect_fdc_spc",
+        "run_rca_reasoning"
+      ],
+      "action_count": 5,
+      "action_trace": [
+        {
+          "action_kind": "find_shared_exposure",
+          "agent": "mes",
+          "execution_reason": "A product-window RCA needs MES scope before a Lot-specific defect inspection.",
+          "inputs": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          },
+          "observation": "20 affected Lots were identified; 100% share operation 6400 on CMP_CU03/CMP_CU03_CH02.",
+          "produced_evidence_ids": [
+            "EV_ANALYTICS_AFFECTED_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD"
+          ],
+          "scope": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          }
+        },
+        {
+          "action_kind": "inspect_defect_pattern",
+          "agent": "defect_wat",
+          "execution_reason": "Root-cause assessment requires an observed product-outcome pattern.",
+          "inputs": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          },
+          "observation": "Selected Lots show scratch/edge_dominant defect evidence and 20 WAT-failing Lots led by leakage; metrology has 0 out-of-spec Wafer records.",
+          "produced_evidence_ids": [
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE"
+          ],
+          "scope": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          }
+        },
+        {
+          "action_kind": "validate_shared_defect_pattern",
+          "agent": "defect_wat",
+          "execution_reason": "Shared-exposure Lots require a second defect-pattern comparison before FDC RCA.",
+          "inputs": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          },
+          "observation": "Selected Lots show scratch/edge_dominant defect evidence and 20 WAT-failing Lots led by leakage; metrology has 0 out-of-spec Wafer records.",
+          "produced_evidence_ids": [
+            "EV_DEFECT_SCRATCH_SHARED_EXPOSURE",
+            "EV_WAT_LEAKAGE_SHARED_EXPOSURE"
+          ],
+          "scope": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          }
+        },
+        {
+          "action_kind": "inspect_fdc_spc",
+          "agent": "fdc",
+          "execution_reason": "The shared exposure needs FDC/SPC process-mechanism evidence.",
+          "inputs": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          },
+          "observation": "CMP_CU03/CMP_CU03_CH02 shows endpoint_time +16.7%, slurry_flow -12.0%, 0 recorded OOC events, and 0 SPC OOC parameters at operation 6400.",
+          "produced_evidence_ids": [
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_SPC_BASELINE_STATUS"
+          ],
+          "scope": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          }
+        },
+        {
+          "action_kind": "run_rca_reasoning",
+          "agent": "rca_reasoning",
+          "execution_reason": "Scope, mechanism, and product-outcome findings are available for RCA gating.",
+          "inputs": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          },
+          "observation": "Root cause: CMP_CU03_CH02 slurry delivery degradation (confidence 95%).",
+          "produced_evidence_ids": [
+            "EV_ANALYTICS_AFFECTED_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD",
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE",
+            "EV_DEFECT_SCRATCH_SHARED_EXPOSURE",
+            "EV_WAT_LEAKAGE_SHARED_EXPOSURE",
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_SPC_BASELINE_STATUS"
+          ],
+          "scope": {
+            "end_date": "2026-07-31",
+            "product_id": "40N_SOC",
+            "start_date": "2026-07-01"
+          }
+        }
+      ],
+      "checks": {
+        "action_budget": true,
+        "actual_llm_react": true,
+        "audit_fields": true,
+        "conclusion_level": true,
+        "decision_count": true,
+        "decision_metrics": true,
+        "exact_action_chain": true,
+        "goal_status": true,
+        "goal_success": true,
+        "intent": true,
+        "job_completed": true,
+        "job_mode": true,
+        "no_orchestration_fallback": true,
+        "observation_then_replan": true,
+        "requested_llm_react": true,
+        "specialist_v2_boundary": true,
+        "stop_correct": true,
+        "stop_reason": true,
+        "supported_hypothesis_gate": true,
+        "terminal_stop": true,
+        "tool_budget": true,
+        "trace_integrity": true,
+        "typed_round_trip": true
+      },
+      "conclusion_level": "supported",
+      "decision_metrics": [
+        {
+          "action_kind": "find_shared_exposure",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 4 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_ANALYTICS_AFFECTED_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD"
+          ],
+          "planner_reason": "A product-window RCA needs MES scope before a Lot-specific defect inspection.",
+          "redundant": false
+        },
+        {
+          "action_kind": "inspect_defect_pattern",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added 2 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE"
+          ],
+          "planner_reason": "Root-cause assessment requires an observed product-outcome pattern.",
+          "redundant": false
+        },
+        {
+          "action_kind": "validate_shared_defect_pattern",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added 2 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_DEFECT_SCRATCH_SHARED_EXPOSURE",
+            "EV_WAT_LEAKAGE_SHARED_EXPOSURE"
+          ],
+          "planner_reason": "Shared-exposure Lots require a second defect-pattern comparison before FDC RCA.",
+          "redundant": false
+        },
+        {
+          "action_kind": "inspect_fdc_spc",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted fdc action matched its completed ActionRecord and added 3 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_SPC_BASELINE_STATUS"
+          ],
+          "planner_reason": "The shared exposure needs FDC/SPC process-mechanism evidence.",
+          "redundant": false
+        },
+        {
+          "action_kind": "run_rca_reasoning",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted rca_reasoning action matched its completed ActionRecord. It added no new Evidence IDs, but this Action and Scope had not been investigated before, so it was not redundant.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "Scope, mechanism, and product-outcome findings are available for RCA gating.",
+          "redundant": false
+        },
+        {
+          "action_kind": null,
+          "decision_type": "stop",
+          "decision_valid": true,
+          "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "redundant": false
+        }
+      ],
+      "goal_status": "satisfied",
+      "goal_success": true,
+      "intent": "root_cause",
+      "job_mode": "product_window",
+      "passed": true,
+      "planner_decision_count": 6,
+      "scenario_id": "AUTONOMOUS_PRODUCT_ROOT_CAUSE",
+      "stop_correct": true,
+      "stop_reason": "goal_satisfied",
+      "stop_trace": {
+        "final_conclusion_level": "supported",
+        "goal_status": "satisfied",
+        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "stop_reason": "goal_satisfied"
+      },
+      "title": "Product-window RCA uses MES to establish Lot scope before Specialists",
+      "tool_call_count": 6
+    },
+    {
+      "action_chain": [],
+      "action_count": 0,
+      "action_trace": [],
+      "checks": {
+        "action_budget": true,
+        "actual_llm_react": true,
+        "audit_fields": true,
+        "conclusion_level": true,
+        "decision_count": true,
+        "decision_metrics": true,
+        "evidence_gate_downgraded": true,
+        "exact_action_chain": true,
+        "goal_status": true,
+        "goal_success": true,
+        "intent": true,
+        "job_completed": true,
+        "job_mode": true,
+        "no_orchestration_fallback": true,
+        "observation_then_replan": true,
+        "planner_proposed_supported": true,
+        "requested_llm_react": true,
+        "specialist_v2_boundary": true,
+        "stop_correct": true,
+        "stop_reason": true,
+        "terminal_stop": true,
+        "tool_budget": true,
+        "trace_integrity": true,
+        "typed_round_trip": true
+      },
+      "conclusion_level": "inconclusive",
+      "decision_metrics": [
+        {
+          "action_kind": null,
+          "decision_type": "stop",
+          "decision_valid": true,
+          "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "The model cannot obtain the requested source data.",
+          "redundant": false
+        }
+      ],
+      "goal_status": "blocked",
+      "goal_success": false,
+      "intent": "root_cause",
+      "job_mode": "lot",
+      "passed": true,
+      "planner_decision_count": 1,
+      "scenario_id": "AUTONOMOUS_PREMATURE_STOP_GATE",
+      "stop_correct": false,
+      "stop_reason": "data_unavailable",
+      "stop_trace": {
+        "final_conclusion_level": "inconclusive",
+        "goal_status": "blocked",
+        "planner_reason": "The model cannot obtain the requested source data.",
+        "stop_reason": "data_unavailable"
+      },
+      "title": "Premature supported STOP is downgraded by the evidence gate",
+      "tool_call_count": 0
+    },
+    {
+      "action_chain": [
+        "inspect_defect_pattern"
+      ],
+      "action_count": 1,
+      "action_trace": [
+        {
+          "action_kind": "inspect_defect_pattern",
+          "agent": "defect_wat",
+          "execution_reason": "Root-cause assessment requires an observed product-outcome pattern.",
+          "inputs": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          },
+          "observation": "Selected Lots show scratch/edge_dominant defect evidence and 1 WAT-failing Lots led by leakage; metrology has 0 out-of-spec Wafer records.",
+          "produced_evidence_ids": [
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE"
+          ],
+          "scope": {
+            "defect": "scratch",
+            "lot_id": "LOT_A_001",
+            "module": "CU_CMP"
+          }
+        }
+      ],
+      "checks": {
+        "action_budget": true,
+        "actual_llm_react": true,
+        "audit_fields": true,
+        "conclusion_level": true,
+        "decision_count": true,
+        "decision_metrics": true,
+        "exact_action_chain": true,
+        "goal_status": true,
+        "goal_success": true,
+        "hypothesis_gate_downgraded": true,
+        "intent": true,
+        "job_completed": true,
+        "job_mode": true,
+        "no_orchestration_fallback": true,
+        "no_supported_hypothesis": true,
+        "observation_then_replan": true,
+        "partial_evidence_preserved": true,
+        "planner_proposed_supported": true,
+        "requested_llm_react": true,
+        "specialist_v2_boundary": true,
+        "stop_correct": true,
+        "stop_reason": true,
+        "terminal_stop": true,
+        "tool_budget": true,
+        "trace_integrity": true,
+        "typed_round_trip": true
+      },
+      "conclusion_level": "signal",
+      "decision_metrics": [
+        {
+          "action_kind": "inspect_defect_pattern",
+          "decision_type": "act",
+          "decision_valid": true,
+          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added 2 new Evidence IDs.",
+          "evidence_gain": true,
+          "new_evidence_ids": [
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE"
+          ],
+          "planner_reason": "Root-cause assessment requires an observed product-outcome pattern.",
+          "redundant": false
+        },
+        {
+          "action_kind": null,
+          "decision_type": "stop",
+          "decision_valid": true,
+          "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
+          "evidence_gain": false,
+          "new_evidence_ids": [],
+          "planner_reason": "Stop early despite having only a defect observation.",
+          "redundant": false
+        }
+      ],
+      "goal_status": "blocked",
+      "goal_success": false,
+      "intent": "root_cause",
+      "job_mode": "lot",
+      "passed": true,
+      "planner_decision_count": 2,
+      "scenario_id": "AUTONOMOUS_PARTIAL_EVIDENCE_STOP_GATE",
+      "stop_correct": false,
+      "stop_reason": "data_unavailable",
+      "stop_trace": {
+        "final_conclusion_level": "signal",
+        "goal_status": "blocked",
+        "planner_reason": "Stop early despite having only a defect observation.",
+        "stop_reason": "data_unavailable"
+      },
+      "title": "Partial defect Evidence cannot substitute for a supported Hypothesis",
+      "tool_call_count": 1
+    }
+  ],
+  "fallback_scenarios": [
+    {
+      "action_chain": [
+        "inspect_defect_pattern",
+        "find_shared_exposure",
+        "validate_shared_defect_pattern",
+        "inspect_fdc_spc",
+        "run_rca_reasoning"
+      ],
+      "checks": {
+        "complete_controlled_chain": true,
+        "controlled_tail": true,
+        "fallback_after_one_action": true,
+        "fallback_reason": true,
+        "fallback_stage": true,
+        "job_completed": true,
+        "not_attributed_to_qwen": true,
+        "qwen_prefix_preserved": true,
+        "requested_llm_react": true,
+        "two_invalid_outputs": true
+      },
+      "passed": true,
+      "qwen_planner_decision_count": 1,
+      "run_evaluation": null,
+      "scenario_id": "AUTONOMOUS_MID_LOOP_FALLBACK",
+      "title": "Mid-loop invalid Qwen output preserves prefix and uses controlled tail"
+    },
+    {
+      "action_chain": [
+        "inspect_defect_pattern",
+        "find_shared_exposure",
+        "validate_shared_defect_pattern",
+        "inspect_fdc_spc",
+        "run_rca_reasoning"
+      ],
+      "checks": {
+        "controlled_compatibility_path": true,
+        "fallback_before_action": true,
+        "fallback_reason": true,
+        "fallback_stage": true,
+        "job_completed": true,
+        "no_qwen_decision_committed": true,
+        "not_attributed_to_qwen": true,
+        "requested_llm_react": true,
+        "two_invalid_outputs": true
+      },
+      "passed": true,
+      "qwen_planner_decision_count": 0,
+      "run_evaluation": null,
+      "scenario_id": "AUTONOMOUS_INTENT_FALLBACK",
+      "title": "Invalid intent output uses controlled compatibility path"
+    }
+  ],
+  "lanes": {
+    "autonomous_fake": {
+      "passed": true,
+      "scenario_count": 10,
+      "scenario_pass_count": 10,
+      "status": "PASS"
+    },
+    "fixed_workflow": {
+      "acceptance": {
+        "confidence_calibration_ece": true,
+        "end_to_end_latency_p95": true,
+        "evidence_traceability_rate": true,
+        "false_positive_rate": true,
+        "hallucinated_citation_rate": true,
+        "inconclusive_handling_rate": true,
+        "scenario_pass_rate": true,
+        "scope_accuracy": true,
+        "tool_latency_p95": true,
+        "top1_root_cause_accuracy": true,
+        "top3_recall": true,
+        "warning_requirement_rate": true
+      },
+      "checks": {
+        "all_acceptance_checks": true,
+        "all_scenarios_passed": true,
+        "evaluation_passed": true,
+        "ten_scenarios": true
+      },
+      "passed": true,
+      "scenario_count": 10,
+      "scenario_pass_count": 10,
+      "scenarios": [
+        {
+          "passed": true,
+          "scenario_id": "EVAL_CMP_SLURRY_DECLINE"
+        },
+        {
+          "passed": true,
+          "scenario_id": "EVAL_RECIPE_VERSION_CHANGE"
+        },
+        {
+          "passed": true,
+          "scenario_id": "EVAL_SINGLE_CHAMBER"
+        },
+        {
+          "passed": true,
+          "scenario_id": "EVAL_SCRATCH_WAT_FAIL"
+        },
+        {
+          "passed": true,
+          "scenario_id": "EVAL_MES_NO_FDC"
+        },
+        {
+          "passed": true,
+          "scenario_id": "EVAL_FDC_NO_YIELD"
+        },
+        {
+          "passed": true,
+          "scenario_id": "EVAL_CONFLICTING_EVIDENCE"
+        },
+        {
+          "passed": true,
+          "scenario_id": "EVAL_MISSING_DATA"
+        },
+        {
+          "passed": true,
+          "scenario_id": "EVAL_HIGH_HISTORY_MATCH"
+        },
+        {
+          "passed": true,
+          "scenario_id": "EVAL_INCONCLUSIVE_ROOT_CAUSE"
+        }
+      ],
+      "status": "PASS"
+    },
+    "real_qwen_smoke": {
+      "reason": "DASHSCOPE_API_KEY and RUN_REAL_QWEN_TEST=1 are not configured.",
+      "required_for_deterministic_acceptance": false,
+      "status": "SKIPPED"
+    }
+  },
+  "metrics": {
+    "decision_valid": {
+      "decision_count": 28,
+      "rate": 1.0,
+      "valid_count": 28
+    },
+    "evidence_gain": {
+      "act_decision_count": 20,
+      "gain_count": 18,
+      "rate": 0.9
+    },
+    "goal_success": {
+      "positive_run_count": 6,
+      "rate": 1.0,
+      "successful_count": 6
+    },
+    "redundant": {
+      "act_decision_count": 20,
+      "rate": 0.0,
+      "redundant_count": 0
+    },
+    "stop_correct": {
+      "correct_count": 6,
+      "positive_run_count": 6,
+      "rate": 1.0
+    }
+  },
+  "passed": true,
+  "schema_version": "1.0",
+  "suite": "batch_20_9_7_autonomous_qwen_react"
+}
