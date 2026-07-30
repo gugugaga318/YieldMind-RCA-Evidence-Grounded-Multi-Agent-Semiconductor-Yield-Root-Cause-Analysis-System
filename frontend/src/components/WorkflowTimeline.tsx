@@ -10,8 +10,9 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { formatAgentName } from "../selectors";
+import { formatAgentName, formatTraceLabel } from "../selectors";
 import type { AgentTask, RCAState } from "../types";
+import { AgentDecisionTrace } from "./AgentDecisionTrace";
 
 const AGENT_ICONS: Record<string, LucideIcon> = {
   mes: Database,
@@ -37,10 +38,7 @@ function formatValue(value: unknown): string {
 }
 
 function formatActionKind(kind: string): string {
-  return kind
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  return formatTraceLabel(kind);
 }
 
 function ControlledTimeline({ state }: { state: RCAState }) {
@@ -51,7 +49,7 @@ function ControlledTimeline({ state }: { state: RCAState }) {
     <section className="workflow-section controlled-workflow" aria-labelledby="workflow-heading">
       <div className="section-heading-row">
         <div>
-          <span className="section-kicker">Observe · act · re-plan</span>
+          <span className="section-kicker">Observe → Act → Re-plan</span>
           <h2 id="workflow-heading">Controlled ReAct Investigation Path</h2>
         </div>
         <span className="section-count">{actions.length} bounded actions</span>
@@ -174,6 +172,21 @@ function ControlledTimeline({ state }: { state: RCAState }) {
 }
 
 export function WorkflowTimeline({ tasks, state }: WorkflowTimelineProps) {
+  if (state) {
+    const metadata = state.execution_metadata;
+    const requestedMode =
+      metadata.orchestration_requested_mode ?? metadata.orchestration_mode;
+    const actualMode = metadata.orchestration_mode;
+    const hasPlannerDecisions = (state.planner_decisions?.length ?? 0) > 0;
+
+    if (
+      requestedMode === "llm_react" &&
+      (hasPlannerDecisions || actualMode === "llm_react")
+    ) {
+      return <AgentDecisionTrace state={state} />;
+    }
+  }
+
   if (state && (state.action_history?.length ?? 0) > 0) {
     return <ControlledTimeline state={state} />;
   }

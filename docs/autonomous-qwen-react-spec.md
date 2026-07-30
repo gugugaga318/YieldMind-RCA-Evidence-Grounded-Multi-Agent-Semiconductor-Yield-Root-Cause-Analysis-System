@@ -5,7 +5,7 @@
 - Target branch: `feature/autonomous-qwen-react`
 - Model provider: DashScope
 - Model: `qwen-plus`
-- Current implementation stage: Batch 20.9.5 Agent Decision Evaluation
+- Current implementation stage: Batch 20.9.6 Frontend Agent Trace
 
 ## Goal
 
@@ -245,6 +245,41 @@ Automated contract, unit, and integration tests use Fake Clients and cover:
 
 These automated tests do not call the real DashScope service.
 
+## Frontend Agent Trace Boundary
+
+The investigation page renders an autonomous decision trace whenever
+`llm_react` was requested and either a committed Planner decision exists or
+the active execution mode is still `llm_react`. The trace shows the Goal,
+budgets, known facts, final Question status, every committed ACT decision, its
+ActionRecord observation, linked Findings and Evidence, Specialist V2 Tool
+steps, the terminal STOP decision, and the five existing evaluation metrics.
+Technical contracts remain collapsed behind native `details` elements so the
+default view emphasizes the engineering story.
+
+Frontend associations use typed IDs rather than array position:
+
+- `PlannerDecision.decision_id` joins `DecisionEvaluation.decision_id`.
+- `PlannerDecision.next_action.action_id` joins `ActionRecord.action.action_id`.
+- `ActionRecord.produced_finding_ids` joins `AgentFinding.finding_id`.
+- `ActionRecord.produced_evidence_ids` joins `Evidence.evidence_id`.
+- Specialist steps join Tool latency by the exact action-scoped
+  `tool_request_id`.
+
+Missing, duplicate, or malformed references are surfaced as trace-integrity
+warnings instead of being silently paired with another record. A superseded
+Advanced SPC step remains visible as audit-only history, while only the
+effective Basic SPC Evidence is shown as part of the Finding. RCA reasoning
+may correctly show `Evidence Gain: No` together with `Redundant: No`, because
+it can add analytical value without inventing Evidence.
+
+An immediate Qwen STOP remains a visible terminal decision even when no
+ActionRecord exists. A mid-loop Qwen failure preserves the autonomous decision
+prefix, appends the controlled compatibility tail, and reports evaluation as
+not attributed after the handoff rather than as a failed run. Intent-planning
+fallback with no committed Qwen decision continues to use the controlled
+timeline. Native `controlled_react` and `fixed` execution retain their
+existing compatibility views.
+
 ## Planned Delivery Batches
 
 1. 20.9.0: Git baseline. Complete.
@@ -253,7 +288,7 @@ These automated tests do not call the real DashScope service.
 4. 20.9.3: Qwen next-action Planner and retry/fallback. Complete.
 5. 20.9.4: Specialist Agent V2. Complete.
 6. 20.9.5: Agent decision evaluation. Complete.
-7. 20.9.6: Frontend Agent trace.
+7. 20.9.6: Frontend Agent trace. Complete.
 8. 20.9.7: Qwen smoke test and final evaluation.
 
 Automated tests use a Fake Client. Real DashScope calls are optional smoke

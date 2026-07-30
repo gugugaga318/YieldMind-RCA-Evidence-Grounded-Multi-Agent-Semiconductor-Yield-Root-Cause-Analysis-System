@@ -64,6 +64,14 @@ export interface InvestigationAction {
   max_attempts: number;
 }
 
+export interface ActionRecord {
+  action: InvestigationAction;
+  status: "completed" | "skipped" | "failed";
+  produced_finding_ids: string[];
+  produced_evidence_ids: string[];
+  decision_summary: string;
+}
+
 export interface InvestigationQuestion {
   question_id: string;
   goal_id: string;
@@ -189,6 +197,14 @@ export interface LLMUsageEvent {
   status: "success" | "failed";
 }
 
+export interface ToolLatencyRecord {
+  tool_name: string;
+  tool_request_id: string;
+  agent: string;
+  outcome: "success" | "failed";
+  duration_ms: number;
+}
+
 export interface ExecutionMetadata {
   agent_mode?: "deterministic" | "fake" | "llm";
   provider?: string | null;
@@ -205,13 +221,7 @@ export interface ExecutionMetadata {
   orchestration_fallback_reason?: string;
   orchestration_fallback_stage?: "intent_planning" | "next_action_planning";
   orchestration_fallback_after_action_count?: number;
-  tool_latencies?: Array<{
-    tool_name: string;
-    tool_request_id: string;
-    agent: string;
-    outcome: "success" | "failed";
-    duration_ms: number;
-  }>;
+  tool_latencies?: ToolLatencyRecord[];
 }
 
 export interface RCAState {
@@ -255,28 +265,96 @@ export interface RCAState {
     max_tool_calls: number;
   } | null;
   investigation_questions?: InvestigationQuestion[];
-  action_history?: Array<{
-    action: {
-      action_id: string;
-      kind: string;
-      agent: string;
-      reason: string;
-      inputs: Record<string, unknown>;
-      scope?: Record<string, unknown>;
-      required_evidence_ids: string[];
-      max_attempts: number;
-    };
-    status: "completed" | "skipped" | "failed";
-    produced_finding_ids: string[];
-    produced_evidence_ids: string[];
-    decision_summary: string;
-  }>;
+  action_history?: ActionRecord[];
   planner_decisions?: PlannerDecision[];
   run_evaluation?: RunEvaluation | null;
   goal_status?: GoalStatus | null;
   conclusion_level?: ConclusionLevel | null;
   evidence_gaps?: string[];
   stop_reason?: string | null;
+}
+
+export type AgentTraceOrigin =
+  | "llm_react"
+  | "controlled_react"
+  | "controlled_fallback"
+  | "fixed"
+  | "legacy";
+
+export type AgentTraceEvaluationStatus =
+  | "available"
+  | "pending"
+  | "not_applicable"
+  | "fallback"
+  | "unavailable";
+
+export interface SpecialistToolStepViewModel {
+  key: string;
+  stepId: string;
+  stepIndex: number;
+  actionId: string;
+  specialistDecisionId: string;
+  candidateId: string;
+  toolName: string;
+  parameters: Record<string, unknown>;
+  reason: string;
+  evidenceIds: string[];
+  evidence: Evidence[];
+  outputSummary: string;
+  status: "completed" | "failed";
+  superseded: boolean;
+  toolRequestId: string;
+  latency: ToolLatencyRecord | null;
+  integrityIssues: string[];
+}
+
+export interface SpecialistTraceViewModel {
+  findingId: string;
+  version: string | null;
+  actionId: string;
+  agent: string;
+  toolCallCount: number;
+  stopReason: string | null;
+  analysisSource: "qwen" | "deterministic_fallback" | null;
+  fallbackReason: string | null;
+  validationRetryCount: number;
+  localFallback: boolean;
+  engineeringInterpretation: string | null;
+  supersededStepIds: string[];
+  toolSteps: SpecialistToolStepViewModel[];
+  integrityIssues: string[];
+}
+
+export interface AgentTraceNodeViewModel {
+  key: string;
+  origin: AgentTraceOrigin;
+  task: AgentTask | null;
+  decision: PlannerDecision | null;
+  evaluation: DecisionEvaluation | null;
+  targetQuestions: InvestigationQuestion[];
+  newQuestions: InvestigationQuestion[];
+  questionUpdates: InvestigationQuestion[];
+  action: InvestigationAction | null;
+  actionRecord: ActionRecord | null;
+  findings: AgentFinding[];
+  evidence: Evidence[];
+  newEvidence: Evidence[];
+  specialistTraces: SpecialistTraceViewModel[];
+  integrityIssues: string[];
+}
+
+export interface AgentTraceViewModel {
+  requestedMode: OrchestrationMode | null;
+  actualMode: OrchestrationMode | null;
+  evaluationStatus: AgentTraceEvaluationStatus;
+  runEvaluation: RunEvaluation | null;
+  goal: RCAState["investigation_goal"];
+  questions: InvestigationQuestion[];
+  nodes: AgentTraceNodeViewModel[];
+  fallbackReason: string | null;
+  fallbackStage: "intent_planning" | "next_action_planning" | null;
+  fallbackAfterActionCount: number | null;
+  integrityIssues: string[];
 }
 
 export interface RCAJobResponse {

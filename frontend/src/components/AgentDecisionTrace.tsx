@@ -1,0 +1,904 @@
+import {
+  AlertTriangle,
+  BrainCircuit,
+  CheckCircle2,
+  CircleAlert,
+  CircleDashed,
+  DatabaseZap,
+  GitBranch,
+  Wrench,
+} from "lucide-react";
+
+import {
+  formatAgentName,
+  formatTraceLabel,
+  selectAgentTrace,
+} from "../selectors";
+import type {
+  AgentTraceEvaluationStatus,
+  AgentTraceNodeViewModel,
+  InvestigationQuestion,
+  RCAState,
+  SpecialistToolStepViewModel,
+  SpecialistTraceViewModel,
+} from "../types";
+
+interface AgentDecisionTraceProps {
+  state: RCAState;
+}
+
+interface VerdictView {
+  value: string;
+  detail: string;
+  tone: "positive" | "negative" | "neutral";
+}
+
+function formatValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function originLabel(origin: AgentTraceNodeViewModel["origin"]): string {
+  const labels: Record<AgentTraceNodeViewModel["origin"], string> = {
+    llm_react: "Qwen Planner",
+    controlled_react: "Controlled ReAct",
+    controlled_fallback: "Controlled fallback",
+    fixed: "Fixed workflow",
+    legacy: "Legacy trace",
+  };
+  return labels[origin];
+}
+
+function unavailableVerdict(
+  status: AgentTraceEvaluationStatus,
+  metric: "goal" | "stop",
+): VerdictView {
+  const metricName = metric === "goal" ? "goal outcome" : "stop boundary";
+  if (status === "pending") {
+    return {
+      value: "Pending",
+      detail: `The ${metricName} will be evaluated after the run finishes.`,
+      tone: "neutral",
+    };
+  }
+  if (status === "fallback") {
+    return {
+      value: "Not evaluated",
+      detail: `The ${metricName} is not graded after a controlled handoff.`,
+      tone: "neutral",
+    };
+  }
+  if (status === "not_applicable") {
+    return {
+      value: "Not applicable",
+      detail: `This execution path has no autonomous ${metricName} evaluation.`,
+      tone: "neutral",
+    };
+  }
+  return {
+    value: "Unavailable",
+    detail: `No trustworthy ${metricName} evaluation is available.`,
+    tone: "neutral",
+  };
+}
+
+function verdict(
+  status: AgentTraceEvaluationStatus,
+  value: boolean | undefined,
+  metric: "goal" | "stop",
+): VerdictView {
+  if (status !== "available" || value === undefined) {
+    return unavailableVerdict(
+      status === "available" ? "unavailable" : status,
+      metric,
+    );
+  }
+  if (metric === "goal") {
+    return value
+      ? {
+          value: "True",
+          detail: "The requested objective was answered at an evidence-appropriate level.",
+          tone: "positive",
+        }
+      : {
+          value: "False",
+          detail: "The requested objective was not fully answered.",
+          tone: "negative",
+        };
+  }
+  return value
+    ? {
+        value: "True",
+        detail: "The Planner stopped at an auditable investigation boundary.",
+        tone: "positive",
+      }
+    : {
+        value: "False",
+        detail: "The stop boundary needs engineering review.",
+        tone: "negative",
+      };
+}
+
+function VerdictCard({
+  label,
+  verdictView,
+}: {
+  label: string;
+  verdictView: VerdictView;
+}) {
+  const Icon =
+    verdictView.tone === "positive"
+      ? CheckCircle2
+      : verdictView.tone === "negative"
+        ? CircleAlert
+        : CircleDashed;
+  return (
+    <div className={`agent-trace-verdict verdict-${verdictView.tone}`}>
+      <Icon size={18} aria-hidden="true" />
+      <div>
+        <dt>{label}</dt>
+        <dd>{verdictView.value}</dd>
+        <p>{verdictView.detail}</p>
+      </div>
+    </div>
+  );
+}
+
+function ChipList({
+  values,
+  emptyText = "None",
+}: {
+  values: string[];
+  emptyText?: string;
+}) {
+  return (
+    <div className="trace-chip-list">
+      {values.length > 0 ? (
+        values.map((value) => <code key={value}>{value}</code>)
+      ) : (
+        <em>{emptyText}</em>
+      )}
+    </div>
+  );
+}
+
+function ObjectFields({
+  label,
+  value,
+}: {
+  label: string;
+  value: Record<string, unknown>;
+}) {
+  return (
+    <div className="agent-trace-detail-block">
+      <h4>{label}</h4>
+      <dl className="agent-trace-object-fields">
+        {Object.keys(value).length > 0 ? (
+          Object.entries(value).map(([key, item]) => (
+            <div key={key}>
+              <dt>{formatTraceLabel(key)}</dt>
+              <dd>
+                <code>{formatValue(item)}</code>
+              </dd>
+            </div>
+          ))
+        ) : (
+          <div>
+            <dt>Status</dt>
+            <dd>None recorded</dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
+}
+
+function QuestionList({ questions }: { questions: InvestigationQuestion[] }) {
+  const counts = {
+    open: questions.filter((question) => question.status === "open").length,
+    closed: questions.filter((question) => question.status === "closed").length,
+    unavailable: questions.filter((question) => question.status === "unavailable")
+      .length,
+  };
+
+  return (
+    <div className="agent-trace-questions">
+      <dl className="agent-trace-question-summary" aria-label="Investigation question status">
+        <div>
+          <dt>Open</dt>
+          <dd>{counts.open}</dd>
+        </div>
+        <div>
+          <dt>Closed</dt>
+          <dd>{counts.closed}</dd>
+        </div>
+        <div>
+          <dt>Unavailable</dt>
+          <dd>{counts.unavailable}</dd>
+        </div>
+      </dl>
+
+      {questions.length > 0 ? (
+        <details>
+          <summary>Investigation questions ({questions.length})</summary>
+          <ol>
+            {questions.map((question) => (
+              <li key={question.question_id}>
+                <div className="agent-trace-question-heading">
+                  <code>{question.question_id}</code>
+                  <span className={`question-status question-${question.status}`}>
+                    {question.status}
+                  </span>
+                </div>
+                <strong>{question.question}</strong>
+                <p>{question.rationale}</p>
+                {question.answer && (
+                  <p>
+                    <span>Answer</span>
+                    {question.answer}
+                  </p>
+                )}
+                {question.unavailable_reason && (
+                  <p>
+                    <span>Unavailable reason</span>
+                    {question.unavailable_reason}
+                  </p>
+                )}
+                <ChipList
+                  values={question.evidence_ids}
+                  emptyText="No supporting Evidence"
+                />
+              </li>
+            ))}
+          </ol>
+        </details>
+      ) : (
+        <p className="empty-copy">No typed investigation questions were recorded.</p>
+      )}
+    </div>
+  );
+}
+
+function EvaluationBadges({ node }: { node: AgentTraceNodeViewModel }) {
+  const evaluation = node.evaluation;
+  if (!evaluation) {
+    return (
+      <div className="agent-trace-badges" aria-label="Decision evaluation unavailable">
+        <span className="trace-badge trace-badge-neutral">Valid: Not evaluated</span>
+        <span className="trace-badge trace-badge-neutral">
+          Evidence Gain: Not evaluated
+        </span>
+        <span className="trace-badge trace-badge-neutral">
+          Redundant: Not evaluated
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="agent-trace-badges" aria-label="Decision evaluation">
+      <span
+        className={`trace-badge ${
+          evaluation.decision_valid ? "trace-badge-positive" : "trace-badge-negative"
+        }`}
+      >
+        {evaluation.decision_valid ? "Valid: Yes" : "Valid: No"}
+      </span>
+      <span
+        className={`trace-badge ${
+          evaluation.evidence_gain ? "trace-badge-positive" : "trace-badge-neutral"
+        }`}
+      >
+        {evaluation.evidence_gain
+          ? `Evidence Gain: Yes (+${evaluation.new_evidence_ids.length})`
+          : "Evidence Gain: No"}
+      </span>
+      <span
+        className={`trace-badge ${
+          evaluation.redundant ? "trace-badge-negative" : "trace-badge-neutral"
+        }`}
+      >
+        {evaluation.redundant ? "Redundant: Yes" : "Redundant: No"}
+      </span>
+    </div>
+  );
+}
+
+function IntegrityIssues({
+  issues,
+  label = "Trace integrity issue",
+}: {
+  issues: string[];
+  label?: string;
+}) {
+  if (issues.length === 0) return null;
+  return (
+    <div className="agent-trace-integrity" role="status">
+      <AlertTriangle size={15} aria-hidden="true" />
+      <div>
+        <strong>{label}</strong>
+        <ul>
+          {issues.map((issue) => (
+            <li key={issue}>{issue}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function ToolStep({ step }: { step: SpecialistToolStepViewModel }) {
+  return (
+    <li
+      className={`specialist-tool-step ${
+        step.superseded ? "tool-step-superseded" : ""
+      }`}
+    >
+      <div className="specialist-tool-heading">
+        <div>
+          <span>Tool step {step.stepIndex}</span>
+          <strong>{formatTraceLabel(step.toolName)}</strong>
+        </div>
+        <div className="agent-trace-badges">
+          <span
+            className={`trace-badge ${
+              step.status === "completed"
+                ? "trace-badge-positive"
+                : "trace-badge-negative"
+            }`}
+          >
+            {step.status}
+          </span>
+          {step.superseded && (
+            <span className="trace-badge trace-badge-neutral">
+              Superseded / audit only
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="trace-block">
+        <span>Why this Tool</span>
+        <p>{step.reason}</p>
+      </div>
+      <ObjectFields label="Bound parameters" value={step.parameters} />
+      <div className="trace-block">
+        <span>Tool output</span>
+        <p>{step.outputSummary}</p>
+      </div>
+      <div className="agent-trace-tool-evidence">
+        <h5>Evidence</h5>
+        {step.evidence.length > 0 ? (
+          <ul>
+            {step.evidence.map((evidence) => (
+              <li key={evidence.evidence_id}>
+                <code>{evidence.evidence_id}</code>
+                <span>{evidence.observation ?? evidence.summary}</span>
+              </li>
+            ))}
+          </ul>
+        ) : step.superseded ? (
+          <div className="agent-trace-superseded-evidence">
+            <p>
+              Audit Evidence from this superseded step is not retained in the
+              effective Finding.
+            </p>
+            <ChipList
+              values={step.evidenceIds}
+              emptyText="No audit Evidence IDs recorded"
+            />
+          </div>
+        ) : (
+          <ChipList values={step.evidenceIds} emptyText="No effective Evidence" />
+        )}
+      </div>
+      <dl className="agent-trace-tool-metadata">
+        <div>
+          <dt>Latency</dt>
+          <dd>
+            {step.latency
+              ? `${step.latency.duration_ms.toFixed(1)} ms`
+              : "Not recorded"}
+          </dd>
+        </div>
+        <div>
+          <dt>Outcome</dt>
+          <dd>{step.latency?.outcome ?? step.status}</dd>
+        </div>
+        <div>
+          <dt>Request</dt>
+          <dd>
+            <code>{step.toolRequestId || "Not recorded"}</code>
+          </dd>
+        </div>
+      </dl>
+      <IntegrityIssues issues={step.integrityIssues} label="Tool trace integrity issue" />
+    </li>
+  );
+}
+
+function SpecialistTrace({ trace }: { trace: SpecialistTraceViewModel }) {
+  return (
+    <section className="specialist-trace" aria-label={`${formatAgentName(trace.agent)} Tool trace`}>
+      <div className="specialist-trace-heading">
+        <div>
+          <Wrench size={15} aria-hidden="true" />
+          <div>
+            <span>{formatAgentName(trace.agent)} Specialist</span>
+            <strong>{trace.toolCallCount} bounded Tool calls</strong>
+          </div>
+        </div>
+        <div className="agent-trace-badges">
+          <span className="trace-badge trace-badge-neutral">
+            {trace.analysisSource
+              ? formatTraceLabel(trace.analysisSource)
+              : "Analysis source unavailable"}
+          </span>
+          {trace.localFallback && (
+            <span className="trace-badge trace-badge-warning">Local fallback</span>
+          )}
+        </div>
+      </div>
+
+      {trace.engineeringInterpretation && (
+        <div className="trace-block">
+          <span>Engineering interpretation</span>
+          <p>{trace.engineeringInterpretation}</p>
+        </div>
+      )}
+      {(trace.stopReason || trace.fallbackReason) && (
+        <dl className="agent-trace-tool-metadata">
+          {trace.stopReason && (
+            <div>
+              <dt>Specialist stop</dt>
+              <dd>{formatTraceLabel(trace.stopReason)}</dd>
+            </div>
+          )}
+          {trace.fallbackReason && (
+            <div>
+              <dt>Fallback reason</dt>
+              <dd>{formatTraceLabel(trace.fallbackReason)}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+      <ol className="specialist-tool-list">
+        {trace.toolSteps.map((step) => (
+          <ToolStep step={step} key={step.key} />
+        ))}
+      </ol>
+      <IntegrityIssues
+        issues={trace.integrityIssues}
+        label="Specialist trace integrity issue"
+      />
+    </section>
+  );
+}
+
+function FindingAndEvidenceDetails({ node }: { node: AgentTraceNodeViewModel }) {
+  return (
+    <div className="agent-trace-reference-grid">
+      <div>
+        <h4>Findings</h4>
+        {node.findings.length > 0 ? (
+          <ul>
+            {node.findings.map((finding) => (
+              <li key={finding.finding_id}>
+                <code>{finding.finding_id}</code>
+                <span>{finding.summary}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="empty-copy">No Finding linked to this node.</p>
+        )}
+      </div>
+      <div>
+        <h4>Evidence</h4>
+        {node.evidence.length > 0 ? (
+          <ul>
+            {node.evidence.map((evidence) => (
+              <li key={evidence.evidence_id}>
+                <code>{evidence.evidence_id}</code>
+                <span>{evidence.observation ?? evidence.summary}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="empty-copy">No Evidence linked to this node.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActionNode({
+  node,
+  index,
+}: {
+  node: AgentTraceNodeViewModel;
+  index: number;
+}) {
+  const action = node.action;
+  const agent = action?.agent ?? node.task?.agent ?? "unknown";
+  const title = action
+    ? formatTraceLabel(action.kind)
+    : node.task?.objective ?? "Recorded action";
+  const plannerReason =
+    node.decision?.reason ?? action?.reason ?? node.task?.objective ?? "No reason recorded.";
+  const findingObservation = node.findings
+    .map((finding) => finding.summary)
+    .join(" ");
+  const observation =
+    node.actionRecord?.decision_summary ||
+    findingObservation ||
+    "No observation was linked to this action.";
+  const isHandoff = node.origin === "controlled_fallback";
+
+  return (
+    <li className={`agent-trace-node trace-origin-${node.origin}`}>
+      <div className="agent-trace-node-index">{index + 1}</div>
+      <article>
+        <header className="agent-trace-node-heading">
+          <div>
+            <span className="action-agent">
+              {isHandoff ? (
+                <GitBranch size={15} aria-hidden="true" />
+              ) : (
+                <BrainCircuit size={15} aria-hidden="true" />
+              )}
+              {formatAgentName(agent)}
+            </span>
+            <h3>{title}</h3>
+          </div>
+          <div className="agent-trace-badges">
+            <span
+              className={`trace-badge ${
+                isHandoff ? "trace-badge-warning" : "trace-badge-neutral"
+              }`}
+            >
+              {originLabel(node.origin)}
+            </span>
+            {node.actionRecord && (
+              <span className={`trace-badge action-status-${node.actionRecord.status}`}>
+                {node.actionRecord.status}
+              </span>
+            )}
+          </div>
+        </header>
+
+        <EvaluationBadges node={node} />
+
+        <div className="agent-trace-observation-grid">
+          <div className="trace-block">
+            <span>Planner reason</span>
+            <p>{plannerReason}</p>
+          </div>
+          <div className="trace-block">
+            <span>Observed result</span>
+            <p>{observation}</p>
+          </div>
+        </div>
+
+        {node.specialistTraces
+          .filter((trace) => trace.engineeringInterpretation)
+          .map((trace) => (
+            <div className="agent-trace-interpretation" key={trace.findingId}>
+              <span>Specialist interpretation</span>
+              <p>{trace.engineeringInterpretation}</p>
+            </div>
+          ))}
+
+        <details className="agent-trace-technical">
+          <summary>Technical details</summary>
+          {action && (
+            <div className="agent-trace-action-contract">
+              <ObjectFields label="Action input" value={action.inputs} />
+              <ObjectFields label="Investigation scope" value={action.scope} />
+            </div>
+          )}
+          <div className="agent-trace-detail-block">
+            <h4>Target questions</h4>
+            <ChipList
+              values={
+                node.decision?.target_question_ids ??
+                node.targetQuestions.map((question) => question.question_id)
+              }
+              emptyText="No targeted question"
+            />
+          </div>
+          <FindingAndEvidenceDetails node={node} />
+          {node.evaluation && (
+            <div className="trace-block">
+              <span>Evaluation reason</span>
+              <p>{node.evaluation.reason}</p>
+            </div>
+          )}
+          {node.specialistTraces.map((trace) => (
+            <SpecialistTrace trace={trace} key={trace.findingId} />
+          ))}
+          <IntegrityIssues issues={node.integrityIssues} />
+        </details>
+      </article>
+    </li>
+  );
+}
+
+function StopNode({
+  node,
+  index,
+  state,
+}: {
+  node: AgentTraceNodeViewModel;
+  index: number;
+  state: RCAState;
+}) {
+  const decision = node.decision;
+  return (
+    <li className={`agent-trace-node agent-trace-stop trace-origin-${node.origin}`}>
+      <div className="agent-trace-node-index">
+        <CheckCircle2 size={15} aria-hidden="true" />
+      </div>
+      <article>
+        <header className="agent-trace-node-heading">
+          <div>
+            <span className="action-agent">
+              <BrainCircuit size={15} aria-hidden="true" />
+              Planner terminal decision
+            </span>
+            <h3>Stop investigation</h3>
+          </div>
+          <span className="trace-badge trace-badge-neutral">
+            {originLabel(node.origin)}
+          </span>
+        </header>
+        {decision && (
+          <>
+            <div className="trace-block">
+              <span>Planner reason</span>
+              <p>{decision.reason}</p>
+            </div>
+            <dl className="agent-trace-stop-facts">
+              <div>
+                <dt>Stop reason</dt>
+                <dd>
+                  {decision.stop_reason
+                    ? formatTraceLabel(decision.stop_reason)
+                    : "Not recorded"}
+                </dd>
+              </div>
+              <div>
+                <dt>Goal status</dt>
+                <dd>{formatTraceLabel(decision.goal_status)}</dd>
+              </div>
+              <div>
+                <dt>Proposed conclusion</dt>
+                <dd>{formatTraceLabel(decision.proposed_conclusion_level)}</dd>
+              </div>
+              <div>
+                <dt>Evidence-gated conclusion</dt>
+                <dd>
+                  {state.conclusion_level
+                    ? formatTraceLabel(state.conclusion_level)
+                    : "Not available"}
+                </dd>
+              </div>
+            </dl>
+          </>
+        )}
+        <div className="agent-trace-detail-block">
+          <h4>Remaining evidence gaps</h4>
+          <ChipList values={state.evidence_gaps ?? []} emptyText="None" />
+        </div>
+        <EvaluationBadges node={node} />
+        {node.evaluation && (
+          <div className="trace-block">
+            <span>Evaluation reason</span>
+            <p>{node.evaluation.reason}</p>
+          </div>
+        )}
+        <IntegrityIssues issues={node.integrityIssues} />
+      </article>
+      <span className="agent-trace-node-position" aria-hidden="true">
+        {index + 1}
+      </span>
+    </li>
+  );
+}
+
+function GoalSummary({ trace }: { trace: ReturnType<typeof selectAgentTrace> }) {
+  const goal = trace.goal;
+  if (!goal) {
+    return <p className="empty-copy">No typed autonomous investigation goal was recorded.</p>;
+  }
+  return (
+    <div className="investigation-goal agent-trace-goal">
+      <div>
+        <span>Goal intent</span>
+        <strong>{formatTraceLabel(goal.intent)}</strong>
+      </div>
+      <div className="goal-summary">
+        <span>Investigation objective</span>
+        <strong>{goal.summary}</strong>
+      </div>
+      <div>
+        <span>Safety budget</span>
+        <strong>
+          {goal.max_steps} steps / {goal.max_tool_calls} Tool calls
+        </strong>
+      </div>
+      {Object.keys(goal.known_facts).length > 0 && (
+        <div className="goal-facts">
+          <span>Known facts</span>
+          <div className="trace-chip-list">
+            {Object.entries(goal.known_facts).map(([key, value]) => (
+              <code key={key}>
+                {key}: {formatValue(value)}
+              </code>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function evaluationMessage(
+  status: AgentTraceEvaluationStatus,
+  fallbackReason: string | null,
+): string {
+  if (status === "pending") {
+    return "Decision evaluation is pending until the investigation reaches a terminal state.";
+  }
+  if (status === "fallback") {
+    return fallbackReason
+      ? `Evaluation is not attributed after the compatibility cutover: ${formatTraceLabel(
+          fallbackReason,
+        )}.`
+      : "Evaluation is not attributed after the compatibility cutover.";
+  }
+  if (status === "not_applicable") {
+    return "Decision evaluation applies only to a complete autonomous Planner trace.";
+  }
+  return "A complete and trustworthy autonomous decision evaluation is unavailable.";
+}
+
+export function AgentDecisionTrace({ state }: AgentDecisionTraceProps) {
+  const trace = selectAgentTrace(state);
+  const hasControlledHandoff =
+    trace.evaluationStatus === "fallback" ||
+    trace.nodes.some((node) => node.origin === "controlled_fallback");
+  const title = hasControlledHandoff
+    ? "Planner Trace + Controlled Handoff"
+    : "Autonomous Agent Trace";
+  const goalVerdict = verdict(
+    trace.evaluationStatus,
+    trace.runEvaluation?.goal_success,
+    "goal",
+  );
+  const stopVerdict = verdict(
+    trace.evaluationStatus,
+    trace.runEvaluation?.stop_correct,
+    "stop",
+  );
+
+  return (
+    <section
+      className="workflow-section agent-trace-section"
+      aria-labelledby="agent-trace-heading"
+    >
+      <div className="section-heading-row agent-trace-heading">
+        <div>
+          <span className="section-kicker">
+            {hasControlledHandoff
+              ? "Planner trace and compatibility continuation"
+              : "Plan → Act → Observe → Re-plan"}
+          </span>
+          <h2 id="agent-trace-heading">{title}</h2>
+        </div>
+        <span className="section-count">{trace.nodes.length} trace nodes</span>
+      </div>
+
+      <dl className="agent-trace-verdict-grid">
+        <VerdictCard label="Goal Success" verdictView={goalVerdict} />
+        <VerdictCard label="Stop Correct" verdictView={stopVerdict} />
+      </dl>
+      <p className="agent-trace-evaluation-summary">
+        {trace.runEvaluation?.summary ??
+          evaluationMessage(trace.evaluationStatus, trace.fallbackReason)}
+      </p>
+
+      {hasControlledHandoff && (
+        <div className="agent-trace-handoff" role="status">
+          <GitBranch size={17} aria-hidden="true" />
+          <div>
+            <strong>Controlled compatibility handoff</strong>
+            <p>
+              The Planner handed off
+              {trace.fallbackAfterActionCount !== null
+                ? ` after ${trace.fallbackAfterActionCount} committed actions`
+                : ""}
+              {trace.fallbackStage
+                ? ` during ${formatTraceLabel(trace.fallbackStage)}`
+                : ""}
+              {trace.fallbackReason
+                ? ` because ${formatTraceLabel(trace.fallbackReason)}`
+                : ""}.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <GoalSummary trace={trace} />
+      <QuestionList questions={trace.questions} />
+      <IntegrityIssues issues={trace.integrityIssues} label="Agent trace integrity issue" />
+
+      {trace.nodes.length > 0 ? (
+        <ol className="agent-trace-list">
+          {trace.nodes.map((node, index) =>
+            node.decision?.decision_type === "stop" ? (
+              <StopNode node={node} index={index} state={state} key={node.key} />
+            ) : (
+              <ActionNode node={node} index={index} key={node.key} />
+            ),
+          )}
+        </ol>
+      ) : (
+        <div className="agent-trace-empty">
+          <DatabaseZap size={20} aria-hidden="true" />
+          <p>No autonomous Planner decisions have been recorded yet.</p>
+        </div>
+      )}
+
+      {hasControlledHandoff && (
+        <aside
+          className="agent-trace-handoff-outcome"
+          aria-labelledby="handoff-outcome-heading"
+        >
+          <div>
+            <GitBranch size={16} aria-hidden="true" />
+            <h3 id="handoff-outcome-heading">Controlled handoff outcome</h3>
+          </div>
+          <dl>
+            <div>
+              <dt>Goal status</dt>
+              <dd>
+                {state.goal_status
+                  ? formatTraceLabel(state.goal_status)
+                  : "Not available"}
+              </dd>
+            </div>
+            <div>
+              <dt>Conclusion</dt>
+              <dd>
+                {state.conclusion_level
+                  ? formatTraceLabel(state.conclusion_level)
+                  : "Not available"}
+              </dd>
+            </div>
+            <div>
+              <dt>Stop reason</dt>
+              <dd>
+                {state.stop_reason
+                  ? formatTraceLabel(state.stop_reason)
+                  : "Not available"}
+              </dd>
+            </div>
+            <div>
+              <dt>Remaining gaps</dt>
+              <dd>
+                {state.evidence_gaps && state.evidence_gaps.length > 0
+                  ? state.evidence_gaps.join(", ")
+                  : "None"}
+              </dd>
+            </div>
+          </dl>
+        </aside>
+      )}
+    </section>
+  );
+}
