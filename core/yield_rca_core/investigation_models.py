@@ -79,6 +79,7 @@ class DecisionType(StrEnum):
 
 
 MAX_CROSS_DOMAIN_ACTIONS = 8
+MAX_INITIAL_QUESTIONS = 5
 
 
 def _non_empty(value: str, name: str) -> None:
@@ -177,6 +178,29 @@ class InvestigationGoal:
             "max_steps": self.max_steps,
             "max_tool_calls": self.max_tool_calls,
         }
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        payload = _strict_object(
+            data,
+            required={"goal_id", "intent", "summary"},
+            optional={
+                "known_facts",
+                "required_evidence",
+                "max_steps",
+                "max_tool_calls",
+            },
+            name="InvestigationGoal",
+        )
+        return cls(
+            goal_id=payload["goal_id"],
+            intent=payload["intent"],
+            summary=payload["summary"],
+            known_facts=payload.get("known_facts", {}),
+            required_evidence=payload.get("required_evidence", []),
+            max_steps=payload.get("max_steps", MAX_CROSS_DOMAIN_ACTIONS),
+            max_tool_calls=payload.get("max_tool_calls", 20),
+        )
 
 
 @dataclass(frozen=True)
@@ -371,6 +395,65 @@ class InvestigationQuestion:
             answer=payload.get("answer"),
             evidence_ids=payload.get("evidence_ids", []),
             unavailable_reason=payload.get("unavailable_reason"),
+        )
+
+
+@dataclass(frozen=True)
+class IntentPlan:
+    """The bounded Goal and initial evidence questions produced from user intent."""
+
+    goal: InvestigationGoal
+    questions: list[InvestigationQuestion]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.goal, InvestigationGoal):
+            raise InvestigationValidationError("goal must be an InvestigationGoal")
+        if not isinstance(self.questions, list) or not self.questions:
+            raise InvestigationValidationError("questions must be a non-empty list")
+        if len(self.questions) > MAX_INITIAL_QUESTIONS:
+            raise InvestigationValidationError(
+                f"questions must not exceed {MAX_INITIAL_QUESTIONS} items"
+            )
+        question_ids: list[str] = []
+        for question in self.questions:
+            if not isinstance(question, InvestigationQuestion):
+                raise InvestigationValidationError(
+                    "questions must contain InvestigationQuestion instances"
+                )
+            if question.goal_id != self.goal.goal_id:
+                raise InvestigationValidationError(
+                    "intent questions must reference the planned goal"
+                )
+            if question.status != EvidenceGapStatus.OPEN.value:
+                raise InvestigationValidationError(
+                    "initial intent questions must start open"
+                )
+            question_ids.append(question.question_id)
+        if len(question_ids) != len(set(question_ids)):
+            raise InvestigationValidationError("questions must not contain duplicate ids")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "goal": self.goal.to_dict(),
+            "questions": [question.to_dict() for question in self.questions],
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        payload = _strict_object(
+            data,
+            required={"goal", "questions"},
+            optional=set(),
+            name="IntentPlan",
+        )
+        raw_questions = payload["questions"]
+        if not isinstance(raw_questions, list):
+            raise InvestigationValidationError("questions must be a list")
+        return cls(
+            goal=InvestigationGoal.from_dict(payload["goal"]),
+            questions=[
+                InvestigationQuestion.from_dict(question) for question in raw_questions
+            ],
         )
 
 

@@ -12,11 +12,14 @@ from yield_rca_core.evidence_models import (
 )
 from yield_rca_core.hypothesis_engine import HypothesisEngine
 from yield_rca_core.improvement_agent import ImprovementAgent
+from yield_rca_core.intent_planner import QwenIntentPlanner, QwenIntentPlannerError
 from yield_rca_core.investigation_models import (
     MAX_CROSS_DOMAIN_ACTIONS,
+    MAX_INITIAL_QUESTIONS,
     DecisionEvaluation,
     DecisionType,
     EvidenceGapStatus,
+    IntentPlan,
     InvestigationAction,
     InvestigationGoal,
     InvestigationIntent,
@@ -149,6 +152,7 @@ __all__ = [
     "HypothesisEngine",
     "HypothesisStatus",
     "ImprovementAgent",
+    "IntentPlan",
     "InvestigationAction",
     "InvestigationGoal",
     "InvestigationIntent",
@@ -167,6 +171,7 @@ __all__ = [
     "LLMUsageEvent",
     "LegacyEvidenceAdapter",
     "MAX_CROSS_DOMAIN_ACTIONS",
+    "MAX_INITIAL_QUESTIONS",
     "MESAgent",
     "MemoryApproval",
     "MemoryCandidate",
@@ -178,6 +183,8 @@ __all__ = [
     "PerformBasicSpcAnalysisTool",
     "PostgresFabRepository",
     "PurePythonRCAWorkflow",
+    "QwenIntentPlanner",
+    "QwenIntentPlannerError",
     "RCAJob",
     "RCAReasoningAgent",
     "RCAState",

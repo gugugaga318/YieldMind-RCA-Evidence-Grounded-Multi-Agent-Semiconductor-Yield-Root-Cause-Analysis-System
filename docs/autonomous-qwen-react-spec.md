@@ -5,7 +5,7 @@
 - Target branch: `feature/autonomous-qwen-react`
 - Model provider: DashScope
 - Model: `qwen-plus`
-- Current implementation stage: Batch 20.9.1 contracts
+- Current implementation stage: Batch 20.9.2 Qwen Intent Planner
 
 ## Goal
 
@@ -25,8 +25,25 @@ The final system will expose three explicit modes:
 - `llm_react`: let Qwen choose the next registered action or stop after each
   observation.
 
-`llm_react` is not enabled by Batch 20.9.1. It becomes selectable only after
+`llm_react` is not enabled by Batch 20.9.2. It becomes selectable only after
 its runtime path and fallback behavior are implemented.
+
+## Intent Planner
+
+`QwenIntentPlanner` converts the user request into one `IntentPlan` containing:
+
+- One immutable `InvestigationGoal`.
+- Between one and five initial open `InvestigationQuestion` objects.
+
+Python fixes the Goal ID, explicit Lot ID, maximum action budget, and Tool-call
+budget. Qwen may interpret the requested intent and add facts stated directly
+by the user, but it cannot assert a root cause, affected Lots, impact Lots, or
+a hypothesis during intent planning.
+
+Invalid structured output is sent back to Qwen once as validation feedback. A
+second invalid output raises a typed error carrying
+`fallback_mode=controlled_react`. Batch 20.9.3 will connect that signal to the
+runtime fallback path.
 
 ## Authority Boundary
 
