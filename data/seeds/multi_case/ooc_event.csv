@@ -1,0 +1,2 @@
+feature_id,equipment_id,chamber_id,operation_no,parameter_name,alarm_type,severity,triggered_at,description
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,CONTROL_LIMIT,HIGH,2026-07-06T05:14:00+00:00,LOT_A_015: slurry flow crossed the control limit on CMP_CU03_CH02

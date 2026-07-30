@@ -1,0 +1,31 @@
+operation_no,operation_name,module,process_area,material,canonical_equipment_type,is_critical
+1000,Pre STI Wet Clean,Wet Clean,FEOL,,WET,true
+1100,Pad Oxide Diffusion,Diffusion,FEOL,Oxide,DIFFUSION,true
+1200,STI Nitride Deposition,Thin Film,FEOL,Nitride,CVD,true
+1300,STI Lithography,STI Litho,FEOL,,LITHO,true
+1400,STI Etch,STI Etch,FEOL,Oxide,ETCH,true
+1450,STI Oxide Fill,Thin Film,FEOL,Oxide,CVD,true
+1500,STI CMP,STI CMP,FEOL,Oxide,CMP,true
+1510,Post STI CMP Wet Clean,Wet Clean,FEOL,,WET,true
+5000,ILD Deposition,Thin Film,MOL,Oxide,CVD,true
+5100,ILD CMP,ILD CMP,MOL,Oxide,CMP,true
+5110,Post ILD CMP Wet Clean,Wet Clean,MOL,,WET,true
+5200,Contact Lithography,Contact Litho,MOL,,LITHO,true
+5210,Contact Etch,Contact Etch,MOL,Oxide,ETCH,true
+5220,Pre W Wet Clean,Wet Clean,MOL,,WET,true
+5230,Barrier Liner Deposition,Barrier Liner,MOL,Ti/TiN,PVD,true
+5240,W CVD Fill,Thin Film,MOL,Tungsten,CVD,true
+5300,W Plug CMP,W CMP,MOL,Tungsten,CMP,true
+5310,Post W CMP Wet Clean,Wet Clean,MOL,,WET,true
+6000,Low-k IMD Deposition,Thin Film,BEOL,Low-k,CVD,true
+6100,IMD CMP,IMD CMP,BEOL,Low-k,CMP,true
+6110,Post IMD CMP Wet Clean,Wet Clean,BEOL,,WET,true
+6200,Cu Lithography,Cu Litho,BEOL,,LITHO,true
+6210,Cu Trench Etch,Cu Etch,BEOL,Low-k,ETCH,true
+6220,Pre Cu Wet Clean,Wet Clean,BEOL,,WET,true
+6230,Barrier Seed Deposition,Barrier Seed,BEOL,Ta/Cu,PVD,true
+6240,Cu ECP Fill,Cu Plating,BEOL,Copper,ECP,true
+6400,Cu CMP,Cu CMP,BEOL,Copper,CMP,true
+6410,Post Cu CMP Wet Clean,Wet Clean,BEOL,,WET,true
+6500,Post Cu CMP Inspection,Defect Inspection,BEOL,,KLA,true
+9000,WAT,WAT,TEST,,TEST,true

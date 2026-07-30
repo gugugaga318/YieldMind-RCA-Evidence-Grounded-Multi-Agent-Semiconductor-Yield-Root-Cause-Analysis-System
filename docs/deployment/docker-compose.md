@@ -1,0 +1,169 @@
+# Step 15 Docker Compose Deployment
+
+## Scope
+
+Step 15 provides a reproducible local deployment for PostgreSQL, FastAPI, and
+the built React dashboard. Step 16 adds local observability and audit
+foundations, but not production orchestration, automatic Synthetic Fab
+generation, or authentication.
+
+The service boundary is:
+
+```text
+Browser
+  -> Nginx / React
+  -> /api reverse proxy
+  -> FastAPI
+  -> PostgreSQL
+```
+
+Synthetic data remains an offline input:
+
+```text
+offline generator (host command, optional)
+  -> data/seeds/<dataset>
+  -> explicit Compose seed command
+  -> PostgreSQL
+```
+
+Neither `docker compose up` nor FastAPI startup runs a generator, migration, or
+seed operation.
+
+## Prerequisites
+
+- Docker Engine with Docker Compose v2 or later
+- Ports 8000 and 5173 available, or alternate ports configured in `.env`
+- Existing seed files under `data/seeds/golden_case` or `data/seeds/multi_case`
+
+## Configure
+
+From the repository root:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Edit `.env` and replace `POSTGRES_PASSWORD`. Use a URL-safe local password
+because the same value is embedded in the PostgreSQL connection URL. Do not
+commit `.env`.
+
+Select `YIELD_RCA_AGENT_MODE=deterministic`, `fake`, or `llm`. Real Qwen mode
+requires `DASHSCOPE_API_KEY`; this secret is passed at runtime and is not a
+Docker build argument.
+
+Select the imported dataset with:
+
+```text
+YIELD_RCA_DATASET=multi_case
+```
+
+Supported bundled values are `golden_case`, `multi_case`, and `spc_case`.
+
+## Initialize Data Explicitly
+
+The `seed` service is behind the `tools` profile and is never part of normal
+runtime startup. Run it explicitly before the first RCA query:
+
+```powershell
+docker compose up -d db
+docker compose --profile tools run --rm seed
+```
+
+The seed command applies the current schema migration with `--reset-schema`
+and imports the selected existing CSV files. Re-running it deletes and
+recreates the application schema, so it is intended only for the local demo
+database.
+
+This reset also deletes Step 19 memory candidates and engineer approvals. A
+deployed environment must apply forward migrations without using the demo seed
+reset when approval history must be retained.
+
+Migration `005_runtime_resilience` adds durable `rca_job_state` storage. In
+PostgreSQL mode, job state and reports therefore survive backend restarts and
+are shared by multiple API workers. The backend readiness probe checks this
+migration and its required runtime tables before accepting traffic.
+
+Generating or regenerating datasets remains a separate host-side operation:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\generate_synthetic_multi_case_data.py
+```
+
+For the advanced SPC evidence demo, run
+`scripts\generate_synthetic_spc_data.py` and select `YIELD_RCA_DATASET=spc_case`.
+
+Generation is never invoked by Compose, Nginx, FastAPI, or React.
+
+## Start Runtime Services
+
+Build and start the runtime after seeding:
+
+```powershell
+docker compose up --build -d backend frontend
+docker compose ps
+```
+
+Open:
+
+```text
+Dashboard: http://127.0.0.1:5173
+API docs:  http://127.0.0.1:8000/docs
+Health:    http://127.0.0.1:8000/health
+Metrics:   http://127.0.0.1:8000/metrics
+```
+
+The browser calls `/api`; Nginx removes that prefix and forwards the request to
+the internal `backend:8000` service. React does not connect directly to
+PostgreSQL or execute RCA logic.
+
+PostgreSQL is intentionally not published on a host port. Backend and seed
+containers reach it through the private Compose network at `db:5432`, avoiding
+conflicts with an existing PostgreSQL installation on the host.
+
+## Operate and Stop
+
+Inspect service output:
+
+```powershell
+docker compose logs -f backend frontend db
+```
+
+Stop services while preserving PostgreSQL data:
+
+```powershell
+docker compose down
+```
+
+Delete the local database volume only when a complete reset is intended:
+
+```powershell
+docker compose down --volumes
+```
+
+## Image Boundaries
+
+`docker/backend.Dockerfile` has separate targets:
+
+- `runtime` contains the installed Core and FastAPI packages only.
+- `seed` additionally contains the migration, seed importer, and existing seed
+  files.
+
+The runtime image does not contain the Synthetic Fab generator or seed script.
+The frontend image is a static Nginx image produced by a separate Node build
+stage.
+
+## Current Limitations
+
+- RCA jobs remain in Backend process memory and are lost on restart.
+- Memory candidates and approvals are durable only in PostgreSQL mode; CSV mode
+  uses a process-local demonstration store.
+- Engineer identity is request data until the Security and Permissions phase
+  connects approval to authenticated identity and role mapping.
+- Compose runs one synchronous Backend process.
+- The health check verifies the HTTP process, not a full RCA transaction.
+- Credentials use local `.env` configuration rather than a secret manager.
+- Ports bind only to `127.0.0.1`; shared deployment requires an authenticated
+  ingress and the later security step.
+- The current observability layer is a local foundation. External metric/log
+  backends, alert rules, backups, TLS, resource limits, and rolling upgrades
+  remain production extensions.

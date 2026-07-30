@@ -1,0 +1,2 @@
+case_id,title,technology,module,equipment_type,symptom,root_cause,solution,confidence,created_at
+RCA_CMP_2025_032,Cu CMP slurry delivery degradation caused scratch and leakage fail,40nm,Cu CMP,CMP,"Scratch defect increase, endpoint time shift, leakage fail increase",Slurry pump degradation reduced slurry flow on Cu CMP chamber,"Inspect slurry pump, replace filter, calibrate flow controller, run qual wafers",0.91,2025-09-12T00:00:00+00:00

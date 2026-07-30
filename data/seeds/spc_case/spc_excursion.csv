@@ -1,0 +1,2 @@
+excursion_id,baseline_id,product_id,operation_no,equipment_id,chamber_id,recipe_id,recipe_version,parameter_name,excursion_start,triggered_at,excursion_end,description
+SPC_EXCURSION_CU_001,SPC_BASE_CU_SLURRY_IMR_V1,40N_SOC,6400,CMP_CU03,CMP_CU03_CH02,CU_CMP_40N,R18,slurry_flow,2026-07-05T04:50:00+00:00,2026-07-06T05:14:00+00:00,2026-07-06T13:14:00+00:00,Cu CMP slurry-flow SPC excursion from the first sustained shift through the trigger Lot and chamber qualification.

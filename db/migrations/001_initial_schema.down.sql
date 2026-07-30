@@ -1,0 +1,40 @@
+-- Roll back the initial PostgreSQL schema for the Semiconductor Yield RCA MVP.
+
+DROP INDEX IF EXISTS idx_knowledge_document_tags;
+DROP INDEX IF EXISTS idx_knowledge_document_case;
+DROP INDEX IF EXISTS idx_rca_case_module_symptom;
+DROP INDEX IF EXISTS idx_wat_result_lot_fail_mode;
+DROP INDEX IF EXISTS idx_metrology_result_wafer_operation;
+DROP INDEX IF EXISTS idx_metrology_result_lot_metric;
+DROP INDEX IF EXISTS idx_defect_summary_lot_type;
+DROP INDEX IF EXISTS idx_ooc_event_equipment_time;
+DROP INDEX IF EXISTS idx_fdc_feature_lot_operation;
+DROP INDEX IF EXISTS idx_fdc_feature_equipment_parameter;
+DROP INDEX IF EXISTS idx_hold_history_lot_created;
+DROP INDEX IF EXISTS idx_recipe_history_lot_operation;
+DROP INDEX IF EXISTS idx_process_history_recipe;
+DROP INDEX IF EXISTS idx_process_history_equipment_chamber;
+DROP INDEX IF EXISTS idx_process_history_lot_operation;
+DROP INDEX IF EXISTS idx_process_route_product_sequence;
+DROP INDEX IF EXISTS idx_wafer_master_lot;
+DROP INDEX IF EXISTS idx_lot_master_product_time;
+
+DROP TABLE IF EXISTS knowledge_document;
+DROP TABLE IF EXISTS rca_case;
+DROP TABLE IF EXISTS wat_result;
+DROP TABLE IF EXISTS metrology_result;
+DROP TABLE IF EXISTS defect_summary;
+DROP TABLE IF EXISTS ooc_event;
+DROP TABLE IF EXISTS fdc_feature;
+DROP TABLE IF EXISTS hold_history;
+DROP TABLE IF EXISTS process_history;
+DROP TABLE IF EXISTS recipe_history;
+DROP TABLE IF EXISTS recipe_master;
+DROP TABLE IF EXISTS equipment_capability;
+DROP TABLE IF EXISTS chamber_master;
+DROP TABLE IF EXISTS equipment_master;
+DROP TABLE IF EXISTS process_route;
+DROP TABLE IF EXISTS operation_master;
+DROP TABLE IF EXISTS wafer_master;
+DROP TABLE IF EXISTS lot_master;
+DROP TABLE IF EXISTS schema_migrations;

@@ -1,0 +1,6 @@
+excursion_id,lot_id,scope_role,hold_id,selection_reason,linked_at
+SPC_EXCURSION_CU_001,LOT_A_011,IMPACT,HOLD_CU_IMPACT_011,Same operation/equipment/chamber/recipe within the SPC excursion window,2026-07-06T05:16:00+00:00
+SPC_EXCURSION_CU_001,LOT_A_012,IMPACT,HOLD_CU_IMPACT_012,Same operation/equipment/chamber/recipe within the SPC excursion window,2026-07-06T05:17:00+00:00
+SPC_EXCURSION_CU_001,LOT_A_013,IMPACT,HOLD_CU_IMPACT_013,Same operation/equipment/chamber/recipe within the SPC excursion window,2026-07-06T05:18:00+00:00
+SPC_EXCURSION_CU_001,LOT_A_014,IMPACT,HOLD_CU_IMPACT_014,Same operation/equipment/chamber/recipe within the SPC excursion window,2026-07-06T05:19:00+00:00
+SPC_EXCURSION_CU_001,LOT_A_015,TRIGGER,HOLD_CU_OOC_001,Lot containing the SPC OOC trigger measurement,2026-07-06T05:15:00+00:00

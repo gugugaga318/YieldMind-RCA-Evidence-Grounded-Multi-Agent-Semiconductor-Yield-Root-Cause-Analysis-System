@@ -1,0 +1,112 @@
+{
+  "affected_chamber": "CMP_CU03_CH02",
+  "affected_equipment": "CMP_CU03",
+  "affected_lots": [
+    "LOT_A_001",
+    "LOT_A_002",
+    "LOT_A_003",
+    "LOT_A_004",
+    "LOT_A_005",
+    "LOT_A_006",
+    "LOT_A_007",
+    "LOT_A_008",
+    "LOT_A_009",
+    "LOT_A_010",
+    "LOT_A_011",
+    "LOT_A_012",
+    "LOT_A_013",
+    "LOT_A_014",
+    "LOT_A_015",
+    "LOT_A_016",
+    "LOT_A_017",
+    "LOT_A_018",
+    "LOT_A_019",
+    "LOT_A_020"
+  ],
+  "affected_operation": "6400",
+  "expected_confidence_range": [
+    0.85,
+    0.95
+  ],
+  "expected_evidence": [
+    {
+      "evidence_id": "EV_MES_COMMON_CHAMBER",
+      "source_table": "process_history",
+      "summary": "Affected lots concentrate on operation 6400 Cu CMP and CMP_CU03_CH02."
+    },
+    {
+      "evidence_id": "EV_FDC_SLURRY_FLOW",
+      "source_table": "fdc_feature",
+      "summary": "Affected lots show slurry_flow observed around 132 ml/min vs 150 baseline."
+    },
+    {
+      "evidence_id": "EV_FDC_ENDPOINT_TIME",
+      "source_table": "fdc_feature",
+      "summary": "Affected lots show endpoint_time increase around 105 s vs 90 s baseline."
+    },
+    {
+      "evidence_id": "EV_OOC_EVENTS",
+      "source_table": "ooc_event",
+      "summary": "High-severity OOC events exist on CMP_CU03_CH02."
+    },
+    {
+      "evidence_id": "EV_HOLD_COMMENT",
+      "source_table": "hold_history",
+      "summary": "Hold comments mention scratch, leakage, and CMP_CU03_CH02 slurry delivery."
+    },
+    {
+      "evidence_id": "EV_DEFECT_SCRATCH",
+      "source_table": "defect_summary",
+      "summary": "Affected lots show scratch defect increase with edge dominant pattern."
+    },
+    {
+      "evidence_id": "EV_WAT_LEAKAGE",
+      "source_table": "wat_result",
+      "summary": "Affected lots show leakage fail increase."
+    },
+    {
+      "evidence_id": "EV_KNOWLEDGE_MATCH",
+      "source_table": "rca_case",
+      "summary": "Historical RCA case matches Cu CMP slurry delivery degradation."
+    }
+  ],
+  "normal_lots": [
+    "LOT_N_001",
+    "LOT_N_002",
+    "LOT_N_003",
+    "LOT_N_004",
+    "LOT_N_005",
+    "LOT_N_006",
+    "LOT_N_007",
+    "LOT_N_008",
+    "LOT_N_009",
+    "LOT_N_010",
+    "LOT_N_011",
+    "LOT_N_012",
+    "LOT_N_013",
+    "LOT_N_014",
+    "LOT_N_015",
+    "LOT_N_016",
+    "LOT_N_017",
+    "LOT_N_018",
+    "LOT_N_019",
+    "LOT_N_020",
+    "LOT_N_021",
+    "LOT_N_022",
+    "LOT_N_023",
+    "LOT_N_024",
+    "LOT_N_025",
+    "LOT_N_026",
+    "LOT_N_027",
+    "LOT_N_028",
+    "LOT_N_029",
+    "LOT_N_030"
+  ],
+  "product_id": "40N_SOC",
+  "root_cause": "CMP_CU03_CH02 slurry delivery degradation",
+  "seed": 20260716,
+  "time_window": {
+    "end": "2026-07-31",
+    "start": "2026-07-01"
+  }
+}

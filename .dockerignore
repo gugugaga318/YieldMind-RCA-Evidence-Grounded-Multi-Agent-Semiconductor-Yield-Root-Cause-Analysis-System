@@ -1,0 +1,17 @@
+.git
+.agents
+.codex
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.pnpm-store
+**/__pycache__
+**/*.pyc
+frontend/node_modules
+frontend/dist
+outputs
+work
+*.egg-info
+.env
+

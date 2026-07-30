@@ -1,0 +1,6 @@
+lot_id,wafer_id,inspection_operation_no,defect_type,defect_count,defect_density,pattern_type,location_region,inspected_at
+LOT_A_012,LOT_A_012_W13,6500,cu_residue,86,0.34,center_cluster,center,2026-07-05T14:02:00+00:00
+LOT_A_013,LOT_A_013_W13,6500,cu_residue,86,0.34,center_cluster,center,2026-07-05T20:02:00+00:00
+LOT_A_014,LOT_A_014_W13,6500,cu_residue,86,0.34,center_cluster,center,2026-07-06T02:02:00+00:00
+LOT_A_015,LOT_A_015_W13,6500,cu_residue,86,0.34,center_cluster,center,2026-07-06T08:02:00+00:00
+LOT_A_038,LOT_A_038_W07,6500,scratch,1,0.004,isolated,single_site,2026-07-12T01:56:00+00:00

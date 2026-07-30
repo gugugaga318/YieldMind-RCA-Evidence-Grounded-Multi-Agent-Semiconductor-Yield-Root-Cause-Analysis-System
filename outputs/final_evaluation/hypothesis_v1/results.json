@@ -1,0 +1,2028 @@
+{
+  "acceptance": {
+    "confidence_calibration_ece": true,
+    "end_to_end_latency_p95": true,
+    "evidence_traceability_rate": true,
+    "false_positive_rate": true,
+    "hallucinated_citation_rate": true,
+    "inconclusive_handling_rate": true,
+    "scenario_pass_rate": true,
+    "scope_accuracy": true,
+    "tool_latency_p95": true,
+    "top1_root_cause_accuracy": true,
+    "top3_recall": true,
+    "warning_requirement_rate": true
+  },
+  "metrics": {
+    "citation_count": 2381,
+    "confidence_calibration": {
+      "brier_score": 0.0025,
+      "ece": 0.05,
+      "sample_count": 3
+    },
+    "end_to_end_latency_ms": {
+      "count": 10,
+      "max": 589.885,
+      "mean": 380.207,
+      "p50": 316.956,
+      "p95": 589.885
+    },
+    "evidence_traceability_rate": 1.0,
+    "false_positive_rate": 0.0,
+    "hallucinated_citation_count": 0,
+    "hallucinated_citation_rate": 0.0,
+    "inconclusive_accuracy": 1.0,
+    "inconclusive_handling_rate": 1.0,
+    "mean_duration_ms": 380.207,
+    "scenario_count": 10,
+    "scenario_pass_rate": 1.0,
+    "scope_accuracy": 1.0,
+    "supported_top1_accuracy": 1.0,
+    "tool_latency_by_name_ms": {
+      "analyze_lot_genealogy": {
+        "count": 10,
+        "max": 28.217,
+        "mean": 22.158,
+        "p50": 21.358,
+        "p95": 28.217
+      },
+      "analyze_parameter_shift": {
+        "count": 10,
+        "max": 6.548,
+        "mean": 3.413,
+        "p50": 2.423,
+        "p95": 6.548
+      },
+      "find_impact_lots": {
+        "count": 10,
+        "max": 64.732,
+        "mean": 35.796,
+        "p50": 23.778,
+        "p95": 64.732
+      },
+      "find_ooc_events": {
+        "count": 10,
+        "max": 0.214,
+        "mean": 0.089,
+        "p50": 0.073,
+        "p95": 0.214
+      },
+      "get_lot_context": {
+        "count": 10,
+        "max": 436.245,
+        "mean": 280.072,
+        "p50": 246.759,
+        "p95": 436.245
+      },
+      "perform_basic_spc_analysis": {
+        "count": 10,
+        "max": 10.154,
+        "mean": 5.671,
+        "p50": 4.329,
+        "p95": 10.154
+      },
+      "retrieve_similar_case": {
+        "count": 20,
+        "max": 0.558,
+        "mean": 0.162,
+        "p50": 0.14,
+        "p95": 0.287
+      },
+      "summarize_defect_wat": {
+        "count": 10,
+        "max": 1.022,
+        "mean": 0.702,
+        "p50": 0.66,
+        "p95": 1.022
+      }
+    },
+    "tool_latency_ms": {
+      "count": 90,
+      "max": 436.245,
+      "mean": 38.692,
+      "p50": 2.156,
+      "p95": 248.125
+    },
+    "top1_root_cause_accuracy": 1.0,
+    "top3_recall": 1.0,
+    "warning_requirement_rate": 1.0
+  },
+  "passed": true,
+  "results": [
+    {
+      "actual_root_cause": "CMP_CU03_CH02 slurry delivery degradation",
+      "actual_status": "supported",
+      "checks": {
+        "confidence": true,
+        "impact_lots": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "top3": true,
+        "traceability": true
+      },
+      "citation_count": 224,
+      "confidence": 0.95,
+      "duration_ms": 589.885,
+      "evidence_ids": [
+        "EV_DEFECT_CU_RESIDUE",
+        "EV_FDC_ENDPOINT_TIME",
+        "EV_FDC_ESTIMATED_REMOVAL_RATE",
+        "EV_FDC_EXCURSION_WINDOW",
+        "EV_FDC_SLURRY_FLOW",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_OOC_EVENTS",
+        "EV_SPC_ENDPOINT_TIME",
+        "EV_SPC_ESTIMATED_REMOVAL_RATE",
+        "EV_SPC_SLURRY_FLOW",
+        "EV_WAT_LEAKAGE_SHORT",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "CMP_CU03_CH02 slurry delivery degradation",
+      "expected_status": "supported",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.99,
+      "impact_lots": [
+        "LOT_A_011",
+        "LOT_A_012",
+        "LOT_A_013",
+        "LOT_A_014"
+      ],
+      "impact_wafers": [
+        "LOT_A_011_W01",
+        "LOT_A_011_W02",
+        "LOT_A_011_W03",
+        "LOT_A_011_W04",
+        "LOT_A_011_W05",
+        "LOT_A_011_W06",
+        "LOT_A_011_W07",
+        "LOT_A_011_W08",
+        "LOT_A_011_W09",
+        "LOT_A_011_W10",
+        "LOT_A_011_W11",
+        "LOT_A_011_W12",
+        "LOT_A_011_W13",
+        "LOT_A_011_W14",
+        "LOT_A_011_W15",
+        "LOT_A_011_W16",
+        "LOT_A_011_W17",
+        "LOT_A_011_W18",
+        "LOT_A_011_W19",
+        "LOT_A_011_W20",
+        "LOT_A_011_W21",
+        "LOT_A_011_W22",
+        "LOT_A_011_W23",
+        "LOT_A_011_W24",
+        "LOT_A_011_W25",
+        "LOT_A_012_W01",
+        "LOT_A_012_W02",
+        "LOT_A_012_W03",
+        "LOT_A_012_W04",
+        "LOT_A_012_W05",
+        "LOT_A_012_W06",
+        "LOT_A_012_W07",
+        "LOT_A_012_W08",
+        "LOT_A_012_W09",
+        "LOT_A_012_W10",
+        "LOT_A_012_W11",
+        "LOT_A_012_W12",
+        "LOT_A_012_W13",
+        "LOT_A_012_W14",
+        "LOT_A_012_W15",
+        "LOT_A_012_W16",
+        "LOT_A_012_W17",
+        "LOT_A_012_W18",
+        "LOT_A_012_W19",
+        "LOT_A_012_W20",
+        "LOT_A_012_W21",
+        "LOT_A_012_W22",
+        "LOT_A_012_W23",
+        "LOT_A_012_W24",
+        "LOT_A_012_W25",
+        "LOT_A_013_W01",
+        "LOT_A_013_W02",
+        "LOT_A_013_W03",
+        "LOT_A_013_W04",
+        "LOT_A_013_W05",
+        "LOT_A_013_W06",
+        "LOT_A_013_W07",
+        "LOT_A_013_W08",
+        "LOT_A_013_W09",
+        "LOT_A_013_W10",
+        "LOT_A_013_W11",
+        "LOT_A_013_W12",
+        "LOT_A_013_W13",
+        "LOT_A_013_W14",
+        "LOT_A_013_W15",
+        "LOT_A_013_W16",
+        "LOT_A_013_W17",
+        "LOT_A_013_W18",
+        "LOT_A_013_W19",
+        "LOT_A_013_W20",
+        "LOT_A_013_W21",
+        "LOT_A_013_W22",
+        "LOT_A_013_W23",
+        "LOT_A_013_W24",
+        "LOT_A_013_W25",
+        "LOT_A_014_W01",
+        "LOT_A_014_W02",
+        "LOT_A_014_W03",
+        "LOT_A_014_W04",
+        "LOT_A_014_W05",
+        "LOT_A_014_W06",
+        "LOT_A_014_W07",
+        "LOT_A_014_W08",
+        "LOT_A_014_W09",
+        "LOT_A_014_W10",
+        "LOT_A_014_W11",
+        "LOT_A_014_W12",
+        "LOT_A_014_W13",
+        "LOT_A_014_W14",
+        "LOT_A_014_W15",
+        "LOT_A_014_W16",
+        "LOT_A_014_W17",
+        "LOT_A_014_W18",
+        "LOT_A_014_W19",
+        "LOT_A_014_W20",
+        "LOT_A_014_W21",
+        "LOT_A_014_W22",
+        "LOT_A_014_W23",
+        "LOT_A_014_W24",
+        "LOT_A_014_W25"
+      ],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD",
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_ESTIMATED_REMOVAL_RATE",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_OOC_EVENTS",
+            "EV_SPC_ENDPOINT_TIME",
+            "EV_SPC_ESTIMATED_REMOVAL_RATE",
+            "EV_SPC_SLURRY_FLOW",
+            "EV_DEFECT_CU_RESIDUE",
+            "EV_WAT_LEAKAGE_SHORT",
+            "EV_KNOWLEDGE_VALIDATION_MATCH"
+          ],
+          "root_cause": "CMP_CU03_CH02 slurry delivery degradation",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.736
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Transient particle or handling event; exact source was not confirmed",
+          "score": 0.736
+        }
+      ],
+      "ranked_root_causes": [
+        "CMP_CU03_CH02 slurry delivery degradation",
+        "CVD_ILD_01_CH02 deposition rate excursion",
+        "Transient particle or handling event; exact source was not confirmed"
+      ],
+      "required_warning_ids": [],
+      "scenario_id": "EVAL_CMP_SLURRY_DECLINE",
+      "title": "CMP slurry flow decline with yield impact",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 436.245,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_CMP_SLURRY_DECLINE:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 64.732,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_CMP_SLURRY_DECLINE:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 24.684,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_CMP_SLURRY_DECLINE:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 6.355,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_CMP_SLURRY_DECLINE:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.214,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_CMP_SLURRY_DECLINE:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 9.795,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_CMP_SLURRY_DECLINE:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 0.76,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_CMP_SLURRY_DECLINE:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.558,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_CMP_SLURRY_DECLINE:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.12,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_CMP_SLURRY_DECLINE:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": []
+    },
+    {
+      "actual_root_cause": "CU_CMP_40N R19 recipe version change",
+      "actual_status": "supported",
+      "checks": {
+        "confidence": true,
+        "impact_lots": true,
+        "impact_wafers": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "top3": true,
+        "traceability": true
+      },
+      "citation_count": 223,
+      "confidence": 0.95,
+      "duration_ms": 463.727,
+      "evidence_ids": [
+        "EV_DEFECT_SCRATCH",
+        "EV_FDC_ENDPOINT_TIME",
+        "EV_FDC_ESTIMATED_REMOVAL_RATE",
+        "EV_FDC_SLURRY_FLOW",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_RECIPE_CHANGE",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_OOC_EVENTS",
+        "EV_SPC_ENDPOINT_TIME",
+        "EV_SPC_ESTIMATED_REMOVAL_RATE",
+        "EV_SPC_SLURRY_FLOW",
+        "EV_WAT_LEAKAGE_SHORT",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "CU_CMP_40N R19 recipe version change",
+      "expected_status": "supported",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.99,
+      "impact_lots": [],
+      "impact_wafers": [],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "recipe_change",
+          "evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_MES_RECIPE_CHANGE",
+            "EV_MES_IMPACT_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD",
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_ESTIMATED_REMOVAL_RATE",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_OOC_EVENTS",
+            "EV_SPC_ENDPOINT_TIME",
+            "EV_SPC_ESTIMATED_REMOVAL_RATE",
+            "EV_SPC_SLURRY_FLOW",
+            "EV_DEFECT_SCRATCH",
+            "EV_WAT_LEAKAGE_SHORT",
+            "EV_KNOWLEDGE_MATCH",
+            "EV_KNOWLEDGE_VALIDATION_MATCH"
+          ],
+          "root_cause": "CU_CMP_40N R19 recipe version change",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Slurry delivery degradation reduced Cu CMP removal rate",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.736
+        }
+      ],
+      "ranked_root_causes": [
+        "CU_CMP_40N R19 recipe version change",
+        "Slurry delivery degradation reduced Cu CMP removal rate",
+        "CVD_ILD_01_CH02 deposition rate excursion"
+      ],
+      "required_warning_ids": [],
+      "scenario_id": "EVAL_RECIPE_VERSION_CHANGE",
+      "title": "Recipe version change with physical and electrical impact",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 390.491,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_RECIPE_VERSION_CHANGE:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 25.011,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_RECIPE_VERSION_CHANGE:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 22.278,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_RECIPE_VERSION_CHANGE:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 1.967,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_RECIPE_VERSION_CHANGE:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.071,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_RECIPE_VERSION_CHANGE:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 4.242,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_RECIPE_VERSION_CHANGE:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 0.703,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_RECIPE_VERSION_CHANGE:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.157,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_RECIPE_VERSION_CHANGE:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.129,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_RECIPE_VERSION_CHANGE:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": [
+        "WARN_FDC_NO_OOC_EVENTS",
+        "WARN_IMPACT_SCOPE_NO_OOC_WINDOW"
+      ]
+    },
+    {
+      "actual_root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+      "actual_status": "supported",
+      "checks": {
+        "confidence": true,
+        "impact_lots": true,
+        "impact_wafers": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "top3": true,
+        "traceability": true
+      },
+      "citation_count": 204,
+      "confidence": 0.95,
+      "duration_ms": 388.209,
+      "evidence_ids": [
+        "EV_FDC_CMP_NORMAL_EXCLUSION",
+        "EV_FDC_DEPOSITION_RATE",
+        "EV_FDC_FILM_THICKNESS",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_METROLOGY_POST_CMP_MEAN_THICKNESS",
+        "EV_METROLOGY_PRE_CMP_MEAN_THICKNESS",
+        "EV_OOC_EVENTS",
+        "EV_SPC_DEPOSITION_RATE",
+        "EV_SPC_FILM_THICKNESS",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+      "expected_status": "supported",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.99,
+      "impact_lots": [],
+      "impact_wafers": [
+        "LOT_A_063_W02",
+        "LOT_A_063_W04",
+        "LOT_A_063_W06",
+        "LOT_A_063_W08",
+        "LOT_A_063_W10",
+        "LOT_A_063_W12",
+        "LOT_A_063_W14",
+        "LOT_A_063_W16",
+        "LOT_A_063_W18",
+        "LOT_A_063_W20",
+        "LOT_A_063_W22",
+        "LOT_A_063_W24"
+      ],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "equipment_signature",
+          "evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_CMP_NORMAL_EXCLUSION",
+            "EV_MES_IMPACT_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD",
+            "EV_FDC_DEPOSITION_RATE",
+            "EV_FDC_FILM_THICKNESS",
+            "EV_OOC_EVENTS",
+            "EV_SPC_DEPOSITION_RATE",
+            "EV_SPC_FILM_THICKNESS",
+            "EV_METROLOGY_POST_CMP_MEAN_THICKNESS",
+            "EV_METROLOGY_PRE_CMP_MEAN_THICKNESS",
+            "EV_KNOWLEDGE_MATCH",
+            "EV_KNOWLEDGE_VALIDATION_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Transient particle or handling event; exact source was not confirmed",
+          "score": 0.736
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH",
+            "EV_FDC_CMP_NORMAL_EXCLUSION"
+          ],
+          "root_cause": "Slurry delivery degradation reduced Cu CMP removal rate",
+          "score": 0.486
+        }
+      ],
+      "ranked_root_causes": [
+        "CVD_ILD_01_CH02 deposition rate excursion",
+        "Transient particle or handling event; exact source was not confirmed",
+        "Slurry delivery degradation reduced Cu CMP removal rate"
+      ],
+      "required_warning_ids": [],
+      "scenario_id": "EVAL_SINGLE_CHAMBER",
+      "title": "Single Thin Film chamber abnormality",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 278.384,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_SINGLE_CHAMBER:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 44.134,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_SINGLE_CHAMBER:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 28.217,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_SINGLE_CHAMBER:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 2.423,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_SINGLE_CHAMBER:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.074,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_SINGLE_CHAMBER:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 3.345,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_SINGLE_CHAMBER:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 1.022,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_SINGLE_CHAMBER:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.142,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_SINGLE_CHAMBER:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.114,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_SINGLE_CHAMBER:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": [
+        "WARN_FDC_NO_OOC_EVENTS",
+        "WARN_SOURCE_LOT_NOT_WAT_FAILED"
+      ]
+    },
+    {
+      "actual_root_cause": "inconclusive",
+      "actual_status": "inconclusive",
+      "checks": {
+        "confidence": true,
+        "impact_lots": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "traceability": true
+      },
+      "citation_count": 251,
+      "confidence": 0.0,
+      "duration_ms": 313.206,
+      "evidence_ids": [
+        "EV_DEFECT_SCRATCH",
+        "EV_FDC_ENDPOINT_TIME",
+        "EV_FDC_ESTIMATED_REMOVAL_RATE",
+        "EV_FDC_SLURRY_FLOW",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_OOC_EVENTS",
+        "EV_SPC_ENDPOINT_TIME",
+        "EV_SPC_ESTIMATED_REMOVAL_RATE",
+        "EV_SPC_SLURRY_FLOW",
+        "EV_WAT_LEAKAGE_SHORT",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "inconclusive",
+      "expected_status": "inconclusive",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.99,
+      "impact_lots": [],
+      "impact_wafers": [],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Slurry delivery degradation reduced Cu CMP removal rate",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.736
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Transient particle or handling event; exact source was not confirmed",
+          "score": 0.736
+        }
+      ],
+      "ranked_root_causes": [
+        "Slurry delivery degradation reduced Cu CMP removal rate",
+        "CVD_ILD_01_CH02 deposition rate excursion",
+        "Transient particle or handling event; exact source was not confirmed"
+      ],
+      "required_warning_ids": [
+        "WARN_RCA_INCONCLUSIVE"
+      ],
+      "scenario_id": "EVAL_SCRATCH_WAT_FAIL",
+      "title": "Scratch defect and WAT fail without causal equipment evidence",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 241.099,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_SCRATCH_WAT_FAIL:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 23.363,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_SCRATCH_WAT_FAIL:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 21.358,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_SCRATCH_WAT_FAIL:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 2.106,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_SCRATCH_WAT_FAIL:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.074,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_SCRATCH_WAT_FAIL:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 5.129,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_SCRATCH_WAT_FAIL:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 0.66,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_SCRATCH_WAT_FAIL:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.149,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_SCRATCH_WAT_FAIL:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.117,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_SCRATCH_WAT_FAIL:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": [
+        "WARN_FDC_NO_OOC_EVENTS",
+        "WARN_IMPACT_SCOPE_NO_OOC_WINDOW",
+        "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+        "WARN_RCA_INCONCLUSIVE"
+      ]
+    },
+    {
+      "actual_root_cause": "inconclusive",
+      "actual_status": "inconclusive",
+      "checks": {
+        "confidence": true,
+        "impact_lots": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "traceability": true
+      },
+      "citation_count": 252,
+      "confidence": 0.0,
+      "duration_ms": 309.019,
+      "evidence_ids": [
+        "EV_DEFECT_CU_RESIDUE",
+        "EV_FDC_ENDPOINT_TIME",
+        "EV_FDC_ESTIMATED_REMOVAL_RATE",
+        "EV_FDC_SLURRY_FLOW",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_OOC_EVENTS",
+        "EV_SPC_ENDPOINT_TIME",
+        "EV_SPC_ESTIMATED_REMOVAL_RATE",
+        "EV_SPC_SLURRY_FLOW",
+        "EV_WAT_LEAKAGE_SHORT",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "inconclusive",
+      "expected_status": "inconclusive",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.99,
+      "impact_lots": [],
+      "impact_wafers": [
+        "LOT_A_015_W13"
+      ],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Slurry delivery degradation reduced Cu CMP removal rate",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.736
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Transient particle or handling event; exact source was not confirmed",
+          "score": 0.736
+        }
+      ],
+      "ranked_root_causes": [
+        "Slurry delivery degradation reduced Cu CMP removal rate",
+        "CVD_ILD_01_CH02 deposition rate excursion",
+        "Transient particle or handling event; exact source was not confirmed"
+      ],
+      "required_warning_ids": [
+        "WARN_FDC_NO_OOC_EVENTS",
+        "WARN_RCA_INCONCLUSIVE"
+      ],
+      "scenario_id": "EVAL_MES_NO_FDC",
+      "title": "MES commonality with no FDC abnormality",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 235.111,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_MES_NO_FDC:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 20.177,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_MES_NO_FDC:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 18.523,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_MES_NO_FDC:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 2.542,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_MES_NO_FDC:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.073,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_MES_NO_FDC:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 4.127,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_MES_NO_FDC:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 0.614,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_MES_NO_FDC:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.146,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_MES_NO_FDC:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.112,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_MES_NO_FDC:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": [
+        "WARN_FDC_NO_OOC_EVENTS",
+        "WARN_IMPACT_SCOPE_NO_OOC_WINDOW",
+        "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+        "WARN_RCA_INCONCLUSIVE"
+      ]
+    },
+    {
+      "actual_root_cause": "inconclusive",
+      "actual_status": "inconclusive",
+      "checks": {
+        "confidence": true,
+        "impact_lots": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "traceability": true
+      },
+      "citation_count": 267,
+      "confidence": 0.0,
+      "duration_ms": 412.401,
+      "evidence_ids": [
+        "EV_FDC_ENDPOINT_TIME",
+        "EV_FDC_ESTIMATED_REMOVAL_RATE",
+        "EV_FDC_EXCURSION_WINDOW",
+        "EV_FDC_SLURRY_FLOW",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_OOC_EVENTS",
+        "EV_QUALITY_NO_IMPACT",
+        "EV_SPC_ENDPOINT_TIME",
+        "EV_SPC_ESTIMATED_REMOVAL_RATE",
+        "EV_SPC_SLURRY_FLOW",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "inconclusive",
+      "expected_status": "inconclusive",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.99,
+      "impact_lots": [
+        "LOT_A_011",
+        "LOT_A_012",
+        "LOT_A_013",
+        "LOT_A_014"
+      ],
+      "impact_wafers": [
+        "LOT_A_011_W01",
+        "LOT_A_011_W02",
+        "LOT_A_011_W03",
+        "LOT_A_011_W04",
+        "LOT_A_011_W05",
+        "LOT_A_011_W06",
+        "LOT_A_011_W07",
+        "LOT_A_011_W08",
+        "LOT_A_011_W09",
+        "LOT_A_011_W10",
+        "LOT_A_011_W11",
+        "LOT_A_011_W12",
+        "LOT_A_011_W13",
+        "LOT_A_011_W14",
+        "LOT_A_011_W15",
+        "LOT_A_011_W16",
+        "LOT_A_011_W17",
+        "LOT_A_011_W18",
+        "LOT_A_011_W19",
+        "LOT_A_011_W20",
+        "LOT_A_011_W21",
+        "LOT_A_011_W22",
+        "LOT_A_011_W23",
+        "LOT_A_011_W24",
+        "LOT_A_011_W25",
+        "LOT_A_012_W01",
+        "LOT_A_012_W02",
+        "LOT_A_012_W03",
+        "LOT_A_012_W04",
+        "LOT_A_012_W05",
+        "LOT_A_012_W06",
+        "LOT_A_012_W07",
+        "LOT_A_012_W08",
+        "LOT_A_012_W09",
+        "LOT_A_012_W10",
+        "LOT_A_012_W11",
+        "LOT_A_012_W12",
+        "LOT_A_012_W13",
+        "LOT_A_012_W14",
+        "LOT_A_012_W15",
+        "LOT_A_012_W16",
+        "LOT_A_012_W17",
+        "LOT_A_012_W18",
+        "LOT_A_012_W19",
+        "LOT_A_012_W20",
+        "LOT_A_012_W21",
+        "LOT_A_012_W22",
+        "LOT_A_012_W23",
+        "LOT_A_012_W24",
+        "LOT_A_012_W25",
+        "LOT_A_013_W01",
+        "LOT_A_013_W02",
+        "LOT_A_013_W03",
+        "LOT_A_013_W04",
+        "LOT_A_013_W05",
+        "LOT_A_013_W06",
+        "LOT_A_013_W07",
+        "LOT_A_013_W08",
+        "LOT_A_013_W09",
+        "LOT_A_013_W10",
+        "LOT_A_013_W11",
+        "LOT_A_013_W12",
+        "LOT_A_013_W13",
+        "LOT_A_013_W14",
+        "LOT_A_013_W15",
+        "LOT_A_013_W16",
+        "LOT_A_013_W17",
+        "LOT_A_013_W18",
+        "LOT_A_013_W19",
+        "LOT_A_013_W20",
+        "LOT_A_013_W21",
+        "LOT_A_013_W22",
+        "LOT_A_013_W23",
+        "LOT_A_013_W24",
+        "LOT_A_013_W25",
+        "LOT_A_014_W01",
+        "LOT_A_014_W02",
+        "LOT_A_014_W03",
+        "LOT_A_014_W04",
+        "LOT_A_014_W05",
+        "LOT_A_014_W06",
+        "LOT_A_014_W07",
+        "LOT_A_014_W08",
+        "LOT_A_014_W09",
+        "LOT_A_014_W10",
+        "LOT_A_014_W11",
+        "LOT_A_014_W12",
+        "LOT_A_014_W13",
+        "LOT_A_014_W14",
+        "LOT_A_014_W15",
+        "LOT_A_014_W16",
+        "LOT_A_014_W17",
+        "LOT_A_014_W18",
+        "LOT_A_014_W19",
+        "LOT_A_014_W20",
+        "LOT_A_014_W21",
+        "LOT_A_014_W22",
+        "LOT_A_014_W23",
+        "LOT_A_014_W24",
+        "LOT_A_014_W25"
+      ],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD",
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_ESTIMATED_REMOVAL_RATE",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_OOC_EVENTS",
+            "EV_SPC_ENDPOINT_TIME",
+            "EV_SPC_ESTIMATED_REMOVAL_RATE",
+            "EV_SPC_SLURRY_FLOW",
+            "EV_QUALITY_NO_IMPACT",
+            "EV_KNOWLEDGE_VALIDATION_MATCH"
+          ],
+          "root_cause": "CMP_CU03_CH02 slurry delivery degradation",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.736
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Transient particle or handling event; exact source was not confirmed",
+          "score": 0.736
+        }
+      ],
+      "ranked_root_causes": [
+        "CMP_CU03_CH02 slurry delivery degradation",
+        "CVD_ILD_01_CH02 deposition rate excursion",
+        "Transient particle or handling event; exact source was not confirmed"
+      ],
+      "required_warning_ids": [
+        "WARN_WAT_NO_FAILURE",
+        "WARN_RCA_INCONCLUSIVE"
+      ],
+      "scenario_id": "EVAL_FDC_NO_YIELD",
+      "title": "FDC drift without yield or physical impact",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 246.759,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_FDC_NO_YIELD:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 62.127,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_FDC_NO_YIELD:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 24.602,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_FDC_NO_YIELD:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 6.548,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_FDC_NO_YIELD:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.095,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_FDC_NO_YIELD:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 10.154,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_FDC_NO_YIELD:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 0.683,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_FDC_NO_YIELD:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.153,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_FDC_NO_YIELD:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.113,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_FDC_NO_YIELD:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": [
+        "WARN_DEFECT_NO_SIGNAL",
+        "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+        "WARN_RCA_INCONCLUSIVE",
+        "WARN_SOURCE_LOT_NOT_WAT_FAILED",
+        "WARN_WAT_NO_FAILURE"
+      ]
+    },
+    {
+      "actual_root_cause": "inconclusive",
+      "actual_status": "inconclusive",
+      "checks": {
+        "confidence": true,
+        "impact_lots": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "traceability": true
+      },
+      "citation_count": 294,
+      "confidence": 0.0,
+      "duration_ms": 398.442,
+      "evidence_ids": [
+        "EV_DEFECT_CU_RESIDUE",
+        "EV_FDC_ENDPOINT_TIME",
+        "EV_FDC_ESTIMATED_REMOVAL_RATE",
+        "EV_FDC_EXCURSION_WINDOW",
+        "EV_FDC_SLURRY_FLOW",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_OOC_EVENTS",
+        "EV_SPC_ENDPOINT_TIME",
+        "EV_SPC_ESTIMATED_REMOVAL_RATE",
+        "EV_SPC_SLURRY_FLOW",
+        "EV_WAT_LEAKAGE_SHORT",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "inconclusive",
+      "expected_status": "inconclusive",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.99,
+      "impact_lots": [
+        "LOT_A_011",
+        "LOT_A_012",
+        "LOT_A_013",
+        "LOT_A_014"
+      ],
+      "impact_wafers": [
+        "LOT_A_011_W01",
+        "LOT_A_011_W02",
+        "LOT_A_011_W03",
+        "LOT_A_011_W04",
+        "LOT_A_011_W05",
+        "LOT_A_011_W06",
+        "LOT_A_011_W07",
+        "LOT_A_011_W08",
+        "LOT_A_011_W09",
+        "LOT_A_011_W10",
+        "LOT_A_011_W11",
+        "LOT_A_011_W12",
+        "LOT_A_011_W13",
+        "LOT_A_011_W14",
+        "LOT_A_011_W15",
+        "LOT_A_011_W16",
+        "LOT_A_011_W17",
+        "LOT_A_011_W18",
+        "LOT_A_011_W19",
+        "LOT_A_011_W20",
+        "LOT_A_011_W21",
+        "LOT_A_011_W22",
+        "LOT_A_011_W23",
+        "LOT_A_011_W24",
+        "LOT_A_011_W25",
+        "LOT_A_012_W01",
+        "LOT_A_012_W02",
+        "LOT_A_012_W03",
+        "LOT_A_012_W04",
+        "LOT_A_012_W05",
+        "LOT_A_012_W06",
+        "LOT_A_012_W07",
+        "LOT_A_012_W08",
+        "LOT_A_012_W09",
+        "LOT_A_012_W10",
+        "LOT_A_012_W11",
+        "LOT_A_012_W12",
+        "LOT_A_012_W13",
+        "LOT_A_012_W14",
+        "LOT_A_012_W15",
+        "LOT_A_012_W16",
+        "LOT_A_012_W17",
+        "LOT_A_012_W18",
+        "LOT_A_012_W19",
+        "LOT_A_012_W20",
+        "LOT_A_012_W21",
+        "LOT_A_012_W22",
+        "LOT_A_012_W23",
+        "LOT_A_012_W24",
+        "LOT_A_012_W25",
+        "LOT_A_013_W01",
+        "LOT_A_013_W02",
+        "LOT_A_013_W03",
+        "LOT_A_013_W04",
+        "LOT_A_013_W05",
+        "LOT_A_013_W06",
+        "LOT_A_013_W07",
+        "LOT_A_013_W08",
+        "LOT_A_013_W09",
+        "LOT_A_013_W10",
+        "LOT_A_013_W11",
+        "LOT_A_013_W12",
+        "LOT_A_013_W13",
+        "LOT_A_013_W14",
+        "LOT_A_013_W15",
+        "LOT_A_013_W16",
+        "LOT_A_013_W17",
+        "LOT_A_013_W18",
+        "LOT_A_013_W19",
+        "LOT_A_013_W20",
+        "LOT_A_013_W21",
+        "LOT_A_013_W22",
+        "LOT_A_013_W23",
+        "LOT_A_013_W24",
+        "LOT_A_013_W25",
+        "LOT_A_014_W01",
+        "LOT_A_014_W02",
+        "LOT_A_014_W03",
+        "LOT_A_014_W04",
+        "LOT_A_014_W05",
+        "LOT_A_014_W06",
+        "LOT_A_014_W07",
+        "LOT_A_014_W08",
+        "LOT_A_014_W09",
+        "LOT_A_014_W10",
+        "LOT_A_014_W11",
+        "LOT_A_014_W12",
+        "LOT_A_014_W13",
+        "LOT_A_014_W14",
+        "LOT_A_014_W15",
+        "LOT_A_014_W16",
+        "LOT_A_014_W17",
+        "LOT_A_014_W18",
+        "LOT_A_014_W19",
+        "LOT_A_014_W20",
+        "LOT_A_014_W21",
+        "LOT_A_014_W22",
+        "LOT_A_014_W23",
+        "LOT_A_014_W24",
+        "LOT_A_014_W25"
+      ],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_MES_SOURCE_LOT_CONTEXT",
+            "EV_WAT_SOURCE_LOT_ANOMALY",
+            "EV_FDC_EXCURSION_WINDOW",
+            "EV_MES_IMPACT_LOTS",
+            "EV_MES_COMMON_CHAMBER",
+            "EV_HOLD_COMMENT",
+            "EV_MES_LOT_HOLD",
+            "EV_FDC_ENDPOINT_TIME",
+            "EV_FDC_ESTIMATED_REMOVAL_RATE",
+            "EV_FDC_SLURRY_FLOW",
+            "EV_OOC_EVENTS",
+            "EV_SPC_ENDPOINT_TIME",
+            "EV_SPC_ESTIMATED_REMOVAL_RATE",
+            "EV_SPC_SLURRY_FLOW",
+            "EV_DEFECT_CU_RESIDUE",
+            "EV_WAT_LEAKAGE_SHORT",
+            "EV_KNOWLEDGE_VALIDATION_MATCH"
+          ],
+          "root_cause": "CMP_CU03_CH02 slurry delivery degradation",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.736
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Transient particle or handling event; exact source was not confirmed",
+          "score": 0.736
+        }
+      ],
+      "ranked_root_causes": [
+        "CMP_CU03_CH02 slurry delivery degradation",
+        "CVD_ILD_01_CH02 deposition rate excursion",
+        "Transient particle or handling event; exact source was not confirmed"
+      ],
+      "required_warning_ids": [
+        "WARN_RCA_CONFLICTING_EVIDENCE",
+        "WARN_RCA_INCONCLUSIVE"
+      ],
+      "scenario_id": "EVAL_CONFLICTING_EVIDENCE",
+      "title": "Physically conflicting FDC evidence",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 248.565,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_CONFLICTING_EVIDENCE:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 53.642,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_CONFLICTING_EVIDENCE:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 20.968,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_CONFLICTING_EVIDENCE:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 5.989,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_CONFLICTING_EVIDENCE:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.087,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_CONFLICTING_EVIDENCE:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 9.791,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_CONFLICTING_EVIDENCE:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 0.78,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_CONFLICTING_EVIDENCE:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.144,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_CONFLICTING_EVIDENCE:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.119,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_CONFLICTING_EVIDENCE:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": [
+        "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+        "WARN_RCA_CONFLICTING_EVIDENCE",
+        "WARN_RCA_INCONCLUSIVE"
+      ]
+    },
+    {
+      "actual_root_cause": "inconclusive",
+      "actual_status": "inconclusive",
+      "checks": {
+        "confidence": true,
+        "impact_lots": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "traceability": true
+      },
+      "citation_count": 188,
+      "confidence": 0.0,
+      "duration_ms": 314.213,
+      "evidence_ids": [
+        "EV_DEFECT_SCRATCH",
+        "EV_FDC_FEATURE_DATA_MISSING",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_OOC_EVENTS",
+        "EV_SPC_BASELINE_STATUS",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "inconclusive",
+      "expected_status": "inconclusive",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.736,
+      "impact_lots": [],
+      "impact_wafers": [],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.736
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Slurry delivery degradation reduced Cu CMP removal rate",
+          "score": 0.736
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Transient particle or handling event; exact source was not confirmed",
+          "score": 0.736
+        }
+      ],
+      "ranked_root_causes": [
+        "CVD_ILD_01_CH02 deposition rate excursion",
+        "Slurry delivery degradation reduced Cu CMP removal rate",
+        "Transient particle or handling event; exact source was not confirmed"
+      ],
+      "required_warning_ids": [
+        "WARN_FDC_NO_FEATURES",
+        "WARN_RCA_INCONCLUSIVE"
+      ],
+      "scenario_id": "EVAL_MISSING_DATA",
+      "title": "Missing FDC data",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 248.125,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_MISSING_DATA:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 20.586,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_MISSING_DATA:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 19.043,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_MISSING_DATA:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 1.586,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_MISSING_DATA:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.067,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_MISSING_DATA:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.981,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_MISSING_DATA:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 0.605,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_MISSING_DATA:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.14,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_MISSING_DATA:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.114,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_MISSING_DATA:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": [
+        "WARN_FDC_FEATURE_DATA_MISSING",
+        "WARN_FDC_NO_FEATURES",
+        "WARN_FDC_NO_OOC_EVENTS",
+        "WARN_IMPACT_SCOPE_NO_OOC_WINDOW",
+        "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+        "WARN_KNOWLEDGE_WEAK_MATCH",
+        "WARN_RCA_INCONCLUSIVE",
+        "WARN_SOURCE_LOT_NOT_WAT_FAILED",
+        "WARN_SPC_BASELINE_INSUFFICIENT",
+        "WARN_WAT_NO_FAILURE"
+      ]
+    },
+    {
+      "actual_root_cause": "inconclusive",
+      "actual_status": "inconclusive",
+      "checks": {
+        "confidence": true,
+        "historical_similarity": true,
+        "impact_lots": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "traceability": true
+      },
+      "citation_count": 239,
+      "confidence": 0.0,
+      "duration_ms": 296.013,
+      "evidence_ids": [
+        "EV_DEFECT_SCRATCH",
+        "EV_FDC_ENDPOINT_TIME",
+        "EV_FDC_ESTIMATED_REMOVAL_RATE",
+        "EV_FDC_SLURRY_FLOW",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_OOC_EVENTS",
+        "EV_SPC_ENDPOINT_TIME",
+        "EV_SPC_ESTIMATED_REMOVAL_RATE",
+        "EV_SPC_SLURRY_FLOW",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "inconclusive",
+      "expected_status": "inconclusive",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.99,
+      "impact_lots": [],
+      "impact_wafers": [],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Slurry delivery degradation reduced Cu CMP removal rate",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Transient particle event",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.736
+        }
+      ],
+      "ranked_root_causes": [
+        "Slurry delivery degradation reduced Cu CMP removal rate",
+        "Transient particle event",
+        "CVD_ILD_01_CH02 deposition rate excursion"
+      ],
+      "required_warning_ids": [
+        "WARN_RCA_INCONCLUSIVE"
+      ],
+      "scenario_id": "EVAL_HIGH_HISTORY_MATCH",
+      "title": "High historical match without current causal evidence",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 230.641,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_HIGH_HISTORY_MATCH:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 20.408,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_HIGH_HISTORY_MATCH:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 20.113,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_HIGH_HISTORY_MATCH:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 2.156,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_HIGH_HISTORY_MATCH:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.069,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_HIGH_HISTORY_MATCH:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 4.329,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_HIGH_HISTORY_MATCH:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 0.573,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_HIGH_HISTORY_MATCH:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.151,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_HIGH_HISTORY_MATCH:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.122,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_HIGH_HISTORY_MATCH:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": [
+        "WARN_FDC_NO_OOC_EVENTS",
+        "WARN_IMPACT_SCOPE_NO_OOC_WINDOW",
+        "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+        "WARN_RCA_INCONCLUSIVE",
+        "WARN_SOURCE_LOT_NOT_WAT_FAILED",
+        "WARN_WAT_NO_FAILURE"
+      ]
+    },
+    {
+      "actual_root_cause": "inconclusive",
+      "actual_status": "inconclusive",
+      "checks": {
+        "confidence": true,
+        "impact_lots": true,
+        "impact_wafers": true,
+        "no_hallucinated_citations": true,
+        "required_evidence": true,
+        "required_warnings": true,
+        "root_cause": true,
+        "status": true,
+        "traceability": true
+      },
+      "citation_count": 239,
+      "confidence": 0.0,
+      "duration_ms": 316.956,
+      "evidence_ids": [
+        "EV_DEFECT_SCRATCH",
+        "EV_FDC_ENDPOINT_TIME",
+        "EV_FDC_ESTIMATED_REMOVAL_RATE",
+        "EV_FDC_SLURRY_FLOW",
+        "EV_HOLD_COMMENT",
+        "EV_KNOWLEDGE_MATCH",
+        "EV_KNOWLEDGE_VALIDATION_MATCH",
+        "EV_MES_COMMON_CHAMBER",
+        "EV_MES_IMPACT_LOTS",
+        "EV_MES_LOT_HOLD",
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_OOC_EVENTS",
+        "EV_SPC_ENDPOINT_TIME",
+        "EV_SPC_ESTIMATED_REMOVAL_RATE",
+        "EV_SPC_SLURRY_FLOW",
+        "EV_WAT_SOURCE_LOT_ANOMALY"
+      ],
+      "expected_root_cause": "inconclusive",
+      "expected_status": "inconclusive",
+      "hallucinated_citation_count": 0,
+      "historical_similarity": 0.99,
+      "impact_lots": [],
+      "impact_wafers": [],
+      "passed": true,
+      "ranked_candidates": [
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Slurry delivery degradation reduced Cu CMP removal rate",
+          "score": 0.95
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+          "score": 0.736
+        },
+        {
+          "basis": "knowledge_discovery",
+          "evidence_ids": [
+            "EV_KNOWLEDGE_MATCH"
+          ],
+          "root_cause": "Transient particle or handling event; exact source was not confirmed",
+          "score": 0.736
+        }
+      ],
+      "ranked_root_causes": [
+        "Slurry delivery degradation reduced Cu CMP removal rate",
+        "CVD_ILD_01_CH02 deposition rate excursion",
+        "Transient particle or handling event; exact source was not confirmed"
+      ],
+      "required_warning_ids": [
+        "WARN_RCA_INCONCLUSIVE"
+      ],
+      "scenario_id": "EVAL_INCONCLUSIVE_ROOT_CAUSE",
+      "title": "Correct abstention for isolated transient anomaly",
+      "tool_latencies": [
+        {
+          "agent": "mes",
+          "duration_ms": 245.304,
+          "outcome": "success",
+          "tool_name": "get_lot_context",
+          "tool_request_id": "EVAL_JOB_EVAL_INCONCLUSIVE_ROOT_CAUSE:task_mes:lot-context"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 23.778,
+          "outcome": "success",
+          "tool_name": "find_impact_lots",
+          "tool_request_id": "EVAL_JOB_EVAL_INCONCLUSIVE_ROOT_CAUSE:task_mes:impact-lots"
+        },
+        {
+          "agent": "mes",
+          "duration_ms": 21.79,
+          "outcome": "success",
+          "tool_name": "analyze_lot_genealogy",
+          "tool_request_id": "EVAL_JOB_EVAL_INCONCLUSIVE_ROOT_CAUSE:task_mes:genealogy"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 2.453,
+          "outcome": "success",
+          "tool_name": "analyze_parameter_shift",
+          "tool_request_id": "EVAL_JOB_EVAL_INCONCLUSIVE_ROOT_CAUSE:task_fdc:parameter-shift"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 0.07,
+          "outcome": "success",
+          "tool_name": "find_ooc_events",
+          "tool_request_id": "EVAL_JOB_EVAL_INCONCLUSIVE_ROOT_CAUSE:task_fdc:ooc-events"
+        },
+        {
+          "agent": "fdc",
+          "duration_ms": 4.821,
+          "outcome": "success",
+          "tool_name": "perform_basic_spc_analysis",
+          "tool_request_id": "EVAL_JOB_EVAL_INCONCLUSIVE_ROOT_CAUSE:task_fdc:basic-spc"
+        },
+        {
+          "agent": "defect_wat",
+          "duration_ms": 0.616,
+          "outcome": "success",
+          "tool_name": "summarize_defect_wat",
+          "tool_request_id": "EVAL_JOB_EVAL_INCONCLUSIVE_ROOT_CAUSE:task_defect_wat:defect-wat"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.287,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_INCONCLUSIVE_ROOT_CAUSE:task_knowledge_discovery:similar-case"
+        },
+        {
+          "agent": "knowledge",
+          "duration_ms": 0.15,
+          "outcome": "success",
+          "tool_name": "retrieve_similar_case",
+          "tool_request_id": "EVAL_JOB_EVAL_INCONCLUSIVE_ROOT_CAUSE:task_knowledge_validation:candidate-validation"
+        }
+      ],
+      "warning_ids": [
+        "WARN_FDC_NO_OOC_EVENTS",
+        "WARN_IMPACT_SCOPE_NO_OOC_WINDOW",
+        "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+        "WARN_RCA_INCONCLUSIVE",
+        "WARN_SOURCE_LOT_NOT_WAT_FAILED",
+        "WARN_WAT_NO_FAILURE"
+      ]
+    }
+  ],
+  "schema_version": "1.1"
+}

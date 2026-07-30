@@ -1,0 +1,2 @@
+document_id,case_id,document_type,title,content,tags,created_at
+DOC_RCA_CMP_2025_032,RCA_CMP_2025_032,RCA_CASE,Historical Cu CMP slurry delivery RCA,"Historical RCA case: Cu CMP slurry delivery degradation produced slurry flow decline, endpoint time increase, scratch defect growth, and WAT leakage failures. Corrective action was slurry pump/filter replacement and chamber requalification.",Cu CMP;slurry_flow;scratch;leakage;CMP_CU03,2025-09-12T00:00:00+00:00

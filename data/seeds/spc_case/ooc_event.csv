@@ -1,0 +1,2 @@
+feature_id,equipment_id,chamber_id,operation_no,parameter_name,alarm_type,severity,triggered_at,description,event_key,event_source,trigger_lot_id,trigger_wafer_id,trigger_hold_id,excursion_id,spc_rule_codes
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,CONTROL_LIMIT,HIGH,2026-07-06T05:14:00+00:00,LOT_A_015: slurry flow crossed the control limit on CMP_CU03_CH02,SPC_OOC_CU_001,SPC,LOT_A_015,,HOLD_CU_OOC_001,SPC_EXCURSION_CU_001,NELSON_1;NELSON_5;NELSON_6

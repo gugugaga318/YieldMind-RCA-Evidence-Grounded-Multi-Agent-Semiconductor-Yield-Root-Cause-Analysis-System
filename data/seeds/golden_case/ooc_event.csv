@@ -1,0 +1,21 @@
+feature_id,equipment_id,chamber_id,operation_no,parameter_name,alarm_type,severity,triggered_at,description
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-08T14:20:00+00:00,LOT_A_001: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-08T17:20:00+00:00,LOT_A_002: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-08T20:20:00+00:00,LOT_A_003: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-08T23:20:00+00:00,LOT_A_004: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-09T02:20:00+00:00,LOT_A_005: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-09T05:20:00+00:00,LOT_A_006: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-09T08:20:00+00:00,LOT_A_007: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-09T11:20:00+00:00,LOT_A_008: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-09T14:20:00+00:00,LOT_A_009: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-09T17:20:00+00:00,LOT_A_010: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-09T20:20:00+00:00,LOT_A_011: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-09T23:20:00+00:00,LOT_A_012: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-10T02:20:00+00:00,LOT_A_013: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-10T05:20:00+00:00,LOT_A_014: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-10T08:20:00+00:00,LOT_A_015: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-10T11:20:00+00:00,LOT_A_016: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-10T14:20:00+00:00,LOT_A_017: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-10T17:20:00+00:00,LOT_A_018: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-10T20:20:00+00:00,LOT_A_019: slurry_flow below control limit on CMP_CU03_CH02
+,CMP_CU03,CMP_CU03_CH02,6400,slurry_flow,MEAN_SHIFT,HIGH,2026-07-10T23:20:00+00:00,LOT_A_020: slurry_flow below control limit on CMP_CU03_CH02

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "semiconductor-yield-rca"
+version = "0.1.0"
+description = "Core Python package for a semiconductor Yield RCA Multi-Agent MVP."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "httpx>=0.27,<1.0",
+  "prometheus-client>=0.21,<1.0",
+  "psycopg[binary]>=3.2,<4.0",
+  "uvicorn>=0.30,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.27,<1.0",
+  "pytest>=8.0",
+  "ruff>=0.6",
+  "mypy>=1.10",
+]
+
+[tool.setuptools.packages.find]
+where = ["core", "backend"]
+
+[tool.setuptools.package-data]
+yield_rca_core = ["prompts/*.md"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = ["core", "backend"]
+files = ["core", "backend", "tests", "tools"]
+
+[[tool.mypy.overrides]]
+module = ["yield_rca_core.*"]
+follow_imports = "skip"

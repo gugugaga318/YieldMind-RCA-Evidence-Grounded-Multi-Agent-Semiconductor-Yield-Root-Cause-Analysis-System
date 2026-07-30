@@ -1,0 +1,31 @@
+route_id,product_id,operation_no,sequence_no,module,operation_name,is_critical
+ROUTE_40N_SOC_A,40N_SOC,1000,10,Wet Clean,Pre STI Wet Clean,true
+ROUTE_40N_SOC_A,40N_SOC,1100,20,Diffusion,Pad Oxide Diffusion,true
+ROUTE_40N_SOC_A,40N_SOC,1200,30,Thin Film,STI Nitride Deposition,true
+ROUTE_40N_SOC_A,40N_SOC,1300,40,STI Litho,STI Lithography,true
+ROUTE_40N_SOC_A,40N_SOC,1400,50,STI Etch,STI Etch,true
+ROUTE_40N_SOC_A,40N_SOC,1450,60,Thin Film,STI Oxide Fill,true
+ROUTE_40N_SOC_A,40N_SOC,1500,70,STI CMP,STI CMP,true
+ROUTE_40N_SOC_A,40N_SOC,1510,80,Wet Clean,Post STI CMP Wet Clean,true
+ROUTE_40N_SOC_A,40N_SOC,5000,90,Thin Film,ILD Deposition,true
+ROUTE_40N_SOC_A,40N_SOC,5100,100,ILD CMP,ILD CMP,true
+ROUTE_40N_SOC_A,40N_SOC,5110,110,Wet Clean,Post ILD CMP Wet Clean,true
+ROUTE_40N_SOC_A,40N_SOC,5200,120,Contact Litho,Contact Lithography,true
+ROUTE_40N_SOC_A,40N_SOC,5210,130,Contact Etch,Contact Etch,true
+ROUTE_40N_SOC_A,40N_SOC,5220,140,Wet Clean,Pre W Wet Clean,true
+ROUTE_40N_SOC_A,40N_SOC,5230,150,Barrier Liner,Barrier Liner Deposition,true
+ROUTE_40N_SOC_A,40N_SOC,5240,160,Thin Film,W CVD Fill,true
+ROUTE_40N_SOC_A,40N_SOC,5300,170,W CMP,W Plug CMP,true
+ROUTE_40N_SOC_A,40N_SOC,5310,180,Wet Clean,Post W CMP Wet Clean,true
+ROUTE_40N_SOC_A,40N_SOC,6000,190,Thin Film,Low-k IMD Deposition,true
+ROUTE_40N_SOC_A,40N_SOC,6100,200,IMD CMP,IMD CMP,true
+ROUTE_40N_SOC_A,40N_SOC,6110,210,Wet Clean,Post IMD CMP Wet Clean,true
+ROUTE_40N_SOC_A,40N_SOC,6200,220,Cu Litho,Cu Lithography,true
+ROUTE_40N_SOC_A,40N_SOC,6210,230,Cu Etch,Cu Trench Etch,true
+ROUTE_40N_SOC_A,40N_SOC,6220,240,Wet Clean,Pre Cu Wet Clean,true
+ROUTE_40N_SOC_A,40N_SOC,6230,250,Barrier Seed,Barrier Seed Deposition,true
+ROUTE_40N_SOC_A,40N_SOC,6240,260,Cu Plating,Cu ECP Fill,true
+ROUTE_40N_SOC_A,40N_SOC,6400,270,Cu CMP,Cu CMP,true
+ROUTE_40N_SOC_A,40N_SOC,6410,280,Wet Clean,Post Cu CMP Wet Clean,true
+ROUTE_40N_SOC_A,40N_SOC,6500,290,Defect Inspection,Post Cu CMP Inspection,true
+ROUTE_40N_SOC_A,40N_SOC,9000,300,WAT,WAT,true

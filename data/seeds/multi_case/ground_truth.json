@@ -1,0 +1,200 @@
+{
+  "cases": [
+    {
+      "affected_chamber": "CMP_CU03_CH02",
+      "affected_equipment": "CMP_CU03",
+      "affected_operation": "6400",
+      "case_id": "CASE_CU_SLURRY_WINDOW",
+      "case_lots": [
+        "LOT_A_001",
+        "LOT_A_002",
+        "LOT_A_003",
+        "LOT_A_004",
+        "LOT_A_005",
+        "LOT_A_006",
+        "LOT_A_007",
+        "LOT_A_008",
+        "LOT_A_009",
+        "LOT_A_010",
+        "LOT_A_011",
+        "LOT_A_012",
+        "LOT_A_013",
+        "LOT_A_014",
+        "LOT_A_015",
+        "LOT_A_016",
+        "LOT_A_017",
+        "LOT_A_018",
+        "LOT_A_019",
+        "LOT_A_020",
+        "LOT_A_021",
+        "LOT_A_022",
+        "LOT_A_023",
+        "LOT_A_024",
+        "LOT_A_025"
+      ],
+      "expected_evidence_ids": [
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_FDC_EXCURSION_WINDOW",
+        "EV_FDC_SLURRY_FLOW",
+        "EV_FDC_ESTIMATED_REMOVAL_RATE",
+        "EV_DEFECT_CU_RESIDUE",
+        "EV_WAT_LEAKAGE_SHORT",
+        "EV_KNOWLEDGE_MATCH"
+      ],
+      "expected_impact_lots": [
+        "LOT_A_011",
+        "LOT_A_012",
+        "LOT_A_013",
+        "LOT_A_014"
+      ],
+      "expected_scope_level": "mixed",
+      "expected_scope_lots": [
+        "LOT_A_011",
+        "LOT_A_012",
+        "LOT_A_013",
+        "LOT_A_014",
+        "LOT_A_015"
+      ],
+      "expected_status": "supported",
+      "query": "Analyze abnormal Lot LOT_A_015 and identify impact Lots.",
+      "root_cause": "CMP_CU03_CH02 slurry delivery degradation",
+      "source_lot_id": "LOT_A_015",
+      "yield_affected_lots": [
+        "LOT_A_012",
+        "LOT_A_013",
+        "LOT_A_014",
+        "LOT_A_015"
+      ]
+    },
+    {
+      "affected_operation": "6400",
+      "case_id": "CASE_ISOLATED_WAFER_SCRATCH",
+      "case_lots": [
+        "LOT_A_026",
+        "LOT_A_027",
+        "LOT_A_028",
+        "LOT_A_029",
+        "LOT_A_030",
+        "LOT_A_031",
+        "LOT_A_032",
+        "LOT_A_033",
+        "LOT_A_034",
+        "LOT_A_035",
+        "LOT_A_036",
+        "LOT_A_037",
+        "LOT_A_038",
+        "LOT_A_039",
+        "LOT_A_040",
+        "LOT_A_041",
+        "LOT_A_042",
+        "LOT_A_043",
+        "LOT_A_044",
+        "LOT_A_045",
+        "LOT_A_046",
+        "LOT_A_047",
+        "LOT_A_048",
+        "LOT_A_049",
+        "LOT_A_050"
+      ],
+      "expected_affected_wafers": [
+        "LOT_A_038_W07"
+      ],
+      "expected_evidence_ids": [
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_MES_IMPACT_LOTS",
+        "EV_DEFECT_SCRATCH",
+        "EV_MES_LOT_HOLD"
+      ],
+      "expected_impact_lots": [],
+      "expected_impact_wafers": [],
+      "expected_scope_level": "wafer",
+      "expected_scope_lots": [
+        "LOT_A_038"
+      ],
+      "expected_status": "inconclusive",
+      "query": "Analyze abnormal Lot LOT_A_038 with an isolated scratch.",
+      "root_cause": "inconclusive",
+      "source_lot_id": "LOT_A_038"
+    },
+    {
+      "affected_chamber": "CVD_ILD_01_CH02",
+      "affected_equipment": "CVD_ILD_01",
+      "affected_operation": "5000",
+      "case_id": "CASE_ILD_ODD_EVEN_THICKNESS",
+      "case_lots": [
+        "LOT_A_051",
+        "LOT_A_052",
+        "LOT_A_053",
+        "LOT_A_054",
+        "LOT_A_055",
+        "LOT_A_056",
+        "LOT_A_057",
+        "LOT_A_058",
+        "LOT_A_059",
+        "LOT_A_060",
+        "LOT_A_061",
+        "LOT_A_062",
+        "LOT_A_063",
+        "LOT_A_064",
+        "LOT_A_065",
+        "LOT_A_066",
+        "LOT_A_067",
+        "LOT_A_068",
+        "LOT_A_069",
+        "LOT_A_070",
+        "LOT_A_071",
+        "LOT_A_072",
+        "LOT_A_073",
+        "LOT_A_074",
+        "LOT_A_075"
+      ],
+      "expected_affected_wafers": [
+        "LOT_A_063_W02",
+        "LOT_A_063_W04",
+        "LOT_A_063_W06",
+        "LOT_A_063_W08",
+        "LOT_A_063_W10",
+        "LOT_A_063_W12",
+        "LOT_A_063_W14",
+        "LOT_A_063_W16",
+        "LOT_A_063_W18",
+        "LOT_A_063_W20",
+        "LOT_A_063_W22",
+        "LOT_A_063_W24"
+      ],
+      "expected_evidence_ids": [
+        "EV_MES_SOURCE_LOT_CONTEXT",
+        "EV_FDC_DEPOSITION_RATE",
+        "EV_METROLOGY_PRE_CMP_MEAN_THICKNESS",
+        "EV_METROLOGY_POST_CMP_MEAN_THICKNESS",
+        "EV_FDC_CMP_NORMAL_EXCLUSION",
+        "EV_KNOWLEDGE_MATCH"
+      ],
+      "expected_impact_lots": [],
+      "expected_impact_wafers": [
+        "LOT_A_063_W02",
+        "LOT_A_063_W04",
+        "LOT_A_063_W06",
+        "LOT_A_063_W08",
+        "LOT_A_063_W10",
+        "LOT_A_063_W12",
+        "LOT_A_063_W14",
+        "LOT_A_063_W16",
+        "LOT_A_063_W18",
+        "LOT_A_063_W20",
+        "LOT_A_063_W22",
+        "LOT_A_063_W24"
+      ],
+      "expected_scope_level": "wafer",
+      "expected_scope_lots": [
+        "LOT_A_063"
+      ],
+      "expected_status": "supported",
+      "query": "Analyze abnormal Lot LOT_A_063 with odd/even thickness split.",
+      "root_cause": "CVD_ILD_01_CH02 deposition rate excursion",
+      "source_lot_id": "LOT_A_063"
+    }
+  ],
+  "schema_version": "2.0",
+  "seed": 20260721
+}

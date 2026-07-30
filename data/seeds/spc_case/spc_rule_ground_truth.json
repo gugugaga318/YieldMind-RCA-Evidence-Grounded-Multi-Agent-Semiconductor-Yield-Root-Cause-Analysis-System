@@ -1,0 +1,115 @@
+{
+  "scenarios": [
+    {
+      "expected_rule": "NELSON_1",
+      "scenario": "single_3_sigma",
+      "z_values": [
+        0.1,
+        3.5
+      ]
+    },
+    {
+      "expected_rule": "NELSON_2",
+      "scenario": "same_side",
+      "z_values": [
+        0.4,
+        0.4,
+        0.4,
+        0.4,
+        0.4,
+        0.4,
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    {
+      "expected_rule": "NELSON_3",
+      "scenario": "trend",
+      "z_values": [
+        0.0,
+        0.2,
+        0.4,
+        0.6,
+        0.8,
+        1.0
+      ]
+    },
+    {
+      "expected_rule": "NELSON_4",
+      "scenario": "alternating",
+      "z_values": [
+        1.0,
+        -1.0,
+        1.0,
+        -1.0,
+        1.0,
+        -1.0,
+        1.0,
+        -1.0,
+        1.0,
+        -1.0,
+        1.0,
+        -1.0,
+        1.0,
+        -1.0
+      ]
+    },
+    {
+      "expected_rule": "NELSON_5",
+      "scenario": "two_of_three_2_sigma",
+      "z_values": [
+        2.4,
+        2.2,
+        0.1
+      ]
+    },
+    {
+      "expected_rule": "NELSON_6",
+      "scenario": "four_of_five_1_sigma",
+      "z_values": [
+        1.3,
+        1.4,
+        1.2,
+        1.5,
+        0.1
+      ]
+    },
+    {
+      "expected_rule": "NELSON_7",
+      "scenario": "fifteen_center",
+      "z_values": [
+        0.2,
+        -0.3,
+        0.4,
+        0.2,
+        -0.3,
+        0.4,
+        0.2,
+        -0.3,
+        0.4,
+        0.2,
+        -0.3,
+        0.4,
+        0.2,
+        -0.3,
+        0.4
+      ]
+    },
+    {
+      "expected_rule": "NELSON_8",
+      "scenario": "eight_outer",
+      "z_values": [
+        1.5,
+        -1.5,
+        1.5,
+        -1.5,
+        1.5,
+        -1.5,
+        1.5,
+        -1.5
+      ]
+    }
+  ],
+  "schema_version": "1.0"
+}

@@ -1,0 +1,199 @@
+"""Knowledge Asset models and retriever contracts.
+
+This module keeps knowledge retrieval separate from the Tool Layer. Tools
+package retriever results into ToolOutput and Evidence, while retrievers own
+asset normalization and ranking.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Protocol
+
+from yield_rca_core.repositories import FabRepository, Row
+
+
+def _float(value: str) -> float:
+    return float(value)
+
+
+def _is_confirmed(value: str | None) -> bool:
+    return (value or "CONFIRMED").upper() == "CONFIRMED"
+
+
+@dataclass(frozen=True)
+class KnowledgeAssetDocument:
+    """Engineer-governed supporting document attached to a KnowledgeAsset."""
+
+    document_id: str
+    case_id: str
+    document_type: str
+    title: str
+    content: str
+    tags: str
+    created_at: str
+    validation_status: str = "CONFIRMED"
+    row: Row = field(default_factory=dict)
+
+    @classmethod
+    def from_row(cls, row: Row) -> KnowledgeAssetDocument:
+        return cls(
+            document_id=row["document_id"],
+            case_id=row["case_id"],
+            document_type=row["document_type"],
+            title=row["title"],
+            content=row["content"],
+            tags=row.get("tags", ""),
+            created_at=row["created_at"],
+            validation_status=row.get("validation_status", "CONFIRMED"),
+            row=dict(row),
+        )
+
+    def to_legacy_row(self) -> Row:
+        return dict(self.row)
+
+
+@dataclass(frozen=True)
+class KnowledgeAsset:
+    """Unified representation of an approved historical RCA knowledge item."""
+
+    asset_id: str
+    title: str
+    module: str
+    equipment_type: str
+    symptom: str
+    root_cause: str
+    solution: str
+    confidence: float
+    created_at: str
+    validation_status: str = "CONFIRMED"
+    documents: tuple[KnowledgeAssetDocument, ...] = ()
+    row: Row = field(default_factory=dict)
+
+    @classmethod
+    def from_case_row(
+        cls,
+        row: Row,
+        *,
+        documents: list[KnowledgeAssetDocument] | None = None,
+    ) -> KnowledgeAsset:
+        return cls(
+            asset_id=row["case_id"],
+            title=row["title"],
+            module=row["module"],
+            equipment_type=row["equipment_type"],
+            symptom=row["symptom"],
+            root_cause=row["root_cause"],
+            solution=row["solution"],
+            confidence=_float(row["confidence"]),
+            created_at=row["created_at"],
+            validation_status=row.get("validation_status", "CONFIRMED"),
+            documents=tuple(documents or []),
+            row=dict(row),
+        )
+
+    def to_legacy_case(self, *, similarity: float) -> dict[str, Any]:
+        return {**self.row, "similarity": round(similarity, 3)}
+
+
+@dataclass(frozen=True)
+class RetrievalQuery:
+    """Normalized retriever input."""
+
+    query: str
+    module: str = ""
+    equipment_type: str = ""
+    top_k: int = 10
+
+
+@dataclass(frozen=True)
+class RetrievalHit:
+    """One ranked knowledge asset result."""
+
+    asset: KnowledgeAsset
+    score: float
+
+    def to_legacy_case(self) -> dict[str, Any]:
+        return self.asset.to_legacy_case(similarity=self.score)
+
+
+@dataclass(frozen=True)
+class RetrievalResult:
+    """Retriever response independent of ToolOutput/Evidence packaging."""
+
+    query: RetrievalQuery
+    hits: list[RetrievalHit]
+
+    @property
+    def top_hit(self) -> RetrievalHit | None:
+        return self.hits[0] if self.hits else None
+
+
+class Retriever(Protocol):
+    """Knowledge retrieval contract used by RetrieveSimilarCaseTool."""
+
+    def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
+        """Return approved knowledge assets ranked by relevance."""
+
+
+class KnowledgeAssetRepository:
+    """Adapter that projects legacy RCA tables into KnowledgeAsset objects."""
+
+    def __init__(self, repository: FabRepository) -> None:
+        self.repository = repository
+
+    def confirmed_assets(self) -> list[KnowledgeAsset]:
+        documents_by_case_id: dict[str, list[KnowledgeAssetDocument]] = {}
+        for row in self.repository.rows("knowledge_document"):
+            if not _is_confirmed(row.get("validation_status")):
+                continue
+            document = KnowledgeAssetDocument.from_row(row)
+            documents_by_case_id.setdefault(document.case_id, []).append(document)
+
+        assets: list[KnowledgeAsset] = []
+        for row in self.repository.rows("rca_case"):
+            if not _is_confirmed(row.get("validation_status")):
+                continue
+            assets.append(
+                KnowledgeAsset.from_case_row(
+                    row,
+                    documents=documents_by_case_id.get(row["case_id"], []),
+                )
+            )
+        return assets
+
+class KeywordRetriever:
+    """Keyword retriever that preserves the existing historical-case scoring."""
+
+    def __init__(self, asset_repository: KnowledgeAssetRepository) -> None:
+        self.asset_repository = asset_repository
+
+    def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
+        normalized_query = query.query.strip().lower()
+        module = query.module.lower()
+        equipment_type = query.equipment_type.lower()
+        hits: list[RetrievalHit] = []
+        for asset in self.asset_repository.confirmed_assets():
+            searchable = " ".join(
+                [
+                    asset.title,
+                    asset.module,
+                    asset.equipment_type,
+                    asset.symptom,
+                    asset.root_cause,
+                    asset.solution,
+                ]
+            ).lower()
+            score = 0.0
+            for token in normalized_query.replace("/", " ").replace(";", " ").split():
+                if token in searchable:
+                    score += 0.08
+            if module and module in asset.module.lower():
+                score += 0.25
+            if equipment_type and equipment_type == asset.equipment_type.lower():
+                score += 0.2
+            score = min(0.99, max(score, asset.confidence * 0.8))
+            hits.append(RetrievalHit(asset=asset, score=round(score, 3)))
+
+        hits = sorted(hits, key=lambda item: item.score, reverse=True)
+        return RetrievalResult(query=query, hits=hits[: query.top_k])

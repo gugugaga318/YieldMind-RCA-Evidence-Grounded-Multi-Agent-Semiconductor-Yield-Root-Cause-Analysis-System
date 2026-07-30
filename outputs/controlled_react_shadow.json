@@ -1,0 +1,27 @@
+{
+  "pass": true,
+  "fixed": {
+    "root_cause": "CMP_CU03_CH02 slurry delivery degradation",
+    "hypothesis_status": "supported",
+    "evidence_count": 15,
+    "tool_call_count": 9,
+    "action_history": [],
+    "conclusion_level": null,
+    "stop_reason": null
+  },
+  "controlled_react": {
+    "root_cause": "CMP_CU03_CH02 slurry delivery degradation",
+    "hypothesis_status": "supported",
+    "evidence_count": 15,
+    "tool_call_count": 8,
+    "action_history": [
+      "inspect_defect_pattern",
+      "find_shared_exposure",
+      "validate_shared_defect_pattern",
+      "inspect_fdc_spc",
+      "run_rca_reasoning"
+    ],
+    "conclusion_level": "supported",
+    "stop_reason": "goal_satisfied"
+  }
+}
