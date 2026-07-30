@@ -5,7 +5,7 @@
 - Target branch: `feature/autonomous-qwen-react`
 - Model provider: DashScope
 - Model: `qwen-plus`
-- Current implementation stage: Batch 20.9.3 Qwen Next-action Planner
+- Current implementation stage: Batch 20.9.4 Specialist Agent V2
 
 ## Goal
 
@@ -54,7 +54,8 @@ strict `PlannerDecision` after every observation.
 Only actions with a real Supervisor dispatcher are advertised. Batch 20.9.3
 supports defect inspection, shared-defect validation, MES shared-exposure
 analysis, FDC/SPC inspection, historical-case validation, and RCA reasoning.
-Tool selection inside a Specialist remains unchanged until Batch 20.9.4.
+In `llm_react`, Specialist actions are dispatched through Specialist V2. The
+other runtime modes retain the existing deterministic Specialist paths.
 
 Invalid output is returned to Qwen once with the validation error. If the
 second output is still invalid, the current Findings, Evidence, Questions, and
@@ -151,9 +152,65 @@ additional weighted score system in this version.
 
 ## Specialist V2 Boundary
 
-Each specialist may select Tools only from its own domain and may execute at
-most two Tool steps for one specialist action. A specialist cannot call another
-specialist.
+Specialist V2 is enabled only for `llm_react`. The `fixed` and
+`controlled_react` modes keep their existing Specialist implementations,
+Tool sequences, and regression-baseline behavior.
+
+For each Specialist action, Python creates an allowlisted set of same-domain
+`SpecialistToolCandidate` objects. Each candidate contains a Python-bound Tool
+name and immutable parameters. Qwen may select only a candidate ID or finish;
+it cannot supply a Tool name, replace the source Lot, broaden the scope, edit
+parameters, select an already-executed candidate, or call another Specialist.
+
+One Specialist action may execute at most two Tool calls. Python enforces that
+hard limit independently of Qwen and records each executed call as a
+`SpecialistStepRecord` containing the execution reason, bound parameters,
+output summary, status, and observed Evidence IDs.
+
+Tool-selection output and engineering-analysis output each receive one
+validation retry. If the second response is still invalid, only that local
+Specialist stage uses its deterministic fallback; the cross-domain Planner
+state is retained and the action is not replayed. The Finding records the
+analysis source, fallback reason, retry count, Tool trace, and stop reason.
+
+Qwen supplies the engineering summary and interpretation, but it does not own
+Evidence. The analysis must reference the exact ordered closure of effective
+Evidence IDs observed from the selected Tools: it cannot add, omit, or replace
+an Evidence ID. Python assembles the compatible `AgentFinding`, preserves the
+first-class Evidence payload, and caps Qwen confidence at the deterministic
+Finding confidence. Existing Evidence/Hypothesis gates therefore remain the
+authority for any root-cause conclusion.
+
+If Advanced SPC is selected but reports no analyzable parameters, Python uses
+the pre-bound Basic SPC candidate as the second and final Tool call. The
+Advanced step remains visible in the audit trace as superseded, while the
+effective Finding contains only the Basic SPC Evidence. This fallback never
+exceeds the two-Tool limit.
+
+For an `act` decision, the Supervisor first requires the Specialist action to
+produce a valid Finding. It then commits the `PlannerDecision` together with
+the corresponding `ActionRecord`; a failed Specialist action leaves neither
+half recorded. This prevents a Planner decision from appearing as completed
+without its observation.
+
+Automated contract, unit, and integration tests use Fake Clients and cover:
+
+- Strict round trips for candidate, decision, step-record, and analysis
+  contracts.
+- Legal same-domain Qwen Tool choices and rejection of cross-domain choices,
+  parameter tampering, duplicate candidates, premature finish, and a third
+  Tool call.
+- One-retry behavior and local deterministic fallback without replaying an
+  already successful Tool.
+- Exact Evidence closure, bounded confidence, and Advanced-to-Basic SPC
+  Evidence replacement.
+- Two-step MES/FDC execution, including MES impact scope and derived
+  commonality.
+- Scratch + Cu CMP observation, Tool execution, analysis, and Planner
+  replanning.
+- Unchanged legacy Specialist paths in `fixed` and `controlled_react`.
+
+These automated tests do not call the real DashScope service.
 
 ## Planned Delivery Batches
 
@@ -161,7 +218,7 @@ specialist.
 2. 20.9.1: Decision, Question, and Evaluation contracts. Complete.
 3. 20.9.2: Qwen intent Planner. Complete.
 4. 20.9.3: Qwen next-action Planner and retry/fallback. Complete.
-5. 20.9.4: Specialist Agent V2.
+5. 20.9.4: Specialist Agent V2. Complete.
 6. 20.9.5: Agent decision evaluation.
 7. 20.9.6: Frontend Agent trace.
 8. 20.9.7: Qwen smoke test and final evaluation.

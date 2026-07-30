@@ -352,6 +352,10 @@ class FakeLLMClient:
             data = dict(request.payload["deterministic_intent_plan"])
         elif request.prompt_name == "next_action_planner":
             data = dict(request.payload["deterministic_planner_decision"])
+        elif request.prompt_name == "specialist_tool_planner":
+            data = dict(request.payload["deterministic_specialist_decision"])
+        elif request.prompt_name == "specialist_analysis":
+            data = dict(request.payload["deterministic_specialist_analysis"])
         elif request.prompt_name == "specialist":
             finding = dict(request.payload["deterministic_finding"])
             data = {

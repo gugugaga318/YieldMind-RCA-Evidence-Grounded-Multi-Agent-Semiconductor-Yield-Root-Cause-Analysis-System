@@ -24,6 +24,7 @@ from yield_rca_core.rca_reasoning_agent import RCAReasoningAgent
 from yield_rca_core.report_generator import ReportGenerator
 from yield_rca_core.repositories import CsvFabRepository, FabRepository, PostgresFabRepository
 from yield_rca_core.specialist_agents import DefectWATAgent, FDCAgent, KnowledgeAgent, MESAgent
+from yield_rca_core.specialist_v2 import SpecialistV2Executor
 from yield_rca_core.supervisor import Supervisor
 from yield_rca_core.tool_layer import (
     AnalyzeLotGenealogyTool,
@@ -265,23 +266,54 @@ def build_workflow(
         raise ValueError(
             "llm_react requires YIELD_RCA_AGENT_MODE=fake or llm and an LLM client"
         )
-    mes_agent = MESAgent(
-        find_affected_lots_tool=FindAffectedLotsTool(repository),
-        analyze_lot_genealogy_tool=AnalyzeLotGenealogyTool(repository),
-        get_lot_context_tool=GetLotContextTool(repository),
-        find_impact_lots_tool=FindImpactLotsTool(repository),
-    )
+    find_affected_lots_tool = FindAffectedLotsTool(repository)
+    analyze_lot_genealogy_tool = AnalyzeLotGenealogyTool(repository)
+    get_lot_context_tool = GetLotContextTool(repository)
+    find_impact_lots_tool = FindImpactLotsTool(repository)
+    analyze_parameter_shift_tool = AnalyzeParameterShiftTool(repository)
+    find_ooc_events_tool = FindOocEventsTool(repository)
+    perform_basic_spc_analysis_tool = PerformBasicSpcAnalysisTool(repository)
+    summarize_defect_wat_tool = SummarizeDefectWatTool(repository)
+    retrieve_similar_case_tool = RetrieveSimilarCaseTool(repository)
     advanced_spc_tool = (
         AnalyzeSpcEvidenceTool(repository) if repository.rows("spc_baseline_profile") else None
     )
+    mes_agent = MESAgent(
+        find_affected_lots_tool=find_affected_lots_tool,
+        analyze_lot_genealogy_tool=analyze_lot_genealogy_tool,
+        get_lot_context_tool=get_lot_context_tool,
+        find_impact_lots_tool=find_impact_lots_tool,
+    )
     fdc_agent = FDCAgent(
-        analyze_parameter_shift_tool=AnalyzeParameterShiftTool(repository),
-        find_ooc_events_tool=FindOocEventsTool(repository),
-        perform_basic_spc_analysis_tool=PerformBasicSpcAnalysisTool(repository),
+        analyze_parameter_shift_tool=analyze_parameter_shift_tool,
+        find_ooc_events_tool=find_ooc_events_tool,
+        perform_basic_spc_analysis_tool=perform_basic_spc_analysis_tool,
         analyze_spc_evidence_tool=advanced_spc_tool,
     )
-    defect_wat_agent = DefectWATAgent(summarize_defect_wat_tool=SummarizeDefectWatTool(repository))
-    knowledge_agent = KnowledgeAgent(retrieve_similar_case_tool=RetrieveSimilarCaseTool(repository))
+    defect_wat_agent = DefectWATAgent(
+        summarize_defect_wat_tool=summarize_defect_wat_tool
+    )
+    knowledge_agent = KnowledgeAgent(
+        retrieve_similar_case_tool=retrieve_similar_case_tool
+    )
+    specialist_v2_executor = (
+        SpecialistV2Executor(
+            llm_client=shared_llm_client,
+            agent_mode=settings.agent_mode,
+            find_affected_lots_tool=find_affected_lots_tool,
+            get_lot_context_tool=get_lot_context_tool,
+            find_impact_lots_tool=find_impact_lots_tool,
+            analyze_lot_genealogy_tool=analyze_lot_genealogy_tool,
+            analyze_parameter_shift_tool=analyze_parameter_shift_tool,
+            find_ooc_events_tool=find_ooc_events_tool,
+            perform_basic_spc_analysis_tool=perform_basic_spc_analysis_tool,
+            analyze_spc_evidence_tool=advanced_spc_tool,
+            summarize_defect_wat_tool=summarize_defect_wat_tool,
+            retrieve_similar_case_tool=retrieve_similar_case_tool,
+        )
+        if shared_llm_client is not None
+        else None
+    )
     supervisor = Supervisor(
         mes_agent=mes_agent,
         fdc_agent=fdc_agent,
@@ -298,6 +330,7 @@ def build_workflow(
         report_generator=ReportGenerator(),
         llm_client=shared_llm_client,
         agent_mode=settings.agent_mode,
+        specialist_v2_executor=specialist_v2_executor,
     )
     return PurePythonRCAWorkflow(
         planner=PlannerAgent(

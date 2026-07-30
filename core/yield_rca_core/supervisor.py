@@ -52,6 +52,7 @@ from yield_rca_core.next_action_planner import (
 from yield_rca_core.rca_reasoning_agent import RCAReasoningAgent
 from yield_rca_core.report_generator import ReportGenerator
 from yield_rca_core.specialist_agents import DefectWATAgent, FDCAgent, KnowledgeAgent, MESAgent
+from yield_rca_core.specialist_v2 import SpecialistV2Error, SpecialistV2Executor
 
 SUPERVISOR_EXECUTABLE_AGENTS = frozenset(
     {
@@ -484,6 +485,7 @@ class Supervisor:
     llm_client: LLMClient | None = None
     agent_mode: str = AgentMode.DETERMINISTIC.value
     specialist_prompt_version: str = "v1"
+    specialist_v2_executor: SpecialistV2Executor | None = None
 
     def execute_controlled(
         self,
@@ -524,6 +526,24 @@ class Supervisor:
                 action_records=state.action_history,
                 tool_call_count=len(observed_tool_latencies),
             )
+            if decision.next_action is not None:
+                remaining_tool_calls = max(
+                    0,
+                    goal.max_tool_calls - len(observed_tool_latencies),
+                )
+                required_tool_calls = self._controlled_action_tool_cost(
+                    decision.next_action,
+                    state,
+                )
+                if required_tool_calls > remaining_tool_calls:
+                    # Ask the policy for its normal budget terminal so fallback
+                    # execution cannot cross the global Tool-call boundary.
+                    decision = active_policy.next_action(
+                        goal=goal,
+                        findings=state.findings,
+                        action_records=state.action_history,
+                        tool_call_count=goal.max_tool_calls,
+                    )
             if decision.next_action is None:
                 questions = (
                     _reconcile_satisfied_questions(state)
@@ -552,6 +572,28 @@ class Supervisor:
 
             finding = self._dispatch_controlled(decision.next_action, state)
             state = self._record_controlled_finding(state, decision.next_action, finding)
+
+    def _controlled_action_tool_cost(
+        self,
+        action: InvestigationAction,
+        state: RCAState,
+    ) -> int:
+        """Return the conservative V1 Tool cost used for budget preflight."""
+
+        if action.kind in {
+            "inspect_defect_pattern",
+            "validate_shared_defect_pattern",
+            "validate_historical_case",
+        }:
+            return 1
+        if action.kind == "find_shared_exposure":
+            lot_id = str(
+                action.inputs.get("lot_id") or state.job.source_lot_id or ""
+            ).strip()
+            return 3 if lot_id else 2
+        if action.kind == "inspect_fdc_spc":
+            return 4 if self.fdc_agent.analyze_spc_evidence_tool is not None else 3
+        return 0
 
     def execute_llm_react(
         self,
@@ -613,8 +655,8 @@ class Supervisor:
                     tool_latencies=observed_tool_latencies,
                 )
 
-            state = self._record_planner_decision(state, decision)
             if decision.decision_type == DecisionType.STOP.value:
+                state = self._record_planner_decision(state, decision)
                 conclusion_level = _gate_conclusion_level(
                     decision.proposed_conclusion_level,
                     state=state,
@@ -641,7 +683,23 @@ class Supervisor:
                     "LLM act decision lost its next_action",
                     state=state,
                 )
-            finding = self._dispatch_controlled(action, state)
+            remaining_tool_calls = max(
+                0,
+                intent_plan.goal.max_tool_calls - len(observed_tool_latencies),
+            )
+            try:
+                finding = self._dispatch_llm_react(
+                    action,
+                    state,
+                    remaining_tool_calls=remaining_tool_calls,
+                )
+            except SpecialistV2Error as exc:
+                raise SupervisorExecutionError(str(exc), state=state) from exc
+
+            # Commit the Planner decision only after its Action has produced a valid
+            # Finding. This keeps PlannerDecision and ActionRecord atomic if a
+            # Specialist Tool fails.
+            state = self._record_planner_decision(state, decision)
             state = self._record_controlled_finding(state, action, finding)
 
     @staticmethod
@@ -661,6 +719,178 @@ class Supervisor:
             state,
             investigation_questions=list(questions_by_id.values()),
             planner_decisions=[*state.planner_decisions, decision],
+        )
+
+    def _dispatch_llm_react(
+        self,
+        action: InvestigationAction,
+        state: RCAState,
+        *,
+        remaining_tool_calls: int,
+    ) -> AgentFinding:
+        """Dispatch one Qwen action through Specialist V2 or the RCA evidence gate."""
+
+        definition = ACTION_REGISTRY.get(action.kind)
+        if (
+            definition is None
+            or action.kind not in LLM_REACT_EXECUTABLE_ACTION_KINDS
+            or action.agent != definition.agent
+        ):
+            raise SupervisorExecutionError(
+                f"LLM action {action.kind!r} is not executable by {action.agent!r}",
+                state=state,
+            )
+        if action.kind == "run_rca_reasoning":
+            return self._dispatch_controlled(action, state)
+        if self.specialist_v2_executor is None:
+            raise SupervisorExecutionError(
+                "llm_react Specialist V2 executor is not configured",
+                state=state,
+            )
+        if remaining_tool_calls <= 0:
+            raise SupervisorExecutionError(
+                "the global Tool budget is exhausted before Specialist execution",
+                state=state,
+            )
+
+        facts = action.inputs
+        context: dict[str, Any] = {
+            "investigation_intent": (
+                state.investigation_goal.intent
+                if state.investigation_goal is not None
+                else ""
+            ),
+            "source_lot_id": state.job.source_lot_id,
+            "user_query": state.job.user_query,
+        }
+        if action.kind in {
+            "inspect_defect_pattern",
+            "validate_shared_defect_pattern",
+        }:
+            source_lot_id = str(
+                facts.get("lot_id") or state.job.source_lot_id or ""
+            ).strip()
+            lot_ids = [source_lot_id] if source_lot_id else []
+            if action.kind == "validate_shared_defect_pattern" or not lot_ids:
+                mes = _latest_finding_for_agent(
+                    state.findings,
+                    AgentKind.MES.value,
+                    state=state,
+                )
+                raw_lot_ids = mes.details.get("affected_lots", [])
+                authorized_lot_ids = (
+                    raw_lot_ids if isinstance(raw_lot_ids, list) else []
+                )
+                selected = [
+                    str(item).strip()
+                    for item in authorized_lot_ids
+                    if str(item).strip()
+                ]
+                lot_ids = list(
+                    dict.fromkeys(
+                        [
+                            *([source_lot_id] if source_lot_id else []),
+                            *selected,
+                        ]
+                    )
+                )
+            if not lot_ids:
+                raise SupervisorExecutionError(
+                    "defect-pattern action requires a source or MES-selected Lot scope",
+                    state=state,
+                )
+            context.update(
+                {
+                    "lot_ids": lot_ids,
+                    "evidence_scope": (
+                        "shared_exposure_comparison"
+                        if action.kind == "validate_shared_defect_pattern"
+                        else "selected_lots"
+                    ),
+                }
+            )
+        elif action.kind == "find_shared_exposure":
+            start_date, end_date = _time_window(facts, state.job)
+            context.update(
+                {
+                    "lot_id": str(
+                        facts.get("lot_id") or state.job.source_lot_id or ""
+                    ).strip()
+                    or None,
+                    "product_id": str(
+                        facts.get("product_id") or state.job.product_id or ""
+                    ).strip()
+                    or None,
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "target_operation_no": (
+                        str(facts.get("target_operation_no")).strip()
+                        if facts.get("target_operation_no")
+                        else None
+                    ),
+                }
+            )
+        elif action.kind == "inspect_fdc_spc":
+            mes = _latest_finding_for_agent(
+                state.findings,
+                AgentKind.MES.value,
+                state=state,
+            )
+            raw_commonality = mes.details.get("target_commonality", {})
+            commonality = (
+                raw_commonality if isinstance(raw_commonality, dict) else {}
+            )
+            raw_lot_ids = mes.details.get("affected_lots", [])
+            lot_ids = (
+                [str(item) for item in raw_lot_ids if str(item).strip()]
+                if isinstance(raw_lot_ids, list)
+                else []
+            )
+            context.update(
+                {
+                    "lot_ids": lot_ids,
+                    "equipment_id": str(commonality.get("equipment_id", "")),
+                    "chamber_id": str(commonality.get("chamber_id", "")),
+                    "operation_no": str(
+                        mes.details.get("target_operation_no", "")
+                    ),
+                }
+            )
+        elif action.kind == "validate_historical_case":
+            selected_findings = [
+                _latest_finding_for_agent(
+                    state.findings,
+                    agent,
+                    state=state,
+                )
+                for agent in (
+                    AgentKind.MES.value,
+                    AgentKind.FDC.value,
+                    AgentKind.DEFECT_WAT.value,
+                )
+            ]
+            query, module, equipment_type = _knowledge_query(
+                state,
+                selected_findings,
+            )
+            context.update(
+                {
+                    "query": query,
+                    "module": module,
+                    "equipment_type": equipment_type,
+                }
+            )
+        else:
+            raise SupervisorExecutionError(
+                f"LLM Specialist action {action.kind!r} has no V2 dispatcher",
+                state=state,
+            )
+
+        return self.specialist_v2_executor.execute(
+            action,
+            request_id=f"{state.job.job_id}:{action.action_id}",
+            context=context,
+            max_tool_calls=min(2, remaining_tool_calls),
         )
 
     def _dispatch_controlled(
@@ -819,6 +1049,24 @@ class Supervisor:
         action: InvestigationAction,
         finding: AgentFinding,
     ) -> RCAState:
+        if finding.agent != action.agent:
+            raise SupervisorExecutionError(
+                f"action {action.action_id} expected {action.agent} finding, "
+                f"got {finding.agent}",
+                state=state,
+            )
+        available_before_action = {item.evidence_id for item in state.evidence}
+        missing_required = set(action.required_evidence_ids) - available_before_action
+        if missing_required:
+            raise SupervisorExecutionError(
+                f"action requires unavailable evidence: {sorted(missing_required)}",
+                state=state,
+            )
+        if any(item.finding_id == finding.finding_id for item in state.findings):
+            raise SupervisorExecutionError(
+                f"finding_id is already recorded: {finding.finding_id}",
+                state=state,
+            )
         try:
             evidence = EvidenceCollection(state.evidence).merge(finding.evidence).to_list()
         except ModelValidationError as exc:

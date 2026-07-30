@@ -47,8 +47,8 @@ from yield_rca_core.models import (
 
 _OUTPUT_ATTEMPTS = 2
 
-# Only actions with a Batch 20.9.3 Supervisor dispatcher are visible to Qwen.
-# The Specialist-local Tool selection boundary remains a Batch 20.9.4 concern.
+# Only actions with a Supervisor dispatcher are visible to Qwen. Specialist
+# Tool selection for these actions is bounded separately by Specialist V2.
 LLM_REACT_EXECUTABLE_ACTION_KINDS = frozenset(
     {
         ActionKind.INSPECT_DEFECT_PATTERN.value,
@@ -787,7 +787,7 @@ class QwenNextActionPlanner:
             )
         ):
             raise InvestigationValidationError(
-                "find_shared_exposure is single-use before Specialist V2"
+                "find_shared_exposure is single-use within one bounded investigation"
             )
 
 
