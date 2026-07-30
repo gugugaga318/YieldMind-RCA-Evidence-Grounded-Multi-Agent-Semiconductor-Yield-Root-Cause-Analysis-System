@@ -1057,7 +1057,7 @@ class RCAState:
             ),
             action_history=[
                 ActionRecord(
-                    action=InvestigationAction(**dict(item["action"])),
+                    action=InvestigationAction.from_dict(item["action"]),
                     status=item["status"],
                     produced_finding_ids=list(item.get("produced_finding_ids", [])),
                     produced_evidence_ids=list(item.get("produced_evidence_ids", [])),

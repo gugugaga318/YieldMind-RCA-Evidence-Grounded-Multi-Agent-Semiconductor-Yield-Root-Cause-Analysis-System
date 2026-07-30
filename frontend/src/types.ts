@@ -191,6 +191,7 @@ export interface RCAState {
       agent: string;
       reason: string;
       inputs: Record<string, unknown>;
+      scope?: Record<string, unknown>;
       required_evidence_ids: string[];
       max_attempts: number;
     };

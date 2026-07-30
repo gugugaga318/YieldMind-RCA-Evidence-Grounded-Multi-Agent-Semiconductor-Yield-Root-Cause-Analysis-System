@@ -31,6 +31,7 @@ The project design is defined in:
 - [docs/architecture/system-overview.md](docs/architecture/system-overview.md)
 - [docs/architecture/agent-architecture.md](docs/architecture/agent-architecture.md)
 - [docs/architecture/data-architecture.md](docs/architecture/data-architecture.md)
+- [docs/autonomous-qwen-react-spec.md](docs/autonomous-qwen-react-spec.md)
 
 Implementation work must follow these documents unless an ADR explicitly changes the design.
 
