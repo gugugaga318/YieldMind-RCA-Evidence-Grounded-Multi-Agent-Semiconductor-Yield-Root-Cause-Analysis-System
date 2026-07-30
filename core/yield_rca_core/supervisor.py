@@ -7,9 +7,26 @@ from typing import Any
 
 from yield_rca_core.evidence_collection import EvidenceCollection
 from yield_rca_core.improvement_agent import ImprovementAgent
-from yield_rca_core.investigation_models import ActionRecord, InvestigationAction, InvestigationGoal
-from yield_rca_core.investigation_policy import InvestigationPolicy
-from yield_rca_core.llm_gateway import LLMClient, LLMOutputValidationError, LLMRequest
+from yield_rca_core.investigation_models import (
+    ActionRecord,
+    ConclusionLevel,
+    DecisionType,
+    EvidenceGapStatus,
+    GoalStatus,
+    IntentPlan,
+    InvestigationAction,
+    InvestigationGoal,
+    InvestigationIntent,
+    InvestigationQuestion,
+    PlannerDecision,
+)
+from yield_rca_core.investigation_policy import ACTION_REGISTRY, InvestigationPolicy
+from yield_rca_core.llm_gateway import (
+    LLMCallError,
+    LLMClient,
+    LLMOutputValidationError,
+    LLMRequest,
+)
 from yield_rca_core.models import (
     AgentFinding,
     AgentKind,
@@ -17,6 +34,7 @@ from yield_rca_core.models import (
     AgentTask,
     FindingKind,
     Hypothesis,
+    HypothesisStatus,
     InvestigationMode,
     LotDrivenRCAError,
     ModelValidationError,
@@ -25,6 +43,11 @@ from yield_rca_core.models import (
     TaskPlan,
     TaskStatus,
     Warning,
+)
+from yield_rca_core.next_action_planner import (
+    LLM_REACT_EXECUTABLE_ACTION_KINDS,
+    QwenNextActionPlanner,
+    QwenNextActionPlannerError,
 )
 from yield_rca_core.rca_reasoning_agent import RCAReasoningAgent
 from yield_rca_core.report_generator import ReportGenerator
@@ -57,6 +80,104 @@ SPECIALIST_TOOL_ALLOWLISTS = {
     AgentKind.DEFECT_WAT.value: ["summarize_defect_wat"],
     AgentKind.KNOWLEDGE.value: ["retrieve_similar_case"],
 }
+
+
+def _open_question_gaps(questions: list[InvestigationQuestion]) -> list[str]:
+    return [
+        question.question_id
+        for question in questions
+        if question.status == EvidenceGapStatus.OPEN.value
+    ]
+
+
+def _conclusion_cap(state: RCAState, goal: InvestigationGoal) -> str:
+    statuses = {hypothesis.status for hypothesis in state.hypotheses}
+    if HypothesisStatus.CONFLICTED.value in statuses:
+        return ConclusionLevel.CONFLICTED.value
+    if HypothesisStatus.SUPPORTED.value in statuses:
+        return ConclusionLevel.SUPPORTED.value
+    if HypothesisStatus.CANDIDATE.value in statuses:
+        return ConclusionLevel.CANDIDATE.value
+    if statuses & {
+        HypothesisStatus.INCONCLUSIVE.value,
+        HypothesisStatus.REJECTED.value,
+    }:
+        return ConclusionLevel.INCONCLUSIVE.value
+    if not state.evidence:
+        return ConclusionLevel.INCONCLUSIVE.value
+
+    finding_agents = {finding.agent for finding in state.findings}
+    if (
+        goal.intent == InvestigationIntent.HISTORICAL_LOOKUP.value
+        and AgentKind.KNOWLEDGE.value in finding_agents
+    ):
+        return ConclusionLevel.CANDIDATE.value
+    if goal.intent in {
+        InvestigationIntent.ROOT_CAUSE.value,
+        InvestigationIntent.FULL_RCA.value,
+    } and {
+        AgentKind.MES.value,
+        AgentKind.FDC.value,
+        AgentKind.DEFECT_WAT.value,
+    } <= finding_agents:
+        return ConclusionLevel.CANDIDATE.value
+    return ConclusionLevel.SIGNAL.value
+
+
+def _gate_conclusion_level(
+    proposed_level: str,
+    *,
+    state: RCAState,
+    goal: InvestigationGoal,
+) -> str:
+    """Bound Qwen's proposed level by the existing Evidence/Hypothesis gate."""
+
+    cap = _conclusion_cap(state, goal)
+    if cap == ConclusionLevel.CONFLICTED.value:
+        return cap
+    if proposed_level == ConclusionLevel.CONFLICTED.value:
+        return ConclusionLevel.INCONCLUSIVE.value
+    if proposed_level == ConclusionLevel.INCONCLUSIVE.value:
+        return proposed_level
+    if cap == ConclusionLevel.INCONCLUSIVE.value:
+        return cap
+
+    ordered = [
+        ConclusionLevel.SIGNAL.value,
+        ConclusionLevel.CANDIDATE.value,
+        ConclusionLevel.SUPPORTED.value,
+    ]
+    return ordered[min(ordered.index(proposed_level), ordered.index(cap))]
+
+
+def _reconcile_satisfied_questions(state: RCAState) -> list[InvestigationQuestion]:
+    if not state.investigation_questions or not state.evidence:
+        return list(state.investigation_questions)
+    evidence_ids = sorted(item.evidence_id for item in state.evidence)
+    answer = " ".join(
+        finding.summary.strip()
+        for finding in state.findings
+        if finding.summary.strip()
+    )
+    if not answer:
+        answer = (
+            "The controlled fallback completed the investigation with "
+            f"Evidence IDs {', '.join(evidence_ids)}."
+        )
+    return [
+        (
+            replace(
+                question,
+                status=EvidenceGapStatus.CLOSED.value,
+                answer=answer,
+                evidence_ids=evidence_ids,
+                unavailable_reason=None,
+            )
+            if question.status == EvidenceGapStatus.OPEN.value
+            else question
+        )
+        for question in state.investigation_questions
+    ]
 
 
 class SupervisorExecutionError(RuntimeError):
@@ -140,6 +261,21 @@ def _finding_for_agent(
             state=state,
         )
     return matches[0]
+
+
+def _latest_finding_for_agent(
+    findings: list[AgentFinding],
+    agent: str,
+    *,
+    state: RCAState,
+) -> AgentFinding:
+    matches = [finding for finding in findings if finding.agent == agent]
+    if not matches:
+        raise SupervisorExecutionError(
+            f"expected at least one selected {agent} finding",
+            state=state,
+        )
+    return matches[-1]
 
 
 def _merge_warnings(existing: list[Warning], incoming: list[Warning]) -> list[Warning]:
@@ -355,27 +491,60 @@ class Supervisor:
         goal: InvestigationGoal,
         *,
         policy: InvestigationPolicy | None = None,
+        tool_latencies: list[dict[str, str | float]] | None = None,
     ) -> RCAState:
         """Run a bounded observation-action loop without changing fixed-plan execution."""
-        active_policy = policy or InvestigationPolicy()
         state = RCAState(
             job=replace(job, status=TaskStatus.RUNNING.value),
             investigation_goal=goal,
         )
+        return self._continue_controlled(
+            state,
+            goal,
+            policy=policy,
+            tool_latencies=tool_latencies,
+        )
+
+    def _continue_controlled(
+        self,
+        state: RCAState,
+        goal: InvestigationGoal,
+        *,
+        policy: InvestigationPolicy | None = None,
+        tool_latencies: list[dict[str, str | float]] | None = None,
+    ) -> RCAState:
+        """Resume controlled ReAct from the supplied state, including after LLM fallback."""
+
+        active_policy = policy or InvestigationPolicy()
+        observed_tool_latencies = tool_latencies if tool_latencies is not None else []
         while True:
             decision = active_policy.next_action(
                 goal=goal,
                 findings=state.findings,
                 action_records=state.action_history,
-                tool_call_count=len(state.action_history),
+                tool_call_count=len(observed_tool_latencies),
             )
             if decision.next_action is None:
+                questions = (
+                    _reconcile_satisfied_questions(state)
+                    if decision.goal_status == GoalStatus.SATISFIED.value
+                    else list(state.investigation_questions)
+                )
+                evidence_gaps = list(
+                    dict.fromkeys(
+                        [
+                            *decision.evidence_gaps,
+                            *_open_question_gaps(questions),
+                        ]
+                    )
+                )
                 terminal = replace(
                     state,
                     job=replace(state.job, status=TaskStatus.COMPLETED.value),
+                    investigation_questions=questions,
                     goal_status=decision.goal_status,
                     conclusion_level=decision.conclusion_level,
-                    evidence_gaps=decision.evidence_gaps,
+                    evidence_gaps=evidence_gaps,
                     stop_reason=decision.stop_reason,
                 )
                 report = self.report_generator.generate(terminal)
@@ -384,23 +553,159 @@ class Supervisor:
             finding = self._dispatch_controlled(decision.next_action, state)
             state = self._record_controlled_finding(state, decision.next_action, finding)
 
+    def execute_llm_react(
+        self,
+        job: RCAJob,
+        intent_plan: IntentPlan,
+        planner: QwenNextActionPlanner,
+        *,
+        fallback_policy: InvestigationPolicy | None = None,
+        tool_latencies: list[dict[str, str | float]] | None = None,
+    ) -> RCAState:
+        """Let Qwen choose one registered Agent action after every observation."""
+
+        state = RCAState(
+            job=replace(job, status=TaskStatus.RUNNING.value),
+            investigation_goal=intent_plan.goal,
+            investigation_questions=list(intent_plan.questions),
+            execution_metadata={
+                "orchestration_requested_mode": "llm_react",
+                "orchestration_mode": "llm_react",
+            },
+        )
+        observed_tool_latencies = tool_latencies if tool_latencies is not None else []
+        while True:
+            try:
+                decision = planner.decide(
+                    goal=intent_plan.goal,
+                    questions=state.investigation_questions,
+                    findings=state.findings,
+                    action_records=state.action_history,
+                    tool_call_count=len(observed_tool_latencies),
+                    evidence=state.evidence,
+                    evidence_ids=[item.evidence_id for item in state.evidence],
+                    hypotheses=state.hypotheses,
+                    prior_decisions=state.planner_decisions,
+                )
+            except (QwenNextActionPlannerError, LLMCallError) as exc:
+                reason = (
+                    "qwen_next_action_output_invalid"
+                    if isinstance(exc, QwenNextActionPlannerError)
+                    else "qwen_next_action_call_failed"
+                )
+                fallback_state = replace(
+                    state,
+                    execution_metadata={
+                        **state.execution_metadata,
+                        "orchestration_requested_mode": "llm_react",
+                        "orchestration_mode": "controlled_react",
+                        "orchestration_fallback_reason": reason,
+                        "orchestration_fallback_stage": "next_action_planning",
+                        "orchestration_fallback_after_action_count": len(
+                            state.action_history
+                        ),
+                    },
+                )
+                return self._continue_controlled(
+                    fallback_state,
+                    intent_plan.goal,
+                    policy=fallback_policy,
+                    tool_latencies=observed_tool_latencies,
+                )
+
+            state = self._record_planner_decision(state, decision)
+            if decision.decision_type == DecisionType.STOP.value:
+                conclusion_level = _gate_conclusion_level(
+                    decision.proposed_conclusion_level,
+                    state=state,
+                    goal=intent_plan.goal,
+                )
+                terminal = replace(
+                    state,
+                    job=replace(state.job, status=TaskStatus.COMPLETED.value),
+                    goal_status=decision.goal_status,
+                    conclusion_level=conclusion_level,
+                    evidence_gaps=_open_question_gaps(
+                        state.investigation_questions
+                    ),
+                    stop_reason=decision.stop_reason,
+                )
+                if not terminal.evidence:
+                    return terminal
+                report = self.report_generator.generate(terminal)
+                return replace(terminal, report=report)
+
+            action = decision.next_action
+            if action is None:
+                raise SupervisorExecutionError(
+                    "LLM act decision lost its next_action",
+                    state=state,
+                )
+            finding = self._dispatch_controlled(action, state)
+            state = self._record_controlled_finding(state, action, finding)
+
+    @staticmethod
+    def _record_planner_decision(
+        state: RCAState,
+        decision: PlannerDecision,
+    ) -> RCAState:
+        questions_by_id = {
+            question.question_id: question
+            for question in state.investigation_questions
+        }
+        for question in getattr(decision, "question_updates", []):
+            questions_by_id[question.question_id] = question
+        for question in decision.new_questions:
+            questions_by_id[question.question_id] = question
+        return replace(
+            state,
+            investigation_questions=list(questions_by_id.values()),
+            planner_decisions=[*state.planner_decisions, decision],
+        )
+
     def _dispatch_controlled(
         self,
         action: InvestigationAction,
         state: RCAState,
     ) -> AgentFinding:
+        definition = ACTION_REGISTRY.get(action.kind)
+        if (
+            definition is None
+            or action.kind not in LLM_REACT_EXECUTABLE_ACTION_KINDS
+            or action.agent != definition.agent
+        ):
+            raise SupervisorExecutionError(
+                f"controlled action {action.kind!r} is not executable by {action.agent!r}",
+                state=state,
+            )
         request_id = f"{state.job.job_id}:{action.action_id}"
         facts = action.inputs
         if action.kind in {"inspect_defect_pattern", "validate_shared_defect_pattern"}:
             lot_id = str(facts.get("lot_id") or state.job.source_lot_id or "")
-            if not lot_id:
-                raise SupervisorExecutionError(
-                    "defect-pattern action requires a source lot", state=state
+            lot_ids = [lot_id] if lot_id else []
+            if action.kind == "validate_shared_defect_pattern" or not lot_ids:
+                mes = _latest_finding_for_agent(
+                    state.findings,
+                    AgentKind.MES.value,
+                    state=state,
                 )
-            lot_ids = [lot_id]
-            if action.kind == "validate_shared_defect_pattern":
-                mes = _finding_for_agent(state.findings, AgentKind.MES.value, state=state)
-                lot_ids = list(mes.details.get("affected_lots", [])) or [lot_id]
+                raw_mes_lot_ids = mes.details.get("affected_lots", [])
+                mes_lot_ids = [
+                    str(item)
+                    for item in (
+                        raw_mes_lot_ids
+                        if isinstance(raw_mes_lot_ids, list)
+                        else []
+                    )
+                    if str(item).strip()
+                ]
+                if action.kind == "validate_shared_defect_pattern" or not lot_ids:
+                    lot_ids = mes_lot_ids or lot_ids
+            if not lot_ids:
+                raise SupervisorExecutionError(
+                    "defect-pattern action requires a source or MES-selected Lot scope",
+                    state=state,
+                )
             finding = self.defect_wat_agent.analyze(
                 request_id=request_id,
                 lot_ids=lot_ids,
@@ -439,7 +744,11 @@ class Supervisor:
                 prompt_version=self.specialist_prompt_version,
             )
         if action.kind == "inspect_fdc_spc":
-            mes = _finding_for_agent(state.findings, AgentKind.MES.value, state=state)
+            mes = _latest_finding_for_agent(
+                state.findings,
+                AgentKind.MES.value,
+                state=state,
+            )
             commonality = mes.details["target_commonality"]
             finding = self.fdc_agent.analyze(
                 request_id=request_id,
@@ -447,6 +756,35 @@ class Supervisor:
                 equipment_id=str(commonality["equipment_id"]),
                 chamber_id=str(commonality["chamber_id"]),
                 operation_no=str(mes.details["target_operation_no"]),
+            )
+            return _review_specialist_finding(
+                finding,
+                llm_client=self.llm_client,
+                agent_mode=self.agent_mode,
+                prompt_version=self.specialist_prompt_version,
+            )
+        if action.kind == "validate_historical_case":
+            selected_findings = [
+                _latest_finding_for_agent(
+                    state.findings,
+                    agent,
+                    state=state,
+                )
+                for agent in (
+                    AgentKind.MES.value,
+                    AgentKind.FDC.value,
+                    AgentKind.DEFECT_WAT.value,
+                )
+            ]
+            query, module, equipment_type = _knowledge_query(
+                state,
+                selected_findings,
+            )
+            finding = self.knowledge_agent.analyze(
+                request_id=request_id,
+                query=query,
+                module=module,
+                equipment_type=equipment_type,
             )
             return _review_specialist_finding(
                 finding,

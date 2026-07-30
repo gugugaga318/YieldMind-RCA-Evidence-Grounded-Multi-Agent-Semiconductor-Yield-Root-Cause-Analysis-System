@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from time import perf_counter
 
 from yield_rca_core.improvement_agent import ImprovementAgent
+from yield_rca_core.intent_planner import QwenIntentPlanner, QwenIntentPlannerError
 from yield_rca_core.investigation_models import OrchestrationMode
 from yield_rca_core.llm_gateway import (
+    LLMCallError,
     LLMClient,
     LLMSettings,
     build_llm_client,
     capture_llm_usage,
 )
 from yield_rca_core.models import InvestigationMode, RCAJob, RCAState
+from yield_rca_core.next_action_planner import QwenNextActionPlanner
 from yield_rca_core.planner_agent import PlannerAgent
 from yield_rca_core.rca_reasoning_agent import RCAReasoningAgent
 from yield_rca_core.report_generator import ReportGenerator
@@ -37,6 +40,48 @@ from yield_rca_core.tool_layer import (
 )
 
 
+def _job_from_goal(
+    known_facts: dict[str, object],
+    *,
+    user_query: str,
+    job_id: str,
+    explicit_lot_id: str | None,
+) -> RCAJob:
+    source_lot_id = str(
+        explicit_lot_id or known_facts.get("lot_id") or ""
+    ).strip().upper()
+    raw_time_window = known_facts.get("time_window")
+    time_window = (
+        {str(key): str(value) for key, value in raw_time_window.items()}
+        if isinstance(raw_time_window, dict)
+        else {
+            key: str(known_facts[key])
+            for key in (
+                "start",
+                "end",
+                "start_date",
+                "end_date",
+                "month",
+                "label",
+            )
+            if known_facts.get(key) is not None
+        }
+    )
+    product_id = str(known_facts.get("product_id") or "").strip()
+    return RCAJob(
+        job_id=job_id,
+        user_query=user_query,
+        investigation_mode=(
+            InvestigationMode.LOT.value
+            if source_lot_id
+            else InvestigationMode.PRODUCT_WINDOW.value
+        ),
+        source_lot_id=source_lot_id or None,
+        product_id=product_id or None,
+        time_window=time_window,
+    )
+
+
 @dataclass(frozen=True)
 class PurePythonRCAWorkflow:
     """Plan and execute one RCA job without HTTP or frontend dependencies."""
@@ -45,6 +90,8 @@ class PurePythonRCAWorkflow:
     supervisor: Supervisor
     llm_settings: LLMSettings
     orchestration_mode: str = OrchestrationMode.FIXED.value
+    intent_planner: QwenIntentPlanner | None = None
+    next_action_planner: QwenNextActionPlanner | None = None
 
     def run(
         self,
@@ -59,39 +106,107 @@ class PurePythonRCAWorkflow:
         OrchestrationMode(active_orchestration_mode)
         started = perf_counter()
         with capture_llm_usage() as llm_usage, capture_tool_latencies() as tool_latencies:
-            task_plan = self.planner.plan(user_query, plan_id=plan_id, lot_id=lot_id)
-            mes_task = next(task for task in task_plan.tasks if task.agent == "mes")
-            raw_window = mes_task.inputs.get("time_window", {})
-            time_window = (
-                {str(key): str(value) for key, value in raw_window.items()}
-                if isinstance(raw_window, dict)
-                else {}
-            )
-            product_id = mes_task.inputs.get("product_id")
-            source_lot_id = mes_task.inputs.get("lot_id")
-            investigation_mode = str(
-                mes_task.inputs.get(
-                    "investigation_mode",
-                    InvestigationMode.PRODUCT_WINDOW.value,
-                )
-            )
-            job = RCAJob(
-                job_id=job_id,
-                user_query=user_query,
-                investigation_mode=investigation_mode,
-                source_lot_id=str(source_lot_id) if source_lot_id else None,
-                product_id=str(product_id) if product_id else None,
-                time_window=time_window,
-            )
-            if active_orchestration_mode == OrchestrationMode.CONTROLLED_REACT.value:
-                goal = self.planner.plan_investigation_goal(user_query, lot_id=lot_id)
-                state = self.supervisor.execute_controlled(job, goal)
+            if active_orchestration_mode == OrchestrationMode.LLM_REACT.value:
+                if self.intent_planner is None or self.next_action_planner is None:
+                    raise ValueError("llm_react requires configured Qwen planners")
+                try:
+                    intent_plan = self.intent_planner.plan(
+                        user_query,
+                        lot_id=lot_id,
+                    )
+                except (QwenIntentPlannerError, LLMCallError) as exc:
+                    goal = self.planner.plan_investigation_goal(
+                        user_query,
+                        lot_id=lot_id,
+                    )
+                    job = _job_from_goal(
+                        goal.known_facts,
+                        user_query=user_query,
+                        job_id=job_id,
+                        explicit_lot_id=lot_id,
+                    )
+                    state = self.supervisor.execute_controlled(
+                        job,
+                        goal,
+                        tool_latencies=tool_latencies,
+                    )
+                    state = replace(
+                        state,
+                        execution_metadata={
+                            **state.execution_metadata,
+                            "orchestration_requested_mode": "llm_react",
+                            "orchestration_mode": "controlled_react",
+                            "orchestration_fallback_reason": (
+                                "qwen_intent_output_invalid"
+                                if isinstance(exc, QwenIntentPlannerError)
+                                else "qwen_intent_call_failed"
+                            ),
+                            "orchestration_fallback_stage": "intent_planning",
+                            "orchestration_fallback_after_action_count": 0,
+                        },
+                    )
+                else:
+                    job = _job_from_goal(
+                        intent_plan.goal.known_facts,
+                        user_query=user_query,
+                        job_id=job_id,
+                        explicit_lot_id=lot_id,
+                    )
+                    state = self.supervisor.execute_llm_react(
+                        job,
+                        intent_plan,
+                        self.next_action_planner,
+                        tool_latencies=tool_latencies,
+                    )
             else:
-                state = self.supervisor.execute(job, task_plan)
+                task_plan = self.planner.plan(
+                    user_query,
+                    plan_id=plan_id,
+                    lot_id=lot_id,
+                )
+                mes_task = next(task for task in task_plan.tasks if task.agent == "mes")
+                raw_window = mes_task.inputs.get("time_window", {})
+                time_window = (
+                    {str(key): str(value) for key, value in raw_window.items()}
+                    if isinstance(raw_window, dict)
+                    else {}
+                )
+                product_id = mes_task.inputs.get("product_id")
+                source_lot_id = mes_task.inputs.get("lot_id")
+                investigation_mode = str(
+                    mes_task.inputs.get(
+                        "investigation_mode",
+                        InvestigationMode.PRODUCT_WINDOW.value,
+                    )
+                )
+                job = RCAJob(
+                    job_id=job_id,
+                    user_query=user_query,
+                    investigation_mode=investigation_mode,
+                    source_lot_id=str(source_lot_id) if source_lot_id else None,
+                    product_id=str(product_id) if product_id else None,
+                    time_window=time_window,
+                )
+                if active_orchestration_mode == OrchestrationMode.CONTROLLED_REACT.value:
+                    goal = self.planner.plan_investigation_goal(user_query, lot_id=lot_id)
+                    state = self.supervisor.execute_controlled(
+                        job,
+                        goal,
+                        tool_latencies=tool_latencies,
+                    )
+                else:
+                    state = self.supervisor.execute(job, task_plan)
 
         total_tokens = sum(event.total_tokens for event in llm_usage)
         llm_latency_ms = round(sum(event.latency_ms for event in llm_usage), 3)
+        actual_orchestration_mode = str(
+            state.execution_metadata.get(
+                "orchestration_mode",
+                active_orchestration_mode,
+            )
+        )
         metadata = {
+            **state.execution_metadata,
             "agent_mode": self.llm_settings.agent_mode,
             "provider": (
                 self.supervisor.llm_client.provider if self.supervisor.llm_client else None
@@ -110,7 +225,7 @@ class PurePythonRCAWorkflow:
             "workflow_duration_ms": round((perf_counter() - started) * 1000.0, 3),
             "reasoning_engine": "hypothesis_v1",
             "hypothesis_engine_mode": "active",
-            "orchestration_mode": active_orchestration_mode,
+            "orchestration_mode": actual_orchestration_mode,
         }
         return RCAState.from_dict(
             {
@@ -140,9 +255,16 @@ def build_workflow(
         OrchestrationMode(selected_orchestration_mode)
     except ValueError as exc:
         raise ValueError(
-            "YIELD_RCA_ORCHESTRATION_MODE must be fixed or controlled_react"
+            "YIELD_RCA_ORCHESTRATION_MODE must be fixed, controlled_react, or llm_react"
         ) from exc
     shared_llm_client = llm_client if llm_client is not None else build_llm_client(settings)
+    if (
+        selected_orchestration_mode == OrchestrationMode.LLM_REACT.value
+        and shared_llm_client is None
+    ):
+        raise ValueError(
+            "llm_react requires YIELD_RCA_AGENT_MODE=fake or llm and an LLM client"
+        )
     mes_agent = MESAgent(
         find_affected_lots_tool=FindAffectedLotsTool(repository),
         analyze_lot_genealogy_tool=AnalyzeLotGenealogyTool(repository),
@@ -185,6 +307,16 @@ def build_workflow(
         supervisor=supervisor,
         llm_settings=settings,
         orchestration_mode=selected_orchestration_mode,
+        intent_planner=(
+            QwenIntentPlanner(shared_llm_client)
+            if shared_llm_client is not None
+            else None
+        ),
+        next_action_planner=(
+            QwenNextActionPlanner(shared_llm_client)
+            if shared_llm_client is not None
+            else None
+        ),
     )
 
 

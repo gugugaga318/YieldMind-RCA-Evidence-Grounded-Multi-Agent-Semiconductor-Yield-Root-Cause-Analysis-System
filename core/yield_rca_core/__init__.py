@@ -72,6 +72,12 @@ from yield_rca_core.models import (
     ToolOutput,
     Warning,
 )
+from yield_rca_core.next_action_planner import (
+    LLM_REACT_ACTION_REGISTRY,
+    LLM_REACT_EXECUTABLE_ACTION_KINDS,
+    QwenNextActionPlanner,
+    QwenNextActionPlannerError,
+)
 from yield_rca_core.planner_agent import (
     DEFAULT_PLANNABLE_AGENTS,
     PlannerAgent,
@@ -170,6 +176,8 @@ __all__ = [
     "LotNotFoundError",
     "LLMUsageEvent",
     "LegacyEvidenceAdapter",
+    "LLM_REACT_ACTION_REGISTRY",
+    "LLM_REACT_EXECUTABLE_ACTION_KINDS",
     "MAX_CROSS_DOMAIN_ACTIONS",
     "MAX_INITIAL_QUESTIONS",
     "MESAgent",
@@ -185,6 +193,8 @@ __all__ = [
     "PurePythonRCAWorkflow",
     "QwenIntentPlanner",
     "QwenIntentPlannerError",
+    "QwenNextActionPlanner",
+    "QwenNextActionPlannerError",
     "RCAJob",
     "RCAReasoningAgent",
     "RCAState",

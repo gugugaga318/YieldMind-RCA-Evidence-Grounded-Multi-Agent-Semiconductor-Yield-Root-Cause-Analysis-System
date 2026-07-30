@@ -22,6 +22,7 @@ class InvestigationValidationError(ValueError):
 class OrchestrationMode(StrEnum):
     FIXED = "fixed"
     CONTROLLED_REACT = "controlled_react"
+    LLM_REACT = "llm_react"
 
 
 class InvestigationIntent(StrEnum):
@@ -471,6 +472,7 @@ class PlannerDecision:
     target_question_ids: list[str] = field(default_factory=list)
     new_questions: list[InvestigationQuestion] = field(default_factory=list)
     stop_reason: str | None = None
+    question_updates: list[InvestigationQuestion] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         _non_empty(self.decision_id, "decision_id")
@@ -506,6 +508,31 @@ class PlannerDecision:
             question_ids.append(question.question_id)
         if len(question_ids) != len(set(question_ids)):
             raise InvestigationValidationError("new_questions must not contain duplicate ids")
+        if not isinstance(self.question_updates, list):
+            raise InvestigationValidationError("question_updates must be a list")
+        updated_question_ids: list[str] = []
+        for question in self.question_updates:
+            if not isinstance(question, InvestigationQuestion):
+                raise InvestigationValidationError(
+                    "question_updates must contain InvestigationQuestion instances"
+                )
+            if question.goal_id != self.goal_id:
+                raise InvestigationValidationError(
+                    "a planner decision cannot update a question for another goal"
+                )
+            if question.status == EvidenceGapStatus.OPEN.value:
+                raise InvestigationValidationError(
+                    "question_updates must close a question or mark it unavailable"
+                )
+            updated_question_ids.append(question.question_id)
+        if len(updated_question_ids) != len(set(updated_question_ids)):
+            raise InvestigationValidationError(
+                "question_updates must not contain duplicate ids"
+            )
+        if set(updated_question_ids) & set(question_ids):
+            raise InvestigationValidationError(
+                "a question cannot be both new and updated in one decision"
+            )
 
         if decision_type == DecisionType.ACT:
             if not isinstance(self.next_action, InvestigationAction):
@@ -554,6 +581,9 @@ class PlannerDecision:
             "target_question_ids": list(self.target_question_ids),
             "new_questions": [question.to_dict() for question in self.new_questions],
             "stop_reason": self.stop_reason,
+            "question_updates": [
+                question.to_dict() for question in self.question_updates
+            ],
         }
 
     @classmethod
@@ -573,6 +603,7 @@ class PlannerDecision:
                 "target_question_ids",
                 "new_questions",
                 "stop_reason",
+                "question_updates",
             },
             name="PlannerDecision",
         )
@@ -582,6 +613,9 @@ class PlannerDecision:
         raw_questions = payload.get("new_questions", [])
         if not isinstance(raw_questions, list):
             raise InvestigationValidationError("new_questions must be a list")
+        raw_question_updates = payload.get("question_updates", [])
+        if not isinstance(raw_question_updates, list):
+            raise InvestigationValidationError("question_updates must be a list")
         return cls(
             decision_id=payload["decision_id"],
             goal_id=payload["goal_id"],
@@ -597,6 +631,10 @@ class PlannerDecision:
                 InvestigationQuestion.from_dict(question) for question in raw_questions
             ],
             stop_reason=payload.get("stop_reason"),
+            question_updates=[
+                InvestigationQuestion.from_dict(question)
+                for question in raw_question_updates
+            ],
         )
 
 

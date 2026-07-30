@@ -367,12 +367,14 @@ def create_app(
         )
 
         try:
-            eligible, fallback_reason = _controlled_react_eligibility(request)
-            selected_mode = (
-                "controlled_react"
-                if rca_workflow.orchestration_mode == "controlled_react" and eligible
-                else "fixed"
-            )
+            fallback_reason: str | None = None
+            if rca_workflow.orchestration_mode == "llm_react":
+                selected_mode = "llm_react"
+            elif rca_workflow.orchestration_mode == "controlled_react":
+                eligible, fallback_reason = _controlled_react_eligibility(request)
+                selected_mode = "controlled_react" if eligible else "fixed"
+            else:
+                selected_mode = "fixed"
             completed_state = rca_workflow.run(
                 user_query,
                 job_id=job_id,
@@ -490,9 +492,9 @@ def create_app(
 
         job_store.save(completed_state)
         memory_candidate = None
-        controlled_fast_path = (
-            completed_state.execution_metadata.get("orchestration_mode") == "controlled_react"
-        )
+        controlled_fast_path = completed_state.execution_metadata.get(
+            "orchestration_mode"
+        ) in {"controlled_react", "llm_react"}
         try:
             if not controlled_fast_path:
                 memory_candidate = memory_service.create_from_state(completed_state)

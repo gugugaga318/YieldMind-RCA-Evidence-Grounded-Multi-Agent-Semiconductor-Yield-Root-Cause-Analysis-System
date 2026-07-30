@@ -1,6 +1,14 @@
 export type TaskStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 export type InvestigationMode = "product_window" | "lot";
-export type OrchestrationMode = "fixed" | "controlled_react";
+export type OrchestrationMode = "fixed" | "controlled_react" | "llm_react";
+export type EvidenceGapStatus = "open" | "closed" | "unavailable";
+export type GoalStatus = "in_progress" | "satisfied" | "blocked" | "budget_exhausted";
+export type ConclusionLevel =
+  | "signal"
+  | "candidate"
+  | "supported"
+  | "conflicted"
+  | "inconclusive";
 export type FindingKind =
   | "specialist_observation"
   | "knowledge_discovery"
@@ -43,6 +51,49 @@ export interface AgentTask {
   status: TaskStatus;
   inputs: Record<string, unknown>;
   finding_kind: FindingKind;
+}
+
+export interface InvestigationAction {
+  action_id: string;
+  kind: string;
+  agent: string;
+  reason: string;
+  inputs: Record<string, unknown>;
+  scope: Record<string, unknown>;
+  required_evidence_ids: string[];
+  max_attempts: number;
+}
+
+export interface InvestigationQuestion {
+  question_id: string;
+  goal_id: string;
+  question: string;
+  rationale: string;
+  scope: Record<string, unknown>;
+  status: EvidenceGapStatus;
+  answer: string | null;
+  evidence_ids: string[];
+  unavailable_reason: string | null;
+}
+
+export interface PlannerDecision {
+  decision_id: string;
+  goal_id: string;
+  decision_type: "act" | "stop";
+  reason: string;
+  goal_status: GoalStatus;
+  proposed_conclusion_level: ConclusionLevel;
+  next_action: InvestigationAction | null;
+  target_question_ids: string[];
+  new_questions: InvestigationQuestion[];
+  question_updates: InvestigationQuestion[];
+  stop_reason:
+    | "goal_satisfied"
+    | "critical_contradiction"
+    | "no_allowed_action"
+    | "budget_exhausted"
+    | "data_unavailable"
+    | null;
 }
 
 export interface EvidenceEntity {
@@ -135,6 +186,8 @@ export interface ExecutionMetadata {
   orchestration_mode?: OrchestrationMode;
   orchestration_requested_mode?: OrchestrationMode;
   orchestration_fallback_reason?: string;
+  orchestration_fallback_stage?: "intent_planning" | "next_action_planning";
+  orchestration_fallback_after_action_count?: number;
   tool_latencies?: Array<{
     tool_name: string;
     tool_request_id: string;
@@ -184,6 +237,7 @@ export interface RCAState {
     max_steps: number;
     max_tool_calls: number;
   } | null;
+  investigation_questions?: InvestigationQuestion[];
   action_history?: Array<{
     action: {
       action_id: string;
@@ -200,14 +254,9 @@ export interface RCAState {
     produced_evidence_ids: string[];
     decision_summary: string;
   }>;
-  goal_status?: "in_progress" | "satisfied" | "blocked" | "budget_exhausted" | null;
-  conclusion_level?:
-    | "signal"
-    | "candidate"
-    | "supported"
-    | "conflicted"
-    | "inconclusive"
-    | null;
+  planner_decisions?: PlannerDecision[];
+  goal_status?: GoalStatus | null;
+  conclusion_level?: ConclusionLevel | null;
   evidence_gaps?: string[];
   stop_reason?: string | null;
 }

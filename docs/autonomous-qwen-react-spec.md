@@ -5,7 +5,7 @@
 - Target branch: `feature/autonomous-qwen-react`
 - Model provider: DashScope
 - Model: `qwen-plus`
-- Current implementation stage: Batch 20.9.2 Qwen Intent Planner
+- Current implementation stage: Batch 20.9.3 Qwen Next-action Planner
 
 ## Goal
 
@@ -25,8 +25,8 @@ The final system will expose three explicit modes:
 - `llm_react`: let Qwen choose the next registered action or stop after each
   observation.
 
-`llm_react` is not enabled by Batch 20.9.2. It becomes selectable only after
-its runtime path and fallback behavior are implemented.
+`llm_react` is selectable in Fake and LLM Agent modes. Deterministic Agent mode
+fails fast when configured with `llm_react`, because it has no Qwen client.
 
 ## Intent Planner
 
@@ -42,8 +42,28 @@ a hypothesis during intent planning.
 
 Invalid structured output is sent back to Qwen once as validation feedback. A
 second invalid output raises a typed error carrying
-`fallback_mode=controlled_react`. Batch 20.9.3 will connect that signal to the
-runtime fallback path.
+`fallback_mode=controlled_react`. The runtime catches that signal and starts
+the deterministic policy from the initial Goal.
+
+## Next-action Planner
+
+`QwenNextActionPlanner` receives the current Goal, Questions, compact Findings
+and Evidence, Hypotheses, Action History, and remaining budget. It returns one
+strict `PlannerDecision` after every observation.
+
+Only actions with a real Supervisor dispatcher are advertised. Batch 20.9.3
+supports defect inspection, shared-defect validation, MES shared-exposure
+analysis, FDC/SPC inspection, historical-case validation, and RCA reasoning.
+Tool selection inside a Specialist remains unchanged until Batch 20.9.4.
+
+Invalid output is returned to Qwen once with the validation error. If the
+second output is still invalid, the current Findings, Evidence, Questions, and
+Action History are retained and the deterministic policy resumes from that
+state. The fallback does not restart the investigation.
+
+The maximum action and Tool-call budgets are Python runtime boundaries.
+Duplicate `Action + Scope` attempts, source-Lot replacement, missing Finding
+prerequisites, and unregistered Agent/action combinations are rejected.
 
 ## Authority Boundary
 
@@ -137,10 +157,10 @@ specialist.
 
 ## Planned Delivery Batches
 
-1. 20.9.0: Git baseline.
-2. 20.9.1: Decision, Question, and Evaluation contracts.
-3. 20.9.2: Qwen intent Planner.
-4. 20.9.3: Qwen next-action Planner and retry/fallback.
+1. 20.9.0: Git baseline. Complete.
+2. 20.9.1: Decision, Question, and Evaluation contracts. Complete.
+3. 20.9.2: Qwen intent Planner. Complete.
+4. 20.9.3: Qwen next-action Planner and retry/fallback. Complete.
 5. 20.9.4: Specialist Agent V2.
 6. 20.9.5: Agent decision evaluation.
 7. 20.9.6: Frontend Agent trace.

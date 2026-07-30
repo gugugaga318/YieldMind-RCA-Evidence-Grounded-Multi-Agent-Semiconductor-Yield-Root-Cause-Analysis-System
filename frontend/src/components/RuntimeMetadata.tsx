@@ -2,6 +2,28 @@ import { Bot, Braces, Clock3, Cpu, Gauge, GitBranch, ShieldCheck, Wrench } from 
 
 import type { RCAState } from "../types";
 
+function fallbackMessage(reason: string): string {
+  if (reason === "controlled_react_requires_lot_investigation") {
+    return "Controlled ReAct currently requires a Lot investigation.";
+  }
+  if (reason === "controlled_react_requires_explicit_defect_clue") {
+    return "Add an explicit defect clue to enable the controlled path.";
+  }
+  if (reason === "qwen_intent_output_invalid") {
+    return (
+      "Qwen intent output failed validation twice; " +
+      "Controlled ReAct resumed from the initial Goal."
+    );
+  }
+  if (reason === "qwen_next_action_output_invalid") {
+    return (
+      "Qwen next-action output failed validation twice; " +
+      "Controlled ReAct resumed from the current evidence state."
+    );
+  }
+  return reason;
+}
+
 export function RuntimeMetadata({ state }: { state: RCAState }) {
   const metadata = state.execution_metadata;
   const requestedMode = metadata.orchestration_requested_mode ?? metadata.orchestration_mode;
@@ -65,14 +87,10 @@ export function RuntimeMetadata({ state }: { state: RCAState }) {
         <div className="orchestration-fallback" role="status">
           <GitBranch size={16} aria-hidden="true" />
           <div>
-            <strong>Controlled ReAct request used the Fixed compatibility path</strong>
-            <span>
-              {fallbackReason === "controlled_react_requires_lot_investigation"
-                ? "Controlled ReAct currently requires a Lot investigation."
-                : fallbackReason === "controlled_react_requires_explicit_defect_clue"
-                  ? "Add an explicit Scratch, defect, 划伤, or 刮伤 clue to enable the controlled path."
-                  : fallbackReason}
-            </span>
+            <strong>
+              {requestedMode} request used the {actualMode} compatibility path
+            </strong>
+            <span>{fallbackMessage(fallbackReason)}</span>
           </div>
         </div>
       )}

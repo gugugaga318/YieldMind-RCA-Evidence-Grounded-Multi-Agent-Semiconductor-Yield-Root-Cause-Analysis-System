@@ -129,6 +129,61 @@ class TaskPlanResponse(APIModel):
     schema_version: str | None = None
 
 
+class InvestigationActionResponse(APIModel):
+    """One registry-backed action selected by an investigation planner."""
+
+    action_id: str
+    kind: str
+    agent: str
+    reason: str
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    scope: dict[str, Any] = Field(default_factory=dict)
+    required_evidence_ids: list[str] = Field(default_factory=list)
+    max_attempts: int = 1
+
+
+class InvestigationQuestionResponse(APIModel):
+    """One typed evidence question and its current lifecycle state."""
+
+    question_id: str
+    goal_id: str
+    question: str
+    rationale: str
+    scope: dict[str, Any] = Field(default_factory=dict)
+    status: Literal["open", "closed", "unavailable"] = "open"
+    answer: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+    unavailable_reason: str | None = None
+
+
+class PlannerDecisionResponse(APIModel):
+    """One auditable LLM planner decision in the state trace."""
+
+    decision_id: str
+    goal_id: str
+    decision_type: Literal["act", "stop"]
+    reason: str
+    goal_status: Literal["in_progress", "satisfied", "blocked", "budget_exhausted"]
+    proposed_conclusion_level: Literal[
+        "signal",
+        "candidate",
+        "supported",
+        "conflicted",
+        "inconclusive",
+    ]
+    next_action: InvestigationActionResponse | None = None
+    target_question_ids: list[str] = Field(default_factory=list)
+    new_questions: list[InvestigationQuestionResponse] = Field(default_factory=list)
+    question_updates: list[InvestigationQuestionResponse] = Field(default_factory=list)
+    stop_reason: Literal[
+        "goal_satisfied",
+        "critical_contradiction",
+        "no_allowed_action",
+        "budget_exhausted",
+        "data_unavailable",
+    ] | None = None
+
+
 class AgentFindingResponse(APIModel):
     """Serialized AgentFinding with task identity and first-class Evidence."""
 
@@ -213,7 +268,11 @@ class RCAJobStateResponse(APIModel):
     llm_usage: list[LLMUsageEventResponse] = Field(default_factory=list)
     execution_metadata: dict[str, Any] = Field(default_factory=dict)
     investigation_goal: dict[str, Any] | None = None
+    investigation_questions: list[InvestigationQuestionResponse] = Field(
+        default_factory=list
+    )
     action_history: list[dict[str, Any]] = Field(default_factory=list)
+    planner_decisions: list[PlannerDecisionResponse] = Field(default_factory=list)
     goal_status: str | None = None
     conclusion_level: str | None = None
     evidence_gaps: list[str] = Field(default_factory=list)
