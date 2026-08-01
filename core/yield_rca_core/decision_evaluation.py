@@ -327,13 +327,20 @@ def _goal_success(state: RCAState) -> tuple[bool, str]:
         return False, f"the final goal status is {state.goal_status or 'missing'}."
     if not state.evidence:
         return False, "the final result contains no Evidence."
-    non_closed = [
+    open_questions = [
         question.question_id
         for question in state.investigation_questions
-        if question.status != EvidenceGapStatus.CLOSED.value
+        if question.status == EvidenceGapStatus.OPEN.value
     ]
-    if non_closed:
+    if open_questions:
         return False, "one or more investigation questions remain unanswered."
+    closed_questions = [
+        question.question_id
+        for question in state.investigation_questions
+        if question.status == EvidenceGapStatus.CLOSED.value
+    ]
+    if not closed_questions:
+        return False, "no investigation question was answered with Evidence."
     if state.evidence_gaps:
         return False, "the final state still records evidence gaps."
     allowed_levels = _SUCCESS_LEVELS[goal.intent]
@@ -349,8 +356,11 @@ def _goal_success(state: RCAState) -> tuple[bool, str]:
     return (
         True,
         (
-            f"the {goal.intent} objective is satisfied with closed questions, "
-            f"Evidence, and an evidence-gated {state.conclusion_level} conclusion."
+            f"the {goal.intent} objective is satisfied with at least one "
+            "Evidence-backed closed question, no open questions or remaining "
+            f"evidence gaps, and an evidence-gated {state.conclusion_level} "
+            "conclusion. Explicitly unavailable optional questions do not "
+            "invalidate that result."
         ),
     )
 

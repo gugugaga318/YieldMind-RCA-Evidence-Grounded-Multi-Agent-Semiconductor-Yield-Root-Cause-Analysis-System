@@ -19,6 +19,8 @@ build/
 
 outputs/golden_rca_run/
 outputs/demo/
+outputs/qwen_question_update_reliability/
+outputs/qwen_full_replay_diagnostic.json
 
 .pnpm-store/
 frontend/node_modules/

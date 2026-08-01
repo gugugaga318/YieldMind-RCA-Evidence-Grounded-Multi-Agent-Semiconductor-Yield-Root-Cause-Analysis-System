@@ -5,7 +5,7 @@
 - Target branch: `feature/autonomous-qwen-react`
 - Model provider: DashScope
 - Model: `qwen-plus`
-- Current implementation stage: Batch 20.9.7 Qwen Smoke Test + Final Evaluation
+- Current implementation stage: Batch 20.9.8 QuestionUpdate Review Reliability, stage 3 complete
 
 ## Goal
 
@@ -108,6 +108,50 @@ Question status is intentionally small:
 - `closed`: an answer and supporting Evidence IDs exist.
 - `unavailable`: the data cannot be obtained and the reason is explicit.
 
+Planner updates use a smaller `QuestionUpdate` delta rather than asking Qwen to
+copy the complete Question. It contains only `question_id`, terminal `status`,
+`answer`, `evidence_ids`, and `unavailable_reason`:
+
+- `open` is never a legal update. Partial progress remains in Finding/Evidence
+  and uses `question_updates=[]`.
+- `closed` requires a non-empty answer and existing Evidence IDs.
+- `unavailable` requires an explicit reason and cannot contain an answer.
+- Evidence for the overall Goal cannot close an unrelated Question. If the
+  requested records are explicitly missing or absent, the Question must be
+  `unavailable`, not `closed` with a negative answer.
+- An action cannot close and target the same Question in one decision.
+- Qwen cannot copy or rewrite `goal_id`, Question text, rationale, or scope.
+
+The state reader projects legacy full-Question updates into the compact delta so
+old snapshots remain readable. New Qwen output is validated against only the
+compact format, and serialization always writes the compact format.
+
+`QuestionUpdateReview` separates update claims from the executable core
+decision. The adapter accepts supported terminal deltas and rejects malformed,
+non-terminal, duplicate, unknown, already-terminal, unsupported-Evidence, or
+close-and-target claims. Rejection never changes the selected Agent, Action,
+target, scope, or reason; it only prevents the Question status claim from being
+committed. Each result has an accepted/rejected disposition and stable reason
+code inside a typed `PlannerDecisionOutcome`.
+
+The Supervisor uses `decide_with_review` for `llm_react`; the existing `decide`
+method remains the strict compatibility path for callers that require all-or-
+nothing parsing. Decision, accepted updates, Review records, Finding, and
+ActionRecord cross the immutable state boundary atomically after Specialist
+success. `RCAState`, the API response, and the frontend Agent Trace expose the
+accepted/rejected audit. A reviewed `goal_satisfied` or `data_unavailable` stop
+is still invalid when rejected updates leave Questions open. Core decision
+errors continue to use the one-retry controlled fallback.
+
+The paid reliability lane runs the golden Scratch + Cu CMP case three consecutive
+times with a hard per-run LLM-call cap. Every run must stay on `llm_react`,
+re-plan after its first observation, use compact accepted Question updates,
+audit every accepted/rejected claim, and pass the existing Goal Success and Stop
+Correct checks. A rejected ancillary claim is allowed only when its core Action
+is committed and the run stays on `llm_react`; a core Planner validation failure
+fails the lane. Reports contain bounded state summaries and stable reason-code
+counts only, never prompts, raw model responses, or credentials.
+
 ## Decision Contract
 
 Every `PlannerDecision` is exactly one of:
@@ -164,10 +208,12 @@ introduced by that ActionRecord. An RCA reasoning action can therefore have no
 new Evidence while still being useful and non-redundant. A repeated
 `Action + Scope` is invalid and redundant.
 
-Run success requires an answered Goal, closed Questions, no remaining Evidence
-gap, and an Evidence-gated conclusion appropriate to the intent. In
-particular, an impact-scope or SPC investigation may succeed at `signal`; an
-`inconclusive` or `conflicted` result never claims Goal success. Stop
+Run success requires at least one Evidence-backed closed Question, no open
+Question, no remaining Evidence gap, and an Evidence-gated conclusion
+appropriate to the intent. An explicitly `unavailable` optional Question does
+not fail an otherwise supported Goal, but an all-unavailable result cannot
+claim success. In particular, an impact-scope or SPC investigation may succeed
+at `signal`; an `inconclusive` or `conflicted` result never claims Goal success. Stop
 correctness checks the declared stop reason against the actual evidence,
 question, contradiction, action, and budget boundary. A structurally valid but
 premature stop therefore remains `decision_valid=true` while

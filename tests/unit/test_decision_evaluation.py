@@ -268,6 +268,60 @@ def test_normal_impact_run_has_valid_gain_success_and_correct_stop() -> None:
     assert evaluation.decision_evaluations[1].decision_valid is True
 
 
+def test_optional_unavailable_question_does_not_fail_a_gated_success() -> None:
+    state = make_successful_impact_state()
+    unavailable = replace(
+        make_question(status=EvidenceGapStatus.UNAVAILABLE.value),
+        question_id="QUESTION_OPTIONAL_MATERIAL_TRACE",
+    )
+    state = replace(
+        state,
+        investigation_questions=[*state.investigation_questions, unavailable],
+    )
+
+    evaluation = evaluate(state)
+
+    assert evaluation is not None
+    assert evaluation.goal_success is True
+    assert "Explicitly unavailable optional questions" in evaluation.summary
+    assert evaluation.stop_correct is True
+
+
+def test_unavailable_questions_cannot_replace_an_evidence_backed_answer() -> None:
+    state = make_successful_impact_state()
+    state = replace(
+        state,
+        investigation_questions=[
+            make_question(status=EvidenceGapStatus.UNAVAILABLE.value)
+        ],
+    )
+
+    evaluation = evaluate(state)
+
+    assert evaluation is not None
+    assert evaluation.goal_success is False
+    assert "no investigation question was answered with Evidence" in evaluation.summary
+
+
+def test_unavailable_question_does_not_hide_a_remaining_evidence_gap() -> None:
+    state = make_successful_impact_state()
+    unavailable = replace(
+        make_question(status=EvidenceGapStatus.UNAVAILABLE.value),
+        question_id="QUESTION_OPTIONAL_METROLOGY",
+    )
+    state = replace(
+        state,
+        investigation_questions=[*state.investigation_questions, unavailable],
+        evidence_gaps=["Confirm the missing metrology correlation."],
+    )
+
+    evaluation = evaluate(state)
+
+    assert evaluation is not None
+    assert evaluation.goal_success is False
+    assert "final state still records evidence gaps" in evaluation.summary
+
+
 def test_new_scope_with_no_new_evidence_is_not_automatically_redundant() -> None:
     goal = make_goal(InvestigationIntent.ROOT_CAUSE.value, max_steps=3)
     defect_evidence = make_evidence(

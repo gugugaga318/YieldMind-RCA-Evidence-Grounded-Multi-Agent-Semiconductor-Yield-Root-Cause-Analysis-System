@@ -509,6 +509,52 @@ Without the key or opt-in flag, the same command reports the paid smoke test as
 skipped rather than passed. Do not commit `.env`, test output containing raw
 model responses, or any API credential.
 
+### Repeated Qwen Planner-review reliability evaluation
+
+The single impact-scope smoke test is intentionally cheap. After changing the
+Planner output contract, use the stricter Scratch + Cu CMP reliability runner to
+exercise observation, re-planning, QuestionUpdate review, and the final stop
+three consecutive times. Every run has an independent hard limit of 20 paid LLM
+calls, HTTP retries are disabled, and the command refuses to start without the
+explicit `--confirm-paid-qwen` flag.
+
+```powershell
+$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
+$qwenSecret = Read-Host "DashScope API key" -AsSecureString
+try {
+    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+    & .\.venv\Scripts\python.exe scripts\run_qwen_reliability_evaluation.py `
+        --confirm-paid-qwen `
+        --runs 3 `
+        --max-llm-calls-per-run 20
+} finally {
+    if ($null -eq $previousApiKey) {
+        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+    } else {
+        $env:DASHSCOPE_API_KEY = $previousApiKey
+    }
+    Remove-Variable qwenSecret, previousApiKey -ErrorAction SilentlyContinue
+}
+```
+
+Acceptance requires all three runs to remain on `llm_react`, start with defect
+inspection, re-plan after the first observation, keep accepted updates as compact
+terminal `QuestionUpdate` deltas, audit every accepted or rejected claim, respect
+the call cap, and pass the existing Goal Success and Stop Correct checks. A
+rejected ancillary update does not fail a run when its legal Agent action was
+preserved; an invalid core Decision or Action still triggers controlled fallback
+and fails the reliability boundary. The report counts accepted and rejected
+updates by stable reason code without storing prompts or raw model responses.
+
+Secret-free summaries are written under
+`outputs/qwen_question_update_reliability/`; the directory is ignored by Git.
+Goal Success permits an explicitly unavailable optional Question only when at
+least one Question is Evidence-backed and closed, no Question remains open, no
+Evidence gap remains, and the existing Evidence/Hypothesis gate supports the
+conclusion. `QuestionUpdateReview` is persisted in `RCAState`, exposed by the
+API, and rendered in the Agent Trace. No rejected update is silently converted
+into `closed` or `unavailable`.
+
 ## RCA Reasoning Engine
 
 New RCA jobs use the evidence-bounded `hypothesis_v1` engine. It supplies the
