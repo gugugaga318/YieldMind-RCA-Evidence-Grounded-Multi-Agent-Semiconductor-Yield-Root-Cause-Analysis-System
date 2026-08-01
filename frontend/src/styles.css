@@ -1086,6 +1086,30 @@ p {
   line-height: 1.45;
 }
 
+.agent-trace-fallback-diagnostics {
+  margin-top: 8px;
+}
+
+.agent-trace-fallback-diagnostics summary {
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.agent-trace-fallback-diagnostics ol {
+  display: grid;
+  gap: 5px;
+  margin: 7px 0 0;
+  padding-left: 18px;
+}
+
+.agent-trace-fallback-diagnostics code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: #754f15;
+  font-size: 9px;
+}
+
 .agent-trace-goal {
   margin-top: 14px;
 }
@@ -1261,6 +1285,79 @@ p {
 .agent-trace-questions > .empty-copy {
   margin: 0;
   padding: 11px 12px;
+}
+
+.agent-trace-question-updates {
+  margin-top: 10px;
+  padding: 10px 11px;
+  background: #f5f8f7;
+  border: 1px solid #dce4e1;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+}
+
+.agent-trace-question-updates h4 {
+  margin: 0 0 7px;
+  color: #3b4943;
+  font-size: 10px;
+}
+
+.agent-trace-question-updates ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-trace-question-updates li {
+  min-width: 0;
+  padding: 8px 9px;
+  background: #ffffff;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+}
+
+.agent-trace-question-updates li.agent-trace-question-update-accepted {
+  background: #f3faf6;
+  border-color: #bfdccc;
+}
+
+.agent-trace-question-updates li.agent-trace-question-update-rejected {
+  background: #fff9e8;
+  border-color: #e6ce88;
+}
+
+.question-status.question-rejected {
+  color: #78560b;
+  background: #f5e6ac;
+}
+
+.agent-trace-question-review-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 7px;
+  color: #69551e;
+  font-size: 9px;
+}
+
+.agent-trace-question-review-facts code {
+  color: #5e4510;
+}
+
+.agent-trace-question-updates p.agent-trace-question-review-preserved {
+  margin-bottom: 0;
+  color: #745a18;
+  font-weight: 700;
+}
+
+.agent-trace-question-updates p {
+  margin: 5px 0 7px;
+  overflow-wrap: anywhere;
+  color: #40504a;
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .agent-trace-integrity {

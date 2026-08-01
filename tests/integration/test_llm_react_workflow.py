@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -13,6 +14,7 @@ from yield_rca_api.app import create_app  # noqa: E402
 from yield_rca_core.investigation_models import (  # noqa: E402
     ConclusionLevel,
     DecisionType,
+    QuestionUpdateReasonCode,
     StopReason,
 )
 from yield_rca_core.llm_gateway import (  # noqa: E402
@@ -21,7 +23,9 @@ from yield_rca_core.llm_gateway import (  # noqa: E402
     LLMResponse,
     LLMSettings,
 )
-from yield_rca_core.models import RCAState, TaskStatus  # noqa: E402
+from yield_rca_core.models import RCAJob, RCAState, TaskStatus  # noqa: E402
+from yield_rca_core.specialist_v2 import SpecialistV2Error  # noqa: E402
+from yield_rca_core.supervisor import SupervisorExecutionError  # noqa: E402
 from yield_rca_core.workflow import build_csv_workflow  # noqa: E402
 
 SEED_DIR = ROOT / "data" / "seeds" / "golden_case"
@@ -97,6 +101,73 @@ class ImmediateUnsupportedStopClient(RecordingFakeClient):
                 "question_updates": [],
             },
             usage=response.usage,
+        )
+
+
+class RejectedQuestionUpdateThenStopClient(RecordingFakeClient):
+    """Emit one legal Action with an unsafe ancillary QuestionUpdate claim."""
+
+    def __init__(self, *, close_and_target: bool = False) -> None:
+        super().__init__()
+        self.close_and_target = close_and_target
+        self.next_action_call_count = 0
+
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        response = super().complete_json(request)
+        if request.prompt_name != "next_action_planner":
+            return response
+        self.next_action_call_count += 1
+        goal_id = str(request.payload["goal"]["goal_id"])
+        if self.next_action_call_count > 1:
+            return LLMResponse(
+                data={
+                    "decision_id": f"{goal_id}:review-test-stop",
+                    "goal_id": goal_id,
+                    "decision_type": DecisionType.STOP.value,
+                    "reason": "Stop after the one bounded review test action.",
+                    "goal_status": "blocked",
+                    "proposed_conclusion_level": ConclusionLevel.INCONCLUSIVE.value,
+                    "next_action": None,
+                    "target_question_ids": [],
+                    "new_questions": [],
+                    "stop_reason": StopReason.NO_ALLOWED_ACTION.value,
+                    "question_updates": [],
+                },
+                usage=response.usage,
+            )
+
+        data = dict(response.data)
+        question_id = str(data["target_question_ids"][0])
+        data["question_updates"] = (
+            [
+                {
+                    "question_id": question_id,
+                    "status": "closed",
+                    "answer": "The still-targeted Question is already answered.",
+                    "evidence_ids": ["EV_NOT_AVAILABLE"],
+                    "unavailable_reason": None,
+                }
+            ]
+            if self.close_and_target
+            else [
+                {
+                    "question_id": question_id,
+                    "status": "open",
+                    "answer": None,
+                    "evidence_ids": [],
+                    "unavailable_reason": None,
+                }
+            ]
+        )
+        return LLMResponse(data=data, usage=response.usage)
+
+
+class FailingSpecialistExecutor:
+    def execute(self, *args: object, **kwargs: object) -> None:
+        raise SpecialistV2Error(
+            "Injected Specialist failure before a Finding was produced.",
+            stage="tool_execution",
+            reason="injected_test_failure",
         )
 
 
@@ -231,7 +302,7 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
         self.assertTrue(run_evaluation.stop_correct)
         self.assertEqual(RCAState.from_dict(state.to_dict()), state)
 
-    def test_qwen_stop_is_downgraded_by_evidence_gate_without_failing_run(
+    def test_unsupported_data_unavailable_stop_falls_back_at_open_question_boundary(
         self,
     ) -> None:
         state = run_lot(
@@ -241,25 +312,112 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
         )
 
         self.assertEqual(state.job.status, TaskStatus.COMPLETED.value)
-        self.assertEqual(state.action_history, [])
-        self.assertEqual(state.evidence, [])
+        self.assertTrue(state.action_history)
+        self.assertTrue(state.evidence)
         self.assertEqual(
-            state.planner_decisions[-1].proposed_conclusion_level,
-            ConclusionLevel.SUPPORTED.value,
+            state.execution_metadata["orchestration_mode"],
+            "controlled_react",
         )
         self.assertEqual(
-            state.conclusion_level,
-            ConclusionLevel.INCONCLUSIVE.value,
+            state.execution_metadata["orchestration_fallback_reason"],
+            "qwen_next_action_output_invalid",
         )
-        self.assertEqual(state.stop_reason, StopReason.DATA_UNAVAILABLE.value)
-        run_evaluation = state.run_evaluation
-        assert run_evaluation is not None
-        self.assertTrue(
-            run_evaluation.decision_evaluations[-1].decision_valid
-        )
-        self.assertFalse(run_evaluation.goal_success)
-        self.assertFalse(run_evaluation.stop_correct)
+        self.assertEqual(state.planner_decisions, [])
+        self.assertEqual(state.question_update_reviews, [])
+        self.assertIsNone(state.run_evaluation)
         self.assertTrue(state.report is None or state.report.markdown)
+
+    def test_invalid_question_updates_are_rejected_without_losing_the_action(
+        self,
+    ) -> None:
+        cases = {
+            "non_terminal": (
+                RejectedQuestionUpdateThenStopClient(),
+                QuestionUpdateReasonCode.NON_TERMINAL_STATUS.value,
+            ),
+            "close_and_target": (
+                RejectedQuestionUpdateThenStopClient(close_and_target=True),
+                QuestionUpdateReasonCode.TARGET_OVERLAP.value,
+            ),
+        }
+        for label, (client, expected_reason) in cases.items():
+            with self.subTest(label=label):
+                state = run_lot(
+                    client,
+                    IMPACT_QUERY,
+                    job_id=f"JOB_REJECTED_UPDATE_{label.upper()}",
+                )
+
+                self.assertEqual(client.next_action_call_count, 2)
+                self.assertEqual(
+                    state.execution_metadata["orchestration_mode"],
+                    "llm_react",
+                )
+                self.assertNotIn(
+                    "orchestration_fallback_reason",
+                    state.execution_metadata,
+                )
+                self.assertEqual(len(state.action_history), 1)
+                self.assertEqual(len(state.planner_decisions), 2)
+                self.assertEqual(
+                    state.planner_decisions[0].question_updates,
+                    [],
+                )
+                self.assertEqual(len(state.question_update_reviews), 1)
+                review = state.question_update_reviews[0]
+                self.assertEqual(review.reason_code, expected_reason)
+                self.assertEqual(review.disposition, "rejected")
+                self.assertEqual(
+                    state.investigation_questions[0].status,
+                    "open",
+                )
+                second_planner_request = [
+                    request
+                    for request in client.requests
+                    if request.prompt_name == "next_action_planner"
+                ][1]
+                self.assertEqual(
+                    second_planner_request.payload["questions"][0]["status"],
+                    "open",
+                )
+                self.assertEqual(
+                    RCAState.from_dict(state.to_dict()),
+                    state,
+                )
+
+    def test_specialist_failure_commits_no_decision_update_or_review(self) -> None:
+        client = RejectedQuestionUpdateThenStopClient()
+        workflow = fake_llm_workflow(client)
+        assert workflow.intent_planner is not None
+        assert workflow.next_action_planner is not None
+        intent_plan = workflow.intent_planner.plan(
+            IMPACT_QUERY,
+            lot_id="LOT_A_001",
+        )
+        supervisor = replace(
+            workflow.supervisor,
+            specialist_v2_executor=FailingSpecialistExecutor(),  # type: ignore[arg-type]
+        )
+
+        with self.assertRaises(SupervisorExecutionError) as raised:
+            supervisor.execute_llm_react(
+                RCAJob(
+                    job_id="JOB_ATOMIC_REVIEW_FAILURE",
+                    user_query=IMPACT_QUERY,
+                    investigation_mode="lot",
+                    source_lot_id="LOT_A_001",
+                ),
+                intent_plan,
+                workflow.next_action_planner,
+                tool_latencies=[],
+            )
+
+        failed_state = raised.exception.state
+        assert failed_state is not None
+        self.assertEqual(failed_state.action_history, [])
+        self.assertEqual(failed_state.findings, [])
+        self.assertEqual(failed_state.planner_decisions, [])
+        self.assertEqual(failed_state.question_update_reviews, [])
 
     def test_two_invalid_next_actions_fallback_from_current_state(self) -> None:
         client = InvalidNextActionAfterFirstClient()
@@ -508,7 +666,41 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         self.assertTrue(state["evidence"])
         self.assertIsNone(state["run_evaluation"])
 
-    def test_api_immediate_stop_is_completed_and_never_returns_500(self) -> None:
+    def test_api_exposes_rejected_question_update_without_fallback(self) -> None:
+        app = create_app(
+            workflow=fake_llm_workflow(RejectedQuestionUpdateThenStopClient()),
+            runtime_dataset="golden_case",
+        )
+
+        with TestClient(app) as client:
+            created = client.post(
+                "/rca/jobs",
+                json={
+                    "investigation_mode": "lot",
+                    "lot_id": "LOT_A_001",
+                    "user_query": IMPACT_QUERY,
+                },
+            )
+            self.assertEqual(created.status_code, 201)
+            state = client.get(created.json()["state_url"]).json()["state"]
+
+        self.assertEqual(
+            state["execution_metadata"]["orchestration_mode"],
+            "llm_react",
+        )
+        self.assertNotIn(
+            "orchestration_fallback_reason",
+            state["execution_metadata"],
+        )
+        self.assertEqual(len(state["action_history"]), 1)
+        self.assertEqual(state["planner_decisions"][0]["question_updates"], [])
+        self.assertEqual(
+            state["question_update_reviews"][0]["reason_code"],
+            QuestionUpdateReasonCode.NON_TERMINAL_STATUS.value,
+        )
+        self.assertEqual(state["investigation_questions"][0]["status"], "open")
+
+    def test_api_invalid_immediate_stop_falls_back_and_never_returns_500(self) -> None:
         app = create_app(
             workflow=fake_llm_workflow(ImmediateUnsupportedStopClient()),
             runtime_dataset="golden_case",
@@ -531,11 +723,12 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         state = state_response.json()["state"]
         self.assertEqual(state["job"]["status"], TaskStatus.COMPLETED.value)
         self.assertEqual(
-            state["conclusion_level"],
-            ConclusionLevel.INCONCLUSIVE.value,
+            state["execution_metadata"]["orchestration_mode"],
+            "controlled_react",
         )
-        self.assertFalse(state["run_evaluation"]["goal_success"])
-        self.assertFalse(state["run_evaluation"]["stop_correct"])
+        self.assertEqual(state["planner_decisions"], [])
+        self.assertEqual(state["question_update_reviews"], [])
+        self.assertIsNone(state["run_evaluation"])
         self.assertIn(report_response.status_code, {200, 409})
 
 

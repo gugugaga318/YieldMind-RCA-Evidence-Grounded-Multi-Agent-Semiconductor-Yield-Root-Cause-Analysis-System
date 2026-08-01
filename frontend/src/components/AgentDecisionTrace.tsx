@@ -18,6 +18,8 @@ import type {
   AgentTraceEvaluationStatus,
   AgentTraceNodeViewModel,
   InvestigationQuestion,
+  QuestionUpdate,
+  QuestionUpdateReview,
   RCAState,
   SpecialistToolStepViewModel,
   SpecialistTraceViewModel,
@@ -259,6 +261,71 @@ function QuestionList({ questions }: { questions: InvestigationQuestion[] }) {
       ) : (
         <p className="empty-copy">No typed investigation questions were recorded.</p>
       )}
+    </div>
+  );
+}
+
+function QuestionUpdateList({
+  updates,
+  reviews,
+}: {
+  updates: QuestionUpdate[];
+  reviews: QuestionUpdateReview[];
+}) {
+  const rejectedReviews = reviews.filter(
+    (review) => review.disposition === "rejected",
+  );
+  if (updates.length === 0 && rejectedReviews.length === 0) return null;
+  return (
+    <div className="agent-trace-question-updates">
+      <h4>Question state updates</h4>
+      <ul>
+        {updates.map((update) => (
+          <li
+            className="agent-trace-question-update-accepted"
+            key={`accepted:${update.question_id}`}
+          >
+            <div className="agent-trace-question-heading">
+              <code>{update.question_id}</code>
+              <span className={`question-status question-${update.status}`}>
+                Question {update.status}
+              </span>
+            </div>
+            {update.answer && <p>{update.answer}</p>}
+            {update.unavailable_reason && <p>{update.unavailable_reason}</p>}
+            <ChipList
+              values={update.evidence_ids}
+              emptyText="No supporting Evidence"
+            />
+          </li>
+        ))}
+        {rejectedReviews.map((review, index) => (
+          <li
+            className="agent-trace-question-update-rejected"
+            key={`rejected:${review.update_index ?? index}:${review.question_id ?? "unknown"}`}
+          >
+            <div className="agent-trace-question-heading">
+              <code>{review.question_id ?? "Question ID not supplied"}</code>
+              <span className="question-status question-rejected">
+                QuestionUpdate rejected
+              </span>
+            </div>
+            <div className="agent-trace-question-review-facts">
+              <span>
+                Claimed status: <code>{review.claimed_status ?? "not supplied"}</code>
+              </span>
+              <span>
+                Reason code: <code>{review.reason_code}</code>
+              </span>
+            </div>
+            <p>{review.reason}</p>
+            <p className="agent-trace-question-review-preserved">
+              The Agent action was preserved; the invalid Question status claim
+              was not committed.
+            </p>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -572,6 +639,10 @@ function ActionNode({
         </header>
 
         <EvaluationBadges node={node} />
+        <QuestionUpdateList
+          updates={node.questionUpdates}
+          reviews={node.questionUpdateReviews}
+        />
 
         <div className="agent-trace-observation-grid">
           <div className="trace-block">
@@ -694,6 +765,10 @@ function StopNode({
           <h4>Remaining evidence gaps</h4>
           <ChipList values={state.evidence_gaps ?? []} emptyText="None" />
         </div>
+        <QuestionUpdateList
+          updates={node.questionUpdates}
+          reviews={node.questionUpdateReviews}
+        />
         <EvaluationBadges node={node} />
         {node.evaluation && (
           <div className="trace-block">
@@ -829,6 +904,27 @@ export function AgentDecisionTrace({ state }: AgentDecisionTraceProps) {
                 ? ` because ${formatTraceLabel(trace.fallbackReason)}`
                 : ""}.
             </p>
+            {trace.fallbackAttemptCount !== null && (
+              <p>
+                Qwen output validation failed on {trace.fallbackAttemptCount}
+                {trace.fallbackAttemptCount === 1 ? " attempt" : " attempts"}.
+              </p>
+            )}
+            {trace.fallbackValidationErrors.length > 0 && (
+              <details className="agent-trace-fallback-diagnostics">
+                <summary>
+                  Planner validation diagnostics (
+                  {trace.fallbackValidationErrors.length})
+                </summary>
+                <ol>
+                  {trace.fallbackValidationErrors.map((error, index) => (
+                    <li key={`${index}:${error}`}>
+                      <code>{error}</code>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            )}
           </div>
         </div>
       )}

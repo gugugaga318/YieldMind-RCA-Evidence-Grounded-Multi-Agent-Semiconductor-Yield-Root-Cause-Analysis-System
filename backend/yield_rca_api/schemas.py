@@ -194,6 +194,30 @@ class PlannerDecisionResponse(APIModel):
     ] | None = None
 
 
+class QuestionUpdateReviewResponse(APIModel):
+    """Runtime acceptance or rejection of one model-proposed QuestionUpdate."""
+
+    decision_id: str
+    disposition: Literal["accepted", "rejected"]
+    reason_code: Literal[
+        "accepted",
+        "malformed_collection",
+        "too_many_updates",
+        "malformed_update",
+        "non_terminal_status",
+        "duplicate_question",
+        "unknown_question",
+        "new_question_conflict",
+        "terminal_question",
+        "target_overlap",
+        "unknown_evidence",
+    ]
+    reason: str
+    update_index: int | None = None
+    question_id: str | None = None
+    claimed_status: str | None = None
+
+
 class DecisionEvaluationResponse(APIModel):
     """Deterministic quality metrics for one committed planner decision."""
 
@@ -304,6 +328,9 @@ class RCAJobStateResponse(APIModel):
     )
     action_history: list[dict[str, Any]] = Field(default_factory=list)
     planner_decisions: list[PlannerDecisionResponse] = Field(default_factory=list)
+    question_update_reviews: list[QuestionUpdateReviewResponse] = Field(
+        default_factory=list
+    )
     run_evaluation: RunEvaluationResponse | None = None
     goal_status: str | None = None
     conclusion_level: str | None = None

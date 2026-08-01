@@ -20,6 +20,7 @@ from yield_rca_core.evaluation import EvaluationScenario, evaluate_scenarios
 from yield_rca_core.investigation_models import (
     ConclusionLevel,
     DecisionType,
+    EvidenceGapStatus,
     GoalStatus,
     InvestigationIntent,
     OrchestrationMode,
@@ -97,6 +98,19 @@ class _ImmediateUnsupportedStopClient(_RecordingFakeClient):
         if request.prompt_name != "next_action_planner":
             return response
         goal_id = str(request.payload["goal"]["goal_id"])
+        question_updates = [
+            {
+                "question_id": str(question["question_id"]),
+                "status": EvidenceGapStatus.UNAVAILABLE.value,
+                "answer": None,
+                "evidence_ids": [],
+                "unavailable_reason": (
+                    "The premature-stop fixture claims that no source data is available."
+                ),
+            }
+            for question in request.payload["questions"]
+            if question["status"] == EvidenceGapStatus.OPEN.value
+        ]
         return LLMResponse(
             data={
                 "decision_id": f"{goal_id}:model-stop",
@@ -109,7 +123,7 @@ class _ImmediateUnsupportedStopClient(_RecordingFakeClient):
                 "target_question_ids": [],
                 "new_questions": [],
                 "stop_reason": StopReason.DATA_UNAVAILABLE.value,
-                "question_updates": [],
+                "question_updates": question_updates,
             },
             usage=response.usage,
         )
@@ -126,6 +140,19 @@ class _PartialEvidenceUnsupportedStopClient(_RecordingFakeClient):
         ):
             return response
         goal_id = str(request.payload["goal"]["goal_id"])
+        question_updates = [
+            {
+                "question_id": str(question["question_id"]),
+                "status": EvidenceGapStatus.UNAVAILABLE.value,
+                "answer": None,
+                "evidence_ids": [],
+                "unavailable_reason": (
+                    "The partial-evidence fixture claims no further source is available."
+                ),
+            }
+            for question in request.payload["questions"]
+            if question["status"] == EvidenceGapStatus.OPEN.value
+        ]
         return LLMResponse(
             data={
                 "decision_id": f"{goal_id}:partial-evidence-stop",
@@ -138,7 +165,7 @@ class _PartialEvidenceUnsupportedStopClient(_RecordingFakeClient):
                 "target_question_ids": [],
                 "new_questions": [],
                 "stop_reason": StopReason.DATA_UNAVAILABLE.value,
-                "question_updates": [],
+                "question_updates": question_updates,
             },
             usage=response.usage,
         )

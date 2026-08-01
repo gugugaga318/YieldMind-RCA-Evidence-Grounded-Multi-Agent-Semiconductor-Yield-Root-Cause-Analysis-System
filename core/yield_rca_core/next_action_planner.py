@@ -374,8 +374,8 @@ class QwenNextActionPlanner:
                 for question in questions
                 if question.status == EvidenceGapStatus.OPEN.value
             ]
-            return PlannerDecisionOutcome(
-                decision=PlannerDecision(
+            return _strict_outcome(
+                PlannerDecision(
                     decision_id=self._next_baseline_decision_id(
                         goal=goal,
                         prior_decisions=normalized_prior_decisions,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -24,6 +25,9 @@ from yield_rca_core.investigation_models import (  # noqa: E402
     InvestigationQuestion,
     PlannerDecision,
     QuestionUpdate,
+    QuestionUpdateDisposition,
+    QuestionUpdateReasonCode,
+    QuestionUpdateReview,
     RunEvaluation,
     StopReason,
 )
@@ -129,6 +133,17 @@ def make_state() -> RCAState:
                 ],
             ),
         ],
+        question_update_reviews=[
+            QuestionUpdateReview(
+                decision_id="DECISION_STOP",
+                disposition=QuestionUpdateDisposition.ACCEPTED.value,
+                reason_code=QuestionUpdateReasonCode.ACCEPTED.value,
+                reason="The terminal answer references available FDC Evidence.",
+                update_index=0,
+                question_id=question.question_id,
+                claimed_status=EvidenceGapStatus.CLOSED.value,
+            )
+        ],
         goal_status=GoalStatus.SATISFIED.value,
         conclusion_level=ConclusionLevel.SUPPORTED.value,
         evidence_gaps=["legacy: no additional SPC parameter gap"],
@@ -175,6 +190,10 @@ class RCAStatePlannerTraceSerializationTest(unittest.TestCase):
         self.assertEqual(restored, state)
         self.assertIsInstance(restored.investigation_questions[0], InvestigationQuestion)
         self.assertIsInstance(restored.planner_decisions[0], PlannerDecision)
+        self.assertIsInstance(
+            restored.question_update_reviews[0],
+            QuestionUpdateReview,
+        )
         self.assertEqual(
             restored.planner_decisions[1].question_updates[0].evidence_ids,
             [EVIDENCE_ID],
@@ -188,11 +207,13 @@ class RCAStatePlannerTraceSerializationTest(unittest.TestCase):
         ).to_dict()
         legacy_payload.pop("investigation_questions")
         legacy_payload.pop("planner_decisions")
+        legacy_payload.pop("question_update_reviews")
 
         restored = RCAState.from_dict(legacy_payload)
 
         self.assertEqual(restored.investigation_questions, [])
         self.assertEqual(restored.planner_decisions, [])
+        self.assertEqual(restored.question_update_reviews, [])
         self.assertEqual(restored.evidence_gaps, ["legacy free-text gap"])
         self.assertEqual(
             RCAState.from_dict(restored.to_dict()),
@@ -215,15 +236,21 @@ class RCAStatePlannerTraceSerializationTest(unittest.TestCase):
             payload["planner_decisions"][1]["question_updates"][0]["evidence_ids"],
             [EVIDENCE_ID],
         )
+        self.assertEqual(
+            payload["question_update_reviews"][0]["disposition"],
+            QuestionUpdateDisposition.ACCEPTED.value,
+        )
 
         legacy_payload = RCAState(
             job=RCAJob(job_id="RCA_API_LEGACY", user_query="Read old API state.")
         ).to_dict()
         legacy_payload.pop("investigation_questions")
         legacy_payload.pop("planner_decisions")
+        legacy_payload.pop("question_update_reviews")
         legacy_response = RCAJobStateResponse.model_validate(legacy_payload)
         self.assertEqual(legacy_response.investigation_questions, [])
         self.assertEqual(legacy_response.planner_decisions, [])
+        self.assertEqual(legacy_response.question_update_reviews, [])
 
 
 class RCAStatePlannerTraceValidationTest(unittest.TestCase):
@@ -257,6 +284,75 @@ class RCAStatePlannerTraceValidationTest(unittest.TestCase):
             "planner_decisions must be a list",
         ):
             RCAState.from_dict(payload)
+
+        payload = make_state().to_dict()
+        payload["question_update_reviews"] = {"decision_id": "NOT_A_LIST"}
+        with self.assertRaisesRegex(
+            ModelValidationError,
+            "question_update_reviews must be a list",
+        ):
+            RCAState.from_dict(payload)
+
+    def test_reviews_reference_committed_decisions_and_accepted_updates(self) -> None:
+        unknown_decision_review = QuestionUpdateReview(
+            decision_id="DECISION_UNKNOWN",
+            disposition=QuestionUpdateDisposition.REJECTED.value,
+            reason_code=QuestionUpdateReasonCode.UNKNOWN_QUESTION.value,
+            reason="The model referenced a Question outside the active trace.",
+            update_index=0,
+            question_id="Q_UNKNOWN",
+            claimed_status=EvidenceGapStatus.CLOSED.value,
+        )
+        with self.assertRaisesRegex(
+            ModelValidationError,
+            "unknown planner decision",
+        ):
+            replace(
+                make_state(),
+                question_update_reviews=[unknown_decision_review],
+            )
+
+        mismatched_accepted_review = QuestionUpdateReview(
+            decision_id="DECISION_STOP",
+            disposition=QuestionUpdateDisposition.ACCEPTED.value,
+            reason_code=QuestionUpdateReasonCode.ACCEPTED.value,
+            reason="This claim does not match the committed update.",
+            update_index=0,
+            question_id="Q_OTHER",
+            claimed_status=EvidenceGapStatus.CLOSED.value,
+        )
+        with self.assertRaisesRegex(
+            ModelValidationError,
+            "accepted QuestionUpdate review must match",
+        ):
+            replace(
+                make_state(),
+                question_update_reviews=[mismatched_accepted_review],
+            )
+
+    def test_rejected_review_may_preserve_an_unknown_question_claim(self) -> None:
+        state = make_state()
+        rejected = QuestionUpdateReview(
+            decision_id="DECISION_01",
+            disposition=QuestionUpdateDisposition.REJECTED.value,
+            reason_code=QuestionUpdateReasonCode.UNKNOWN_QUESTION.value,
+            reason="The claimed Question is not part of this investigation.",
+            update_index=0,
+            question_id="Q_MODEL_INVENTED",
+            claimed_status=EvidenceGapStatus.CLOSED.value,
+        )
+
+        restored = RCAState.from_dict(
+            {
+                **state.to_dict(),
+                "question_update_reviews": [
+                    *state.to_dict()["question_update_reviews"],
+                    rejected.to_dict(),
+                ],
+            }
+        )
+
+        self.assertEqual(restored.question_update_reviews[-1], rejected)
 
     def test_question_and_decision_ids_must_be_unique(self) -> None:
         question = make_question()

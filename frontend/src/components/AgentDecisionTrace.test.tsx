@@ -362,6 +362,11 @@ describe("AgentDecisionTrace server rendering", () => {
       orchestration_fallback_reason: "qwen_next_action_output_invalid",
       orchestration_fallback_stage: "next_action_planning",
       orchestration_fallback_after_action_count: 2,
+      orchestration_fallback_attempt_count: 2,
+      orchestration_fallback_validation_errors: [
+        "question_updates[0].status must be closed or unavailable",
+        "question_updates[0].answer must be null when status is unavailable",
+      ],
     };
     const tailAction = action(
       "ACTION_CONTROLLED_TAIL",
@@ -390,6 +395,11 @@ describe("AgentDecisionTrace server rendering", () => {
       "Evaluation is not attributed after the compatibility cutover",
     );
     expect(html).toContain("Controlled fallback");
+    expect(html).toContain("Qwen output validation failed on 2 attempts");
+    expect(html).toContain("Planner validation diagnostics (2)");
+    expect(html).toContain(
+      "question_updates[0].status must be closed or unavailable",
+    );
     expect(html).toContain("Inspect FDC SPC");
     expect(html).toContain(
       "Controlled ReAct continued from the retained observations.",
@@ -399,6 +409,59 @@ describe("AgentDecisionTrace server rendering", () => {
     );
     expect(html).not.toContain(
       "<dt>Stop Correct</dt><dd>False</dd>",
+    );
+  });
+
+  it("renders compact question updates on the decision that committed them", () => {
+    const state = populatedTraceState();
+    const terminalDecision = state.planner_decisions?.at(-1);
+    if (!terminalDecision) throw new Error("terminal decision fixture is required");
+    terminalDecision.question_updates = [
+      {
+        question_id: "Q_ROOT_CAUSE",
+        status: "closed",
+        answer: "FDC and defect Evidence support the Cu CMP endpoint mechanism.",
+        evidence_ids: ["EV_DEFECT_01"],
+        unavailable_reason: null,
+      },
+    ];
+
+    const html = renderToStaticMarkup(<AgentDecisionTrace state={state} />);
+
+    expect(html).toContain("Question state updates");
+    expect(html).toContain("Q_ROOT_CAUSE");
+    expect(html).toContain(
+      "FDC and defect Evidence support the Cu CMP endpoint mechanism.",
+    );
+    expect(html).toContain("EV_DEFECT_01");
+  });
+
+  it("renders a rejected QuestionUpdate without implying that its status changed", () => {
+    const state = populatedTraceState();
+    state.question_update_reviews = [
+      {
+        decision_id: "DECISION_DEFECT",
+        disposition: "rejected",
+        reason_code: "non_terminal_status",
+        reason:
+          "QuestionUpdate was rejected because status must be closed or unavailable; the Question remains open.",
+        update_index: 0,
+        question_id: "Q_ROOT_CAUSE",
+        claimed_status: "open",
+      },
+    ];
+
+    const html = renderToStaticMarkup(<AgentDecisionTrace state={state} />);
+
+    expect(html).toContain("QuestionUpdate rejected");
+    expect(html).toContain("Q_ROOT_CAUSE");
+    expect(html).toContain("Claimed status:");
+    expect(html).toContain("open");
+    expect(html).toContain("Reason code:");
+    expect(html).toContain("non_terminal_status");
+    expect(html).toContain("the Question remains open");
+    expect(html).toContain(
+      "The Agent action was preserved; the invalid Question status claim was not committed.",
     );
   });
 

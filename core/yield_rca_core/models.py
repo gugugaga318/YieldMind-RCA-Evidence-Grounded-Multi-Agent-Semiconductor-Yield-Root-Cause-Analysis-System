@@ -41,6 +41,8 @@ from yield_rca_core.investigation_models import (
     InvestigationGoal,
     InvestigationQuestion,
     PlannerDecision,
+    QuestionUpdateDisposition,
+    QuestionUpdateReview,
     RunEvaluation,
     StopReason,
 )
@@ -825,6 +827,7 @@ class RCAState:
     investigation_questions: list[InvestigationQuestion] = field(default_factory=list)
     action_history: list[ActionRecord] = field(default_factory=list)
     planner_decisions: list[PlannerDecision] = field(default_factory=list)
+    question_update_reviews: list[QuestionUpdateReview] = field(default_factory=list)
     goal_status: str | None = None
     conclusion_level: str | None = None
     evidence_gaps: list[str] = field(default_factory=list)
@@ -873,6 +876,13 @@ class RCAState:
             if not isinstance(decision, PlannerDecision):
                 raise ModelValidationError(
                     "planner_decisions must contain PlannerDecision instances"
+                )
+        if not isinstance(self.question_update_reviews, list):
+            raise ModelValidationError("question_update_reviews must be a list")
+        for review in self.question_update_reviews:
+            if not isinstance(review, QuestionUpdateReview):
+                raise ModelValidationError(
+                    "question_update_reviews must contain QuestionUpdateReview instances"
                 )
         if self.goal_status is not None:
             try:
@@ -1058,6 +1068,7 @@ class RCAState:
             and (
                 self.investigation_questions
                 or self.planner_decisions
+                or self.question_update_reviews
                 or self.run_evaluation is not None
             )
         ):
@@ -1080,6 +1091,9 @@ class RCAState:
             )
 
         known_question_ids = set(question_ids)
+        decisions_by_id = {
+            decision.decision_id: decision for decision in self.planner_decisions
+        }
         for decision in self.planner_decisions:
             if decision.goal_id != goal_id:
                 raise ModelValidationError(
@@ -1114,6 +1128,30 @@ class RCAState:
                     "planner decision question_updates must reference "
                     "investigation_questions: "
                     f"{sorted(unknown_question_updates)}"
+                )
+
+        for review in self.question_update_reviews:
+            decision = decisions_by_id.get(review.decision_id)
+            if decision is None:
+                raise ModelValidationError(
+                    "QuestionUpdate review references an unknown planner decision: "
+                    f"{review.decision_id!r}"
+                )
+            if review.disposition != QuestionUpdateDisposition.ACCEPTED.value:
+                continue
+            matching_update = next(
+                (
+                    update
+                    for update in decision.question_updates
+                    if update.question_id == review.question_id
+                    and update.status == review.claimed_status
+                ),
+                None,
+            )
+            if matching_update is None:
+                raise ModelValidationError(
+                    "accepted QuestionUpdate review must match a committed "
+                    "planner decision question_update"
                 )
 
         if self.run_evaluation is None:
@@ -1168,6 +1206,9 @@ class RCAState:
             "planner_decisions": [
                 item.to_dict() for item in self.planner_decisions
             ],
+            "question_update_reviews": [
+                item.to_dict() for item in self.question_update_reviews
+            ],
             "goal_status": self.goal_status,
             "conclusion_level": self.conclusion_level,
             "evidence_gaps": list(self.evidence_gaps),
@@ -1186,6 +1227,9 @@ class RCAState:
         raw_planner_decisions = data.get("planner_decisions", [])
         if not isinstance(raw_planner_decisions, list):
             raise ModelValidationError("planner_decisions must be a list")
+        raw_question_update_reviews = data.get("question_update_reviews", [])
+        if not isinstance(raw_question_update_reviews, list):
+            raise ModelValidationError("question_update_reviews must be a list")
         return cls(
             job=RCAJob.from_dict(data["job"]),
             task_plan=TaskPlan.from_dict(data["task_plan"]) if data.get("task_plan") else None,
@@ -1226,6 +1270,10 @@ class RCAState:
             planner_decisions=[
                 PlannerDecision.from_dict(item)
                 for item in raw_planner_decisions
+            ],
+            question_update_reviews=[
+                QuestionUpdateReview.from_dict(item)
+                for item in raw_question_update_reviews
             ],
             goal_status=data.get("goal_status"),
             conclusion_level=data.get("conclusion_level"),

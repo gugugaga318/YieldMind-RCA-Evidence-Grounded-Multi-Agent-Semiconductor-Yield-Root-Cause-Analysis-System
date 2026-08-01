@@ -92,6 +92,29 @@ export interface QuestionUpdate {
   unavailable_reason: string | null;
 }
 
+export type QuestionUpdateReasonCode =
+  | "accepted"
+  | "malformed_collection"
+  | "too_many_updates"
+  | "malformed_update"
+  | "non_terminal_status"
+  | "duplicate_question"
+  | "unknown_question"
+  | "new_question_conflict"
+  | "terminal_question"
+  | "target_overlap"
+  | "unknown_evidence";
+
+export interface QuestionUpdateReview {
+  decision_id: string;
+  disposition: "accepted" | "rejected";
+  reason_code: QuestionUpdateReasonCode;
+  reason: string;
+  update_index: number | null;
+  question_id: string | null;
+  claimed_status: string | null;
+}
+
 export interface PlannerDecision {
   decision_id: string;
   goal_id: string;
@@ -277,6 +300,7 @@ export interface RCAState {
   investigation_questions?: InvestigationQuestion[];
   action_history?: ActionRecord[];
   planner_decisions?: PlannerDecision[];
+  question_update_reviews?: QuestionUpdateReview[];
   run_evaluation?: RunEvaluation | null;
   goal_status?: GoalStatus | null;
   conclusion_level?: ConclusionLevel | null;
@@ -344,6 +368,7 @@ export interface AgentTraceNodeViewModel {
   targetQuestions: InvestigationQuestion[];
   newQuestions: InvestigationQuestion[];
   questionUpdates: QuestionUpdate[];
+  questionUpdateReviews: QuestionUpdateReview[];
   action: InvestigationAction | null;
   actionRecord: ActionRecord | null;
   findings: AgentFinding[];
@@ -364,6 +389,8 @@ export interface AgentTraceViewModel {
   fallbackReason: string | null;
   fallbackStage: "intent_planning" | "next_action_planning" | null;
   fallbackAfterActionCount: number | null;
+  fallbackAttemptCount: number | null;
+  fallbackValidationErrors: string[];
   integrityIssues: string[];
 }
 

@@ -518,6 +518,56 @@ describe("Agent trace selector", () => {
     expect(trace.nodes[0].integrityIssues).toEqual([]);
   });
 
+  it("attaches rejected QuestionUpdate reviews to their committed decision", () => {
+    const state = traceStateFixture();
+    const action = actionFixture("ACTION_REVIEWED");
+    state.investigation_questions = [questionFixture("QUESTION_REVIEWED")];
+    state.planner_decisions = [
+      actDecisionFixture("DECISION_REVIEWED", action, "QUESTION_REVIEWED"),
+    ];
+    state.action_history = [actionRecordFixture(action)];
+    state.question_update_reviews = [
+      {
+        decision_id: "DECISION_REVIEWED",
+        disposition: "rejected",
+        reason_code: "non_terminal_status",
+        reason: "QuestionUpdate status=open is not a terminal state change.",
+        update_index: 0,
+        question_id: "QUESTION_REVIEWED",
+        claimed_status: "open",
+      },
+    ];
+
+    const trace = selectAgentTrace(state);
+
+    expect(trace.nodes[0].questionUpdateReviews).toEqual(
+      state.question_update_reviews,
+    );
+    expect(trace.nodes[0].questionUpdates).toEqual([]);
+    expect(trace.nodes[0].integrityIssues).toEqual([]);
+  });
+
+  it("reports a QuestionUpdate review whose decision is missing", () => {
+    const state = traceStateFixture();
+    state.question_update_reviews = [
+      {
+        decision_id: "DECISION_MISSING",
+        disposition: "rejected",
+        reason_code: "unknown_question",
+        reason: "The model invented a Question outside the current trace.",
+        update_index: 0,
+        question_id: "QUESTION_INVENTED",
+        claimed_status: "closed",
+      },
+    ];
+
+    const trace = selectAgentTrace(state);
+
+    expect(trace.integrityIssues).toContain(
+      "QuestionUpdate review references missing PlannerDecision DECISION_MISSING.",
+    );
+  });
+
   it("keeps the Qwen prefix and marks only an unmatched fallback tail", () => {
     const state = traceStateFixture();
     const qwenAction = actionFixture("ACTION_QWEN");
@@ -537,6 +587,11 @@ describe("Agent trace selector", () => {
     state.execution_metadata.orchestration_fallback_stage =
       "next_action_planning";
     state.execution_metadata.orchestration_fallback_after_action_count = 1;
+    state.execution_metadata.orchestration_fallback_attempt_count = 2;
+    state.execution_metadata.orchestration_fallback_validation_errors = [
+      "question_updates[0].status must be closed or unavailable",
+      "question_updates[0].status must be closed or unavailable",
+    ];
     state.investigation_questions = [questionFixture("QUESTION_QWEN")];
     state.planner_decisions = [
       actDecisionFixture("DECISION_QWEN", qwenAction, "QUESTION_QWEN"),
@@ -566,6 +621,11 @@ describe("Agent trace selector", () => {
     expect(trace.evaluationStatus).toBe("fallback");
     expect(trace.fallbackStage).toBe("next_action_planning");
     expect(trace.fallbackAfterActionCount).toBe(1);
+    expect(trace.fallbackAttemptCount).toBe(2);
+    expect(trace.fallbackValidationErrors).toEqual([
+      "question_updates[0].status must be closed or unavailable",
+      "question_updates[0].status must be closed or unavailable",
+    ]);
   });
 
   it("degrades a legacy state with absent optional trace fields to TaskPlan nodes", () => {

@@ -18,7 +18,7 @@ from yield_rca_core.investigation_models import (
     InvestigationGoal,
     InvestigationIntent,
     InvestigationQuestion,
-    PlannerDecision,
+    PlannerDecisionOutcome,
 )
 from yield_rca_core.investigation_policy import ACTION_REGISTRY, InvestigationPolicy
 from yield_rca_core.llm_gateway import (
@@ -618,7 +618,7 @@ class Supervisor:
         observed_tool_latencies = tool_latencies if tool_latencies is not None else []
         while True:
             try:
-                decision = planner.decide(
+                outcome = planner.decide_with_review(
                     goal=intent_plan.goal,
                     questions=state.investigation_questions,
                     findings=state.findings,
@@ -629,6 +629,7 @@ class Supervisor:
                     hypotheses=state.hypotheses,
                     prior_decisions=state.planner_decisions,
                 )
+                decision = outcome.decision
             except (QwenNextActionPlannerError, LLMCallError) as exc:
                 reason = (
                     "qwen_next_action_output_invalid"
@@ -667,7 +668,7 @@ class Supervisor:
                 )
 
             if decision.decision_type == DecisionType.STOP.value:
-                state = self._record_planner_decision(state, decision)
+                state = self._record_planner_outcome(state, outcome)
                 conclusion_level = _gate_conclusion_level(
                     decision.proposed_conclusion_level,
                     state=state,
@@ -707,17 +708,22 @@ class Supervisor:
             except SpecialistV2Error as exc:
                 raise SupervisorExecutionError(str(exc), state=state) from exc
 
-            # Commit the Planner decision only after its Action has produced a valid
-            # Finding. This keeps PlannerDecision and ActionRecord atomic if a
-            # Specialist Tool fails.
-            state = self._record_planner_decision(state, decision)
-            state = self._record_controlled_finding(state, action, finding)
+            # Build both immutable state projections before advancing the loop. A
+            # Specialist or Finding validation failure therefore exposes the
+            # pre-action state without a dangling Decision or Review.
+            state_with_finding = self._record_controlled_finding(
+                state,
+                action,
+                finding,
+            )
+            state = self._record_planner_outcome(state_with_finding, outcome)
 
     @staticmethod
-    def _record_planner_decision(
+    def _record_planner_outcome(
         state: RCAState,
-        decision: PlannerDecision,
+        outcome: PlannerDecisionOutcome,
     ) -> RCAState:
+        decision = outcome.decision
         questions_by_id = {
             question.question_id: question
             for question in state.investigation_questions
@@ -747,6 +753,10 @@ class Supervisor:
             state,
             investigation_questions=list(questions_by_id.values()),
             planner_decisions=[*state.planner_decisions, decision],
+            question_update_reviews=[
+                *state.question_update_reviews,
+                *outcome.question_update_reviews,
+            ],
         )
 
     def _dispatch_llm_react(

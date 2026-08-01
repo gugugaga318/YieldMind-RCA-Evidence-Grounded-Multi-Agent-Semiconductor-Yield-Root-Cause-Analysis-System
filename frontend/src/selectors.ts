@@ -550,6 +550,7 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
   const integrityIssues: string[] = [];
   const questions = state.investigation_questions ?? [];
   const decisions = state.planner_decisions ?? [];
+  const questionUpdateReviews = state.question_update_reviews ?? [];
   const records = state.action_history ?? [];
   const runEvaluation = state.run_evaluation ?? null;
   const questionIndex = indexUnique(
@@ -597,6 +598,21 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
     "DecisionEvaluation",
     integrityIssues,
   );
+  const questionUpdateReviewsByDecision = new Map<
+    string,
+    typeof questionUpdateReviews
+  >();
+  for (const review of questionUpdateReviews) {
+    if (!decisionIdIndex.values.has(review.decision_id)) {
+      integrityIssues.push(
+        `QuestionUpdate review references missing PlannerDecision ${review.decision_id}.`,
+      );
+      continue;
+    }
+    const current = questionUpdateReviewsByDecision.get(review.decision_id) ?? [];
+    current.push(review);
+    questionUpdateReviewsByDecision.set(review.decision_id, current);
+  }
 
   const actualMode = orchestrationMode(
     state.execution_metadata.orchestration_mode,
@@ -615,6 +631,34 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
   const fallbackAfterActionCount = integerValue(
     state.execution_metadata.orchestration_fallback_after_action_count,
   );
+  const fallbackAttemptCount = integerValue(
+    state.execution_metadata.orchestration_fallback_attempt_count,
+    1,
+  );
+  const rawFallbackValidationErrors =
+    state.execution_metadata.orchestration_fallback_validation_errors;
+  const fallbackValidationErrors = Array.isArray(rawFallbackValidationErrors)
+    ? rawFallbackValidationErrors.filter(
+        (error): error is string =>
+          typeof error === "string" && error.trim().length > 0,
+      )
+    : [];
+  if (
+    rawFallbackValidationErrors !== undefined &&
+    (!Array.isArray(rawFallbackValidationErrors) ||
+      fallbackValidationErrors.length !== rawFallbackValidationErrors.length)
+  ) {
+    integrityIssues.push("Planner fallback validation diagnostics are malformed.");
+  }
+  if (
+    fallbackAttemptCount !== null &&
+    fallbackValidationErrors.length > 0 &&
+    fallbackAttemptCount !== fallbackValidationErrors.length
+  ) {
+    integrityIssues.push(
+      "Planner fallback attempt count does not match its validation diagnostics.",
+    );
+  }
   const isFallback =
     requestedMode === "llm_react" &&
     (fallbackReason !== null ||
@@ -693,6 +737,24 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
             "Target Question",
             nodeIssues,
           );
+    const nodeQuestionUpdateReviews =
+      decision === null
+        ? []
+        : (questionUpdateReviewsByDecision.get(decision.decision_id) ?? []);
+    for (const review of nodeQuestionUpdateReviews) {
+      if (
+        review.disposition === "accepted" &&
+        !decision?.question_updates.some(
+          (update) =>
+            update.question_id === review.question_id &&
+            update.status === review.claimed_status,
+        )
+      ) {
+        nodeIssues.push(
+          "An accepted QuestionUpdate review has no matching committed update.",
+        );
+      }
+    }
 
     let findings: AgentFinding[] = [];
     let evidence: Evidence[] = [];
@@ -775,6 +837,7 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
       targetQuestions,
       newQuestions: decision?.new_questions ?? [],
       questionUpdates: decision?.question_updates ?? [],
+      questionUpdateReviews: nodeQuestionUpdateReviews,
       action,
       actionRecord,
       findings,
@@ -885,6 +948,8 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
     fallbackReason,
     fallbackStage,
     fallbackAfterActionCount,
+    fallbackAttemptCount,
+    fallbackValidationErrors,
     integrityIssues,
   };
 }

@@ -13,6 +13,7 @@ from yield_rca_api.app import create_app  # noqa: E402
 from yield_rca_api.schemas import (  # noqa: E402
     CreateRCAJobRequest,
     DecisionEvaluationResponse,
+    QuestionUpdateReviewResponse,
     RCAJobStateResponse,
     RunEvaluationResponse,
 )
@@ -148,6 +149,43 @@ class FastAPIContractTest(unittest.TestCase):
                 "redundant",
                 "reason",
                 "new_evidence_ids",
+            },
+        )
+
+    def test_job_state_exposes_question_update_review_contract(self) -> None:
+        review = QuestionUpdateReviewResponse(
+            decision_id="DECISION_01",
+            disposition="rejected",
+            reason_code="non_terminal_status",
+            reason="QuestionUpdate status=open was rejected.",
+            update_index=0,
+            question_id="Q_ROOT_CAUSE",
+            claimed_status="open",
+        )
+
+        state = RCAJobStateResponse(
+            job={"job_id": "JOB_REVIEWED"},
+            question_update_reviews=[review],
+        )
+        legacy_state = RCAJobStateResponse(job={"job_id": "JOB_LEGACY"})
+        components = create_app().openapi()["components"]["schemas"]
+
+        self.assertEqual(state.question_update_reviews, [review])
+        self.assertEqual(legacy_state.question_update_reviews, [])
+        self.assertIn(
+            "question_update_reviews",
+            components["RCAJobStateResponse"]["properties"],
+        )
+        self.assertEqual(
+            set(components["QuestionUpdateReviewResponse"]["properties"]),
+            {
+                "decision_id",
+                "disposition",
+                "reason_code",
+                "reason",
+                "update_index",
+                "question_id",
+                "claimed_status",
             },
         )
 
