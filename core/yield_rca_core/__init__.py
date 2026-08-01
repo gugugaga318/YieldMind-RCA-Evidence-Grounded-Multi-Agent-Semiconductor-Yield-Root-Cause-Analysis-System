@@ -26,7 +26,11 @@ from yield_rca_core.investigation_models import (
     InvestigationQuestion,
     InvestigationValidationError,
     PlannerDecision,
+    PlannerDecisionOutcome,
     QuestionUpdate,
+    QuestionUpdateDisposition,
+    QuestionUpdateReasonCode,
+    QuestionUpdateReview,
     RunEvaluation,
 )
 from yield_rca_core.knowledge_retrieval import (
@@ -83,6 +87,10 @@ from yield_rca_core.planner_agent import (
     DEFAULT_PLANNABLE_AGENTS,
     PlannerAgent,
     PlannerConfigurationError,
+)
+from yield_rca_core.question_update_review import (
+    review_question_updates,
+    review_qwen_planner_output,
 )
 from yield_rca_core.rca_reasoning_agent import SPECIALIST_AGENTS, RCAReasoningAgent
 from yield_rca_core.report_generator import ReportGenerationError, ReportGenerator
@@ -189,7 +197,11 @@ __all__ = [
     "PlannerAgent",
     "PlannerConfigurationError",
     "PlannerDecision",
+    "PlannerDecisionOutcome",
     "QuestionUpdate",
+    "QuestionUpdateDisposition",
+    "QuestionUpdateReasonCode",
+    "QuestionUpdateReview",
     "PerformBasicSpcAnalysisTool",
     "PostgresFabRepository",
     "PurePythonRCAWorkflow",
@@ -233,6 +245,8 @@ __all__ = [
     "calculate_p_chart",
     "calculate_xbar",
     "evaluate_nelson_rules",
+    "review_question_updates",
+    "review_qwen_planner_output",
     "__version__",
 ]
 

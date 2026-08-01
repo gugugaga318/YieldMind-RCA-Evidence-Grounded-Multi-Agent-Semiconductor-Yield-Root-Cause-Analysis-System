@@ -30,7 +30,11 @@ from yield_rca_core.investigation_models import (
     InvestigationValidationError,
     OrchestrationMode,
     PlannerDecision,
+    PlannerDecisionOutcome,
     QuestionUpdate,
+    QuestionUpdateDisposition,
+    QuestionUpdateReasonCode,
+    QuestionUpdateReview,
     StopReason,
 )
 from yield_rca_core.investigation_policy import (
@@ -45,6 +49,7 @@ from yield_rca_core.models import (
     Hypothesis,
     ModelValidationError,
 )
+from yield_rca_core.question_update_review import review_qwen_planner_output
 
 _OUTPUT_ATTEMPTS = 2
 
@@ -168,6 +173,63 @@ def _compact_evidence(evidence: Evidence) -> dict[str, Any]:
     }
 
 
+def _strict_outcome(decision: PlannerDecision) -> PlannerDecisionOutcome:
+    """Project the legacy strict path into the new outcome contract."""
+
+    reviews = [
+        QuestionUpdateReview(
+            decision_id=decision.decision_id,
+            disposition=QuestionUpdateDisposition.ACCEPTED.value,
+            reason_code=QuestionUpdateReasonCode.ACCEPTED.value,
+            reason=(
+                f"QuestionUpdate {update.question_id} passed the strict "
+                "PlannerDecision contract."
+            ),
+            update_index=index,
+            question_id=update.question_id,
+            claimed_status=update.status,
+        )
+        for index, update in enumerate(decision.question_updates)
+    ]
+    return PlannerDecisionOutcome(
+        decision=decision,
+        question_update_reviews=reviews,
+        raw_question_update_count=len(decision.question_updates),
+    )
+
+
+def _validate_reviewed_stop_boundary(
+    outcome: PlannerDecisionOutcome,
+    *,
+    questions: list[InvestigationQuestion],
+) -> None:
+    decision = outcome.decision
+    if decision.decision_type != DecisionType.STOP.value:
+        return
+    projected_status = {
+        question.question_id: question.status for question in questions
+    }
+    for update in decision.question_updates:
+        projected_status[update.question_id] = update.status
+    open_question_ids = sorted(
+        question_id
+        for question_id, status in projected_status.items()
+        if status == EvidenceGapStatus.OPEN.value
+    )
+    if not open_question_ids:
+        return
+    if decision.stop_reason == StopReason.GOAL_SATISFIED.value:
+        raise InvestigationValidationError(
+            "a goal_satisfied stop cannot leave open investigation questions: "
+            f"{open_question_ids}"
+        )
+    if decision.stop_reason == StopReason.DATA_UNAVAILABLE.value:
+        raise InvestigationValidationError(
+            "a data_unavailable stop must terminally mark every unavailable "
+            f"investigation question: {open_question_ids}"
+        )
+
+
 @dataclass(frozen=True)
 class QwenNextActionPlanner:
     """Select one legal next Agent action or stop after the latest observation."""
@@ -217,7 +279,68 @@ class QwenNextActionPlanner:
         prior_decisions: list[PlannerDecision] | None = None,
         critical_contradictions: list[str] | None = None,
     ) -> PlannerDecision:
-        """Ask Qwen for one decision, retrying one invalid structured output."""
+        """Preserve the strict compatibility path until Supervisor integration."""
+
+        return self._decide(
+            goal=goal,
+            questions=questions,
+            findings=findings,
+            action_records=action_records,
+            tool_call_count=tool_call_count,
+            evidence=evidence,
+            evidence_ids=evidence_ids,
+            hypotheses=hypotheses,
+            prior_decisions=prior_decisions,
+            critical_contradictions=critical_contradictions,
+            review_question_updates=False,
+        ).decision
+
+    def decide_with_review(
+        self,
+        *,
+        goal: InvestigationGoal,
+        questions: list[InvestigationQuestion],
+        findings: list[AgentFinding],
+        action_records: list[ActionRecord],
+        tool_call_count: int,
+        evidence: list[Evidence] | None = None,
+        evidence_ids: list[str] | None = None,
+        hypotheses: list[Hypothesis] | None = None,
+        prior_decisions: list[PlannerDecision] | None = None,
+        critical_contradictions: list[str] | None = None,
+    ) -> PlannerDecisionOutcome:
+        """Return a core decision with independently reviewed update claims."""
+
+        return self._decide(
+            goal=goal,
+            questions=questions,
+            findings=findings,
+            action_records=action_records,
+            tool_call_count=tool_call_count,
+            evidence=evidence,
+            evidence_ids=evidence_ids,
+            hypotheses=hypotheses,
+            prior_decisions=prior_decisions,
+            critical_contradictions=critical_contradictions,
+            review_question_updates=True,
+        )
+
+    def _decide(
+        self,
+        *,
+        goal: InvestigationGoal,
+        questions: list[InvestigationQuestion],
+        findings: list[AgentFinding],
+        action_records: list[ActionRecord],
+        tool_call_count: int,
+        evidence: list[Evidence] | None,
+        evidence_ids: list[str] | None,
+        hypotheses: list[Hypothesis] | None,
+        prior_decisions: list[PlannerDecision] | None,
+        critical_contradictions: list[str] | None,
+        review_question_updates: bool,
+    ) -> PlannerDecisionOutcome:
+        """Ask Qwen for one core decision, retrying only invalid core output."""
 
         normalized_evidence = list(evidence or [])
         explicit_evidence_ids = list(evidence_ids or [])
@@ -251,25 +374,27 @@ class QwenNextActionPlanner:
                 for question in questions
                 if question.status == EvidenceGapStatus.OPEN.value
             ]
-            return PlannerDecision(
-                decision_id=self._next_baseline_decision_id(
-                    goal=goal,
-                    prior_decisions=normalized_prior_decisions,
-                ),
-                goal_id=goal.goal_id,
-                decision_type=DecisionType.STOP.value,
-                reason=(
-                    "The Python runtime budget boundary was reached before "
-                    "another Qwen decision could be requested."
-                ),
-                goal_status=GoalStatus.BUDGET_EXHAUSTED.value,
-                proposed_conclusion_level=ConclusionLevel.INCONCLUSIVE.value,
-                stop_reason=StopReason.BUDGET_EXHAUSTED.value,
-                question_updates=self._terminal_question_updates(
-                    open_questions=open_questions,
-                    findings=findings,
-                    available_evidence_ids=available_evidence_ids,
-                ),
+            return PlannerDecisionOutcome(
+                decision=PlannerDecision(
+                    decision_id=self._next_baseline_decision_id(
+                        goal=goal,
+                        prior_decisions=normalized_prior_decisions,
+                    ),
+                    goal_id=goal.goal_id,
+                    decision_type=DecisionType.STOP.value,
+                    reason=(
+                        "The Python runtime budget boundary was reached before "
+                        "another Qwen decision could be requested."
+                    ),
+                    goal_status=GoalStatus.BUDGET_EXHAUSTED.value,
+                    proposed_conclusion_level=ConclusionLevel.INCONCLUSIVE.value,
+                    stop_reason=StopReason.BUDGET_EXHAUSTED.value,
+                    question_updates=self._terminal_question_updates(
+                        open_questions=open_questions,
+                        findings=findings,
+                        available_evidence_ids=available_evidence_ids,
+                    ),
+                )
             )
         baseline = self._baseline_decision(
             goal=goal,
@@ -336,10 +461,21 @@ class QwenNextActionPlanner:
             )
             try:
                 response = self.llm_client.complete_json(request)
-                candidate = PlannerDecision.from_dict(
-                    response.data,
-                    allow_legacy_question_updates=False,
+                outcome = (
+                    review_qwen_planner_output(
+                        response.data,
+                        questions=questions,
+                        available_evidence_ids=available_evidence_ids,
+                    )
+                    if review_question_updates
+                    else _strict_outcome(
+                        PlannerDecision.from_dict(
+                            response.data,
+                            allow_legacy_question_updates=False,
+                        )
+                    )
                 )
+                candidate = outcome.decision
                 self._validate_candidate(
                     candidate,
                     goal=goal,
@@ -350,7 +486,12 @@ class QwenNextActionPlanner:
                     available_evidence_ids=available_evidence_ids,
                     prior_decisions=normalized_prior_decisions,
                 )
-                return candidate
+                if review_question_updates:
+                    _validate_reviewed_stop_boundary(
+                        outcome,
+                        questions=questions,
+                    )
+                return outcome
             except (
                 InvestigationValidationError,
                 LLMOutputValidationError,

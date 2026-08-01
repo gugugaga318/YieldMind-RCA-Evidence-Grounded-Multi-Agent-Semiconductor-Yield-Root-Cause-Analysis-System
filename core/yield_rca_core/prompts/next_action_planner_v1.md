@@ -65,6 +65,10 @@ For a stop decision:
 
 You may update an existing open question to closed only when its answer cites
 available Evidence IDs. You may mark it unavailable only with an explicit reason.
+Evidence that supports the overall Goal but does not answer this specific Question
+cannot close it. If the proposed answer says the requested records or data are
+missing, absent, not present, or unavailable, use status unavailable with answer
+null instead of status closed.
 Question updates are terminal deltas: status must be closed or unavailable, never
 open. Do not copy or rewrite goal_id, question, rationale, or scope. When evidence
 only provides partial progress, return question_updates=[] and preserve that

@@ -79,6 +79,25 @@ class DecisionType(StrEnum):
     STOP = "stop"
 
 
+class QuestionUpdateDisposition(StrEnum):
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+class QuestionUpdateReasonCode(StrEnum):
+    ACCEPTED = "accepted"
+    MALFORMED_COLLECTION = "malformed_collection"
+    TOO_MANY_UPDATES = "too_many_updates"
+    MALFORMED_UPDATE = "malformed_update"
+    NON_TERMINAL_STATUS = "non_terminal_status"
+    DUPLICATE_QUESTION = "duplicate_question"
+    UNKNOWN_QUESTION = "unknown_question"
+    NEW_QUESTION_CONFLICT = "new_question_conflict"
+    TERMINAL_QUESTION = "terminal_question"
+    TARGET_OVERLAP = "target_overlap"
+    UNKNOWN_EVIDENCE = "unknown_evidence"
+
+
 MAX_CROSS_DOMAIN_ACTIONS = 8
 MAX_INITIAL_QUESTIONS = 5
 
@@ -660,9 +679,15 @@ class PlannerDecision:
                 raise InvestigationValidationError(
                     "an act decision must target at least one investigation question"
                 )
-            if set(updated_question_ids) & set(self.target_question_ids):
+            conflicting_question_ids = sorted(
+                set(updated_question_ids) & set(self.target_question_ids)
+            )
+            if conflicting_question_ids:
                 raise InvestigationValidationError(
-                    "an act decision cannot target a question updated to terminal status"
+                    "target_question_ids and question_updates overlap for "
+                    f"{conflicting_question_ids}; if the next action still "
+                    "investigates this Question, keep it open and omit its "
+                    "QuestionUpdate"
                 )
         else:
             if self.next_action is not None:
@@ -769,6 +794,175 @@ class PlannerDecision:
             new_questions=new_questions,
             stop_reason=payload.get("stop_reason"),
             question_updates=question_updates,
+        )
+
+
+@dataclass(frozen=True)
+class QuestionUpdateReview:
+    """One bounded audit result for a model-proposed QuestionUpdate."""
+
+    decision_id: str
+    disposition: str
+    reason_code: str
+    reason: str
+    update_index: int | None = None
+    question_id: str | None = None
+    claimed_status: str | None = None
+
+    def __post_init__(self) -> None:
+        _non_empty(self.decision_id, "decision_id")
+        try:
+            disposition = QuestionUpdateDisposition(self.disposition)
+        except ValueError as exc:
+            raise InvestigationValidationError(
+                "question update disposition is invalid"
+            ) from exc
+        try:
+            reason_code = QuestionUpdateReasonCode(self.reason_code)
+        except ValueError as exc:
+            raise InvestigationValidationError(
+                "question update reason_code is invalid"
+            ) from exc
+        _non_empty(self.reason, "reason")
+        if self.update_index is not None and (
+            type(self.update_index) is not int or self.update_index < 0
+        ):
+            raise InvestigationValidationError(
+                "update_index must be null or a non-negative integer"
+            )
+        if self.question_id is not None:
+            _non_empty(self.question_id, "question_id")
+        if self.claimed_status is not None:
+            _non_empty(self.claimed_status, "claimed_status")
+        if disposition == QuestionUpdateDisposition.ACCEPTED:
+            if reason_code != QuestionUpdateReasonCode.ACCEPTED:
+                raise InvestigationValidationError(
+                    "an accepted QuestionUpdate requires reason_code=accepted"
+                )
+            if self.question_id is None or self.update_index is None:
+                raise InvestigationValidationError(
+                    "an accepted QuestionUpdate review requires an index and question_id"
+                )
+            if self.claimed_status not in {
+                EvidenceGapStatus.CLOSED.value,
+                EvidenceGapStatus.UNAVAILABLE.value,
+            }:
+                raise InvestigationValidationError(
+                    "an accepted QuestionUpdate review requires a terminal claimed_status"
+                )
+        elif reason_code == QuestionUpdateReasonCode.ACCEPTED:
+            raise InvestigationValidationError(
+                "a rejected QuestionUpdate cannot use reason_code=accepted"
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "decision_id": self.decision_id,
+            "disposition": self.disposition,
+            "reason_code": self.reason_code,
+            "reason": self.reason,
+            "update_index": self.update_index,
+            "question_id": self.question_id,
+            "claimed_status": self.claimed_status,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        payload = _strict_object(
+            data,
+            required={"decision_id", "disposition", "reason_code", "reason"},
+            optional={"update_index", "question_id", "claimed_status"},
+            name="QuestionUpdateReview",
+        )
+        return cls(
+            decision_id=payload["decision_id"],
+            disposition=payload["disposition"],
+            reason_code=payload["reason_code"],
+            reason=payload["reason"],
+            update_index=payload.get("update_index"),
+            question_id=payload.get("question_id"),
+            claimed_status=payload.get("claimed_status"),
+        )
+
+
+@dataclass(frozen=True)
+class PlannerDecisionOutcome:
+    """A legal core decision plus independently reviewed QuestionUpdate claims."""
+
+    decision: PlannerDecision
+    question_update_reviews: list[QuestionUpdateReview] = field(default_factory=list)
+    raw_question_update_count: int = 0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.decision, PlannerDecision):
+            raise InvestigationValidationError("decision must be a PlannerDecision")
+        if (
+            type(self.raw_question_update_count) is not int
+            or self.raw_question_update_count < 0
+        ):
+            raise InvestigationValidationError(
+                "raw_question_update_count must be a non-negative integer"
+            )
+        if not isinstance(self.question_update_reviews, list):
+            raise InvestigationValidationError(
+                "question_update_reviews must be a list"
+            )
+        accepted_question_ids: list[str] = []
+        for review in self.question_update_reviews:
+            if not isinstance(review, QuestionUpdateReview):
+                raise InvestigationValidationError(
+                    "question_update_reviews must contain QuestionUpdateReview instances"
+                )
+            if review.decision_id != self.decision.decision_id:
+                raise InvestigationValidationError(
+                    "QuestionUpdate reviews must reference the outcome decision"
+                )
+            if review.disposition == QuestionUpdateDisposition.ACCEPTED.value:
+                assert review.question_id is not None
+                accepted_question_ids.append(review.question_id)
+        if self.raw_question_update_count > 0 and accepted_question_ids != [
+            update.question_id for update in self.decision.question_updates
+        ]:
+            raise InvestigationValidationError(
+                "accepted QuestionUpdate reviews must match committed question_updates"
+            )
+        if self.raw_question_update_count < len(self.question_update_reviews):
+            raise InvestigationValidationError(
+                "raw_question_update_count cannot be smaller than the review count"
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "decision": self.decision.to_dict(),
+            "question_update_reviews": [
+                review.to_dict() for review in self.question_update_reviews
+            ],
+            "raw_question_update_count": self.raw_question_update_count,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        payload = _strict_object(
+            data,
+            required={
+                "decision",
+                "question_update_reviews",
+                "raw_question_update_count",
+            },
+            optional=set(),
+            name="PlannerDecisionOutcome",
+        )
+        raw_reviews = payload["question_update_reviews"]
+        if not isinstance(raw_reviews, list):
+            raise InvestigationValidationError(
+                "question_update_reviews must be a list"
+            )
+        return cls(
+            decision=PlannerDecision.from_dict(payload["decision"]),
+            question_update_reviews=[
+                QuestionUpdateReview.from_dict(review) for review in raw_reviews
+            ],
+            raw_question_update_count=payload["raw_question_update_count"],
         )
 
 

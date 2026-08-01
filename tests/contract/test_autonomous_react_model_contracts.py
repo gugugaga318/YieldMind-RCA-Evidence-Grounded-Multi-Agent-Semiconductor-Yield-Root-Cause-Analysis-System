@@ -19,7 +19,11 @@ from yield_rca_core import (  # noqa: E402
     InvestigationQuestion,
     InvestigationValidationError,
     PlannerDecision,
+    PlannerDecisionOutcome,
     QuestionUpdate,
+    QuestionUpdateDisposition,
+    QuestionUpdateReasonCode,
+    QuestionUpdateReview,
     RunEvaluation,
 )
 from yield_rca_core.investigation_models import (  # noqa: E402
@@ -172,6 +176,58 @@ class AutonomousReactQuestionContractTest(unittest.TestCase):
                 with self.assertRaises(InvestigationValidationError):
                     QuestionUpdate.from_dict(payload)
 
+    def test_question_update_review_and_outcome_round_trip(self) -> None:
+        update = QuestionUpdate(
+            question_id="Q_ROOT_CAUSE",
+            status=EvidenceGapStatus.CLOSED.value,
+            answer="EPD endpoint detection failed during Cu CMP.",
+            evidence_ids=["EV_FDC_EPD_01"],
+        )
+        decision = PlannerDecision(
+            decision_id="DECISION_REVIEWED",
+            goal_id="GOAL_LOT_01",
+            decision_type=DecisionType.STOP.value,
+            reason="The evidence-backed investigation question is closed.",
+            goal_status=GoalStatus.SATISFIED.value,
+            proposed_conclusion_level=ConclusionLevel.SUPPORTED.value,
+            stop_reason=StopReason.GOAL_SATISFIED.value,
+            question_updates=[update],
+        )
+        review = QuestionUpdateReview(
+            decision_id=decision.decision_id,
+            disposition=QuestionUpdateDisposition.ACCEPTED.value,
+            reason_code=QuestionUpdateReasonCode.ACCEPTED.value,
+            reason="The terminal update references available Evidence.",
+            update_index=0,
+            question_id=update.question_id,
+            claimed_status=update.status,
+        )
+        outcome = PlannerDecisionOutcome(
+            decision=decision,
+            question_update_reviews=[review],
+            raw_question_update_count=1,
+        )
+
+        self.assertEqual(
+            PlannerDecisionOutcome.from_dict(outcome.to_dict()),
+            outcome,
+        )
+
+    def test_rejected_question_update_review_cannot_claim_acceptance(self) -> None:
+        with self.assertRaisesRegex(
+            InvestigationValidationError,
+            "rejected QuestionUpdate cannot use reason_code=accepted",
+        ):
+            QuestionUpdateReview(
+                decision_id="DECISION_REJECTED",
+                disposition=QuestionUpdateDisposition.REJECTED.value,
+                reason_code=QuestionUpdateReasonCode.ACCEPTED.value,
+                reason="Invalid mixed disposition.",
+                update_index=0,
+                question_id="Q_ROOT_CAUSE",
+                claimed_status=EvidenceGapStatus.OPEN.value,
+            )
+
     def test_planner_reads_legacy_full_question_update_but_writes_compact_delta(self) -> None:
         question = open_question()
         legacy_update = {
@@ -285,7 +341,10 @@ class AutonomousReactDecisionContractTest(unittest.TestCase):
     def test_act_cannot_close_and_target_the_same_question(self) -> None:
         with self.assertRaisesRegex(
             InvestigationValidationError,
-            "cannot target a question updated to terminal status",
+            (
+                "target_question_ids and question_updates overlap for "
+                r"\['Q_ROOT_CAUSE'\].*keep it open and omit its QuestionUpdate"
+            ),
         ):
             PlannerDecision(
                 decision_id="DECISION_CLOSE_AND_TARGET",

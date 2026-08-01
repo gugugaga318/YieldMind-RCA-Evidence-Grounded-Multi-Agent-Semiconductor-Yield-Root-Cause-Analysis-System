@@ -19,6 +19,8 @@ from yield_rca_core import (  # noqa: E402
     InvestigationIntent,
     InvestigationQuestion,
     PlannerDecision,
+    QuestionUpdateDisposition,
+    QuestionUpdateReasonCode,
     QwenNextActionPlanner,
     QwenNextActionPlannerError,
 )
@@ -339,6 +341,117 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             ConclusionLevel.SUPPORTED.value,
         )
 
+    def test_reviewed_goal_satisfied_stop_cannot_hide_rejected_open_updates(
+        self,
+    ) -> None:
+        def stop_with_open_update(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(
+                {
+                    "decision_id": f"STOP_{request.payload['output_attempt']}",
+                    "goal_id": request.payload["goal"]["goal_id"],
+                    "decision_type": DecisionType.STOP.value,
+                    "reason": "Incorrectly claim completion with an open update.",
+                    "goal_status": GoalStatus.SATISFIED.value,
+                    "proposed_conclusion_level": ConclusionLevel.SUPPORTED.value,
+                    "next_action": None,
+                    "target_question_ids": [],
+                    "new_questions": [],
+                    "stop_reason": StopReason.GOAL_SATISFIED.value,
+                    "question_updates": [
+                        {
+                            "question_id": "Q_DEFECT",
+                            "status": EvidenceGapStatus.OPEN.value,
+                            "answer": "Partial progress is not terminal.",
+                            "evidence_ids": ["EV_DEFECT"],
+                            "unavailable_reason": None,
+                        }
+                    ],
+                }
+            )
+
+        client = RecordingNextActionClient(stop_with_open_update)
+        with self.assertRaises(QwenNextActionPlannerError) as captured:
+            QwenNextActionPlanner(client).decide_with_review(
+                goal=goal(),
+                questions=questions(),
+                findings=[],
+                action_records=[],
+                tool_call_count=0,
+                evidence_ids=["EV_DEFECT"],
+            )
+
+        self.assertEqual(len(client.requests), 2)
+        self.assertTrue(
+            all(
+                "goal_satisfied stop cannot leave open investigation questions"
+                in error
+                for error in captured.exception.validation_errors
+            )
+        )
+
+    def test_reviewed_stop_accepts_supported_updates_for_every_open_question(
+        self,
+    ) -> None:
+        def close_questions_and_stop(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(
+                {
+                    "decision_id": "STOP_SUPPORTED",
+                    "goal_id": request.payload["goal"]["goal_id"],
+                    "decision_type": DecisionType.STOP.value,
+                    "reason": "Both requested Questions are evidence-backed.",
+                    "goal_status": GoalStatus.SATISFIED.value,
+                    "proposed_conclusion_level": ConclusionLevel.SUPPORTED.value,
+                    "next_action": None,
+                    "target_question_ids": [],
+                    "new_questions": [],
+                    "stop_reason": StopReason.GOAL_SATISFIED.value,
+                    "question_updates": [
+                        {
+                            "question_id": "Q_DEFECT",
+                            "status": EvidenceGapStatus.CLOSED.value,
+                            "answer": "The source Lot has an edge scratch.",
+                            "evidence_ids": ["EV_DEFECT"],
+                            "unavailable_reason": None,
+                        },
+                        {
+                            "question_id": "Q_MECHANISM",
+                            "status": EvidenceGapStatus.CLOSED.value,
+                            "answer": "The process Evidence supports the mechanism.",
+                            "evidence_ids": ["EV_MECHANISM"],
+                            "unavailable_reason": None,
+                        },
+                    ],
+                }
+            )
+
+        client = RecordingNextActionClient(close_questions_and_stop)
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=questions(),
+            findings=[],
+            action_records=[],
+            tool_call_count=0,
+            evidence_ids=["EV_DEFECT", "EV_MECHANISM"],
+        )
+
+        self.assertEqual(len(client.requests), 1)
+        self.assertEqual(outcome.decision.decision_type, DecisionType.STOP.value)
+        self.assertEqual(len(outcome.decision.question_updates), 2)
+        self.assertTrue(
+            all(
+                review.disposition == QuestionUpdateDisposition.ACCEPTED.value
+                for review in outcome.question_update_reviews
+            )
+        )
+
     def test_invalid_output_is_retried_once_with_validation_feedback(self) -> None:
         client = InvalidThenValidClient()
 
@@ -359,6 +472,160 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
         self.assertIn(
             "prerequisite",
             str(client.requests[1].payload["previous_validation_error"]),
+        )
+
+    def test_review_path_still_falls_back_for_an_invalid_core_action(self) -> None:
+        def wrong_agent(payload: dict[str, Any], request: LLMRequest) -> None:
+            payload.clear()
+            payload.update(
+                model_act_payload(
+                    request,
+                    kind=ActionKind.FIND_SHARED_EXPOSURE.value,
+                    agent=AgentKind.FDC.value,
+                )
+            )
+
+        client = RecordingNextActionClient(wrong_agent)
+        with self.assertRaises(QwenNextActionPlannerError) as captured:
+            QwenNextActionPlanner(client).decide_with_review(
+                goal=goal(),
+                questions=questions(),
+                findings=[],
+                action_records=[],
+                tool_call_count=0,
+            )
+
+        self.assertEqual(len(client.requests), 2)
+        self.assertTrue(
+            all(
+                "must be executed by Agent mes" in error
+                for error in captured.exception.validation_errors
+            )
+        )
+
+    def test_strict_compatibility_path_still_retries_close_and_target(self) -> None:
+        def close_and_target(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(model_act_payload(request))
+            payload["question_updates"] = [
+                {
+                    "question_id": "Q_MECHANISM",
+                    "status": EvidenceGapStatus.UNAVAILABLE.value,
+                    "answer": None,
+                    "evidence_ids": [],
+                    "unavailable_reason": "No registered source can answer it.",
+                }
+            ]
+
+        client = RecordingNextActionClient(close_and_target)
+        with self.assertRaises(QwenNextActionPlannerError) as captured:
+            QwenNextActionPlanner(client).decide(
+                goal=goal(),
+                questions=questions(),
+                findings=[],
+                action_records=[],
+                tool_call_count=0,
+            )
+
+        self.assertEqual(len(client.requests), 2)
+        retry_error = str(
+            client.requests[1].payload["previous_validation_error"]
+        )
+        self.assertIn(
+            "target_question_ids and question_updates overlap for ['Q_MECHANISM']",
+            retry_error,
+        )
+        self.assertIn(
+            "keep it open and omit its QuestionUpdate",
+            retry_error,
+        )
+        self.assertEqual(len(captured.exception.validation_errors), 2)
+
+    def test_review_path_rejects_overlap_without_retrying_or_changing_action(
+        self,
+    ) -> None:
+        def close_and_target(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(model_act_payload(request))
+            payload["target_question_ids"] = ["Q_DEFECT"]
+            payload["question_updates"] = [
+                {
+                    "question_id": "Q_DEFECT",
+                    "status": EvidenceGapStatus.CLOSED.value,
+                    "answer": "The selected Lot has an edge-dominant scratch.",
+                    "evidence_ids": ["EV_DEFECT"],
+                    "unavailable_reason": None,
+                }
+            ]
+
+        client = RecordingNextActionClient(close_and_target)
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=questions(),
+            findings=[
+                finding(AgentKind.DEFECT_WAT.value, evidence_id="EV_DEFECT")
+            ],
+            action_records=[],
+            tool_call_count=1,
+        )
+
+        self.assertEqual(len(client.requests), 1)
+        self.assertEqual(outcome.decision.target_question_ids, ["Q_DEFECT"])
+        self.assertEqual(outcome.decision.question_updates, [])
+        self.assertEqual(
+            outcome.question_update_reviews[0].disposition,
+            QuestionUpdateDisposition.REJECTED.value,
+        )
+        self.assertEqual(
+            outcome.question_update_reviews[0].reason_code,
+            QuestionUpdateReasonCode.TARGET_OVERLAP.value,
+        )
+
+    def test_review_path_rejects_open_status_without_retrying_core_action(
+        self,
+    ) -> None:
+        def report_partial_progress(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(model_act_payload(request))
+            payload["question_updates"] = [
+                {
+                    "question_id": "Q_DEFECT",
+                    "status": EvidenceGapStatus.OPEN.value,
+                    "answer": "The first observation provides partial progress.",
+                    "evidence_ids": ["EV_DEFECT"],
+                    "unavailable_reason": None,
+                }
+            ]
+
+        client = RecordingNextActionClient(report_partial_progress)
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=questions(),
+            findings=[
+                finding(AgentKind.DEFECT_WAT.value, evidence_id="EV_DEFECT")
+            ],
+            action_records=[],
+            tool_call_count=1,
+        )
+
+        self.assertEqual(len(client.requests), 1)
+        self.assertEqual(
+            outcome.decision.next_action.kind,
+            ActionKind.FIND_SHARED_EXPOSURE.value,
+        )
+        self.assertEqual(outcome.decision.question_updates, [])
+        self.assertEqual(
+            outcome.question_update_reviews[0].reason_code,
+            QuestionUpdateReasonCode.NON_TERMINAL_STATUS.value,
         )
 
     def test_valid_question_update_requires_existing_evidence(self) -> None:
@@ -743,6 +1010,7 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
         prompt = load_prompt("next_action_planner", "v1").lower()
         self.assertIn("choose exactly one entry from allowed_actions", prompt)
         self.assertIn("impact lot is a result", prompt)
+        self.assertIn("does not answer this specific question", prompt)
         source = inspect.getsource(next_action_planner).lower()
         self.assertNotIn("yield_rca_core.repositories", source)
         self.assertNotIn("yield_rca_core.tool_layer", source)
