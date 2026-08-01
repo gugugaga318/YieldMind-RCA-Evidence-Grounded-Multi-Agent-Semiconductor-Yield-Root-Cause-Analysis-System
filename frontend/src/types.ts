@@ -84,6 +84,14 @@ export interface InvestigationQuestion {
   unavailable_reason: string | null;
 }
 
+export interface QuestionUpdate {
+  question_id: string;
+  status: "closed" | "unavailable";
+  answer: string | null;
+  evidence_ids: string[];
+  unavailable_reason: string | null;
+}
+
 export interface PlannerDecision {
   decision_id: string;
   goal_id: string;
@@ -94,7 +102,7 @@ export interface PlannerDecision {
   next_action: InvestigationAction | null;
   target_question_ids: string[];
   new_questions: InvestigationQuestion[];
-  question_updates: InvestigationQuestion[];
+  question_updates: QuestionUpdate[];
   stop_reason:
     | "goal_satisfied"
     | "critical_contradiction"
@@ -335,7 +343,7 @@ export interface AgentTraceNodeViewModel {
   evaluation: DecisionEvaluation | null;
   targetQuestions: InvestigationQuestion[];
   newQuestions: InvestigationQuestion[];
-  questionUpdates: InvestigationQuestion[];
+  questionUpdates: QuestionUpdate[];
   action: InvestigationAction | null;
   actionRecord: ActionRecord | null;
   findings: AgentFinding[];

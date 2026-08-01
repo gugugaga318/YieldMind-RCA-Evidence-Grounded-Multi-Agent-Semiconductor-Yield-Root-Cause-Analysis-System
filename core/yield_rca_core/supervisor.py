@@ -723,7 +723,24 @@ class Supervisor:
             for question in state.investigation_questions
         }
         for question in getattr(decision, "question_updates", []):
-            questions_by_id[question.question_id] = question
+            current = questions_by_id.get(question.question_id)
+            if current is None:
+                raise SupervisorExecutionError(
+                    "Planner question update references an unknown question",
+                    state=state,
+                )
+            if current.status != EvidenceGapStatus.OPEN.value:
+                raise SupervisorExecutionError(
+                    "Planner question update references a terminal question",
+                    state=state,
+                )
+            questions_by_id[question.question_id] = replace(
+                current,
+                status=question.status,
+                answer=question.answer,
+                evidence_ids=list(question.evidence_ids),
+                unavailable_reason=question.unavailable_reason,
+            )
         for question in decision.new_questions:
             questions_by_id[question.question_id] = question
         return replace(

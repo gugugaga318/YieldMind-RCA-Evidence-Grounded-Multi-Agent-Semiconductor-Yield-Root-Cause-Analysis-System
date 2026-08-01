@@ -19,6 +19,7 @@ from yield_rca_core import (  # noqa: E402
     InvestigationQuestion,
     InvestigationValidationError,
     PlannerDecision,
+    QuestionUpdate,
     RunEvaluation,
 )
 from yield_rca_core.investigation_models import (  # noqa: E402
@@ -122,6 +123,102 @@ class AutonomousReactQuestionContractTest(unittest.TestCase):
                 status=EvidenceGapStatus.UNAVAILABLE.value,
             )
 
+    def test_question_update_is_a_terminal_only_delta(self) -> None:
+        closed = QuestionUpdate(
+            question_id="Q_ROOT_CAUSE",
+            status=EvidenceGapStatus.CLOSED.value,
+            answer="EPD endpoint detection failed during Cu CMP.",
+            evidence_ids=["EV_FDC_EPD_01"],
+        )
+        unavailable = QuestionUpdate(
+            question_id="Q_RECIPE",
+            status=EvidenceGapStatus.UNAVAILABLE.value,
+            unavailable_reason="Recipe history is unavailable for the selected period.",
+        )
+
+        self.assertEqual(QuestionUpdate.from_dict(closed.to_dict()), closed)
+        self.assertEqual(QuestionUpdate.from_dict(unavailable.to_dict()), unavailable)
+        self.assertEqual(
+            set(closed.to_dict()),
+            {
+                "question_id",
+                "status",
+                "answer",
+                "evidence_ids",
+                "unavailable_reason",
+            },
+        )
+
+    def test_question_update_rejects_open_or_invalid_terminal_fields(self) -> None:
+        invalid_updates = [
+            {
+                "question_id": "Q_OPEN",
+                "status": EvidenceGapStatus.OPEN.value,
+            },
+            {
+                "question_id": "Q_CLOSED_NO_EVIDENCE",
+                "status": EvidenceGapStatus.CLOSED.value,
+                "answer": "EPD failed.",
+            },
+            {
+                "question_id": "Q_UNAVAILABLE_WITH_ANSWER",
+                "status": EvidenceGapStatus.UNAVAILABLE.value,
+                "answer": "A partial answer is not a terminal unavailable state.",
+                "unavailable_reason": "Data was incomplete.",
+            },
+        ]
+        for payload in invalid_updates:
+            with self.subTest(payload=payload):
+                with self.assertRaises(InvestigationValidationError):
+                    QuestionUpdate.from_dict(payload)
+
+    def test_planner_reads_legacy_full_question_update_but_writes_compact_delta(self) -> None:
+        question = open_question()
+        legacy_update = {
+            **question.to_dict(),
+            "status": EvidenceGapStatus.CLOSED.value,
+            "answer": "EPD endpoint detection failed during Cu CMP.",
+            "evidence_ids": ["EV_FDC_EPD_01"],
+        }
+        payload = PlannerDecision(
+            decision_id="DECISION_LEGACY_UPDATE",
+            goal_id=question.goal_id,
+            decision_type=DecisionType.STOP.value,
+            reason="The legacy snapshot closed its evidence gap.",
+            goal_status=GoalStatus.SATISFIED.value,
+            proposed_conclusion_level=ConclusionLevel.SUPPORTED.value,
+            stop_reason=StopReason.GOAL_SATISFIED.value,
+        ).to_dict()
+        payload["question_updates"] = [legacy_update]
+
+        restored = PlannerDecision.from_dict(payload)
+        serialized_update = restored.to_dict()["question_updates"][0]
+
+        self.assertIsInstance(restored.question_updates[0], QuestionUpdate)
+        self.assertNotIn("goal_id", serialized_update)
+        self.assertNotIn("question", serialized_update)
+        self.assertEqual(serialized_update["question_id"], question.question_id)
+
+    def test_planner_reports_the_indexed_path_for_open_question_update(self) -> None:
+        payload = PlannerDecision(
+            decision_id="DECISION_BAD_UPDATE",
+            goal_id="GOAL_LOT_01",
+            decision_type=DecisionType.STOP.value,
+            reason="Validate an invalid compact update.",
+            goal_status=GoalStatus.BLOCKED.value,
+            proposed_conclusion_level=ConclusionLevel.INCONCLUSIVE.value,
+            stop_reason=StopReason.DATA_UNAVAILABLE.value,
+        ).to_dict()
+        payload["question_updates"] = [
+            {"question_id": "Q_ROOT_CAUSE", "status": "open"}
+        ]
+
+        with self.assertRaisesRegex(
+            InvestigationValidationError,
+            r"question_updates\[0\]\.status must be closed or unavailable",
+        ):
+            PlannerDecision.from_dict(payload)
+
 
 class AutonomousReactDecisionContractTest(unittest.TestCase):
     def test_action_scope_produces_a_stable_deduplication_key(self) -> None:
@@ -183,6 +280,51 @@ class AutonomousReactDecisionContractTest(unittest.TestCase):
                 proposed_conclusion_level=ConclusionLevel.SUPPORTED.value,
                 next_action=inspect_action(),
                 stop_reason=StopReason.GOAL_SATISFIED.value,
+            )
+
+    def test_act_cannot_close_and_target_the_same_question(self) -> None:
+        with self.assertRaisesRegex(
+            InvestigationValidationError,
+            "cannot target a question updated to terminal status",
+        ):
+            PlannerDecision(
+                decision_id="DECISION_CLOSE_AND_TARGET",
+                goal_id="GOAL_LOT_01",
+                decision_type=DecisionType.ACT.value,
+                reason="An action must target a question that remains open.",
+                goal_status=GoalStatus.IN_PROGRESS.value,
+                proposed_conclusion_level=ConclusionLevel.SIGNAL.value,
+                next_action=inspect_action(),
+                target_question_ids=["Q_ROOT_CAUSE"],
+                question_updates=[
+                    QuestionUpdate(
+                        question_id="Q_ROOT_CAUSE",
+                        status=EvidenceGapStatus.CLOSED.value,
+                        answer="EPD failed.",
+                        evidence_ids=["EV_FDC_EPD_01"],
+                    )
+                ],
+            )
+
+    def test_decision_rejects_duplicate_question_updates(self) -> None:
+        update = QuestionUpdate(
+            question_id="Q_ROOT_CAUSE",
+            status=EvidenceGapStatus.UNAVAILABLE.value,
+            unavailable_reason="The required source is unavailable.",
+        )
+        with self.assertRaisesRegex(
+            InvestigationValidationError,
+            "question_updates must not contain duplicate ids",
+        ):
+            PlannerDecision(
+                decision_id="DECISION_DUPLICATE_UPDATES",
+                goal_id="GOAL_LOT_01",
+                decision_type=DecisionType.STOP.value,
+                reason="Duplicate deltas are ambiguous.",
+                goal_status=GoalStatus.BLOCKED.value,
+                proposed_conclusion_level=ConclusionLevel.INCONCLUSIVE.value,
+                stop_reason=StopReason.DATA_UNAVAILABLE.value,
+                question_updates=[update, update],
             )
 
     def test_decision_rejects_cross_goal_question_and_unknown_structured_field(self) -> None:

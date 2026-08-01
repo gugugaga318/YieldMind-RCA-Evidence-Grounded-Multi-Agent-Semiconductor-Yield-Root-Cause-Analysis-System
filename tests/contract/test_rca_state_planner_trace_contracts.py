@@ -23,6 +23,7 @@ from yield_rca_core.investigation_models import (  # noqa: E402
     InvestigationIntent,
     InvestigationQuestion,
     PlannerDecision,
+    QuestionUpdate,
     RunEvaluation,
     StopReason,
 )
@@ -98,7 +99,6 @@ def make_act_decision(
             scope={"lot_id": "LOT_01", "operation": "CU_CMP"},
         ),
         target_question_ids=[target_question_id],
-        question_updates=[make_question(question_id=target_question_id)],
     )
 
 
@@ -119,6 +119,14 @@ def make_state() -> RCAState:
                 goal_status=GoalStatus.SATISFIED.value,
                 proposed_conclusion_level=ConclusionLevel.SUPPORTED.value,
                 stop_reason=StopReason.GOAL_SATISFIED.value,
+                question_updates=[
+                    QuestionUpdate(
+                        question_id=question.question_id,
+                        status=EvidenceGapStatus.CLOSED.value,
+                        answer=question.answer,
+                        evidence_ids=list(question.evidence_ids),
+                    )
+                ],
             ),
         ],
         goal_status=GoalStatus.SATISFIED.value,
@@ -168,7 +176,7 @@ class RCAStatePlannerTraceSerializationTest(unittest.TestCase):
         self.assertIsInstance(restored.investigation_questions[0], InvestigationQuestion)
         self.assertIsInstance(restored.planner_decisions[0], PlannerDecision)
         self.assertEqual(
-            restored.planner_decisions[0].question_updates[0].evidence_ids,
+            restored.planner_decisions[1].question_updates[0].evidence_ids,
             [EVIDENCE_ID],
         )
         self.assertEqual(restored.evidence_gaps, state.evidence_gaps)
@@ -204,7 +212,7 @@ class RCAStatePlannerTraceSerializationTest(unittest.TestCase):
             ActionKind.INSPECT_FDC_SPC.value,
         )
         self.assertEqual(
-            payload["planner_decisions"][0]["question_updates"][0]["evidence_ids"],
+            payload["planner_decisions"][1]["question_updates"][0]["evidence_ids"],
             [EVIDENCE_ID],
         )
 

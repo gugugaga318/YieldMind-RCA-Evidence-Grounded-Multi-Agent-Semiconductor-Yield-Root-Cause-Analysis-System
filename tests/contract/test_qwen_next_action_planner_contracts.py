@@ -368,10 +368,9 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
         ) -> None:
             payload.clear()
             payload.update(model_act_payload(request))
-            original = request.payload["questions"][0]
             payload["question_updates"] = [
                 {
-                    **original,
+                    "question_id": "Q_DEFECT",
                     "status": EvidenceGapStatus.CLOSED.value,
                     "answer": "The selected Lot has a scratch signature.",
                     "evidence_ids": ["EV_DEFECT"],
@@ -399,6 +398,94 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
         self.assertEqual(
             PlannerDecision.from_dict(decision.to_dict()),
             decision,
+        )
+
+    def test_open_question_update_is_repaired_after_indexed_validation_feedback(
+        self,
+    ) -> None:
+        def repair_open_update(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(model_act_payload(request))
+            if request.payload["output_attempt"] == 1:
+                payload["question_updates"] = [
+                    {
+                        "question_id": "Q_DEFECT",
+                        "status": EvidenceGapStatus.OPEN.value,
+                        "answer": "The scratch signature is partially characterized.",
+                        "evidence_ids": ["EV_DEFECT"],
+                        "unavailable_reason": None,
+                    }
+                ]
+                return
+            payload["question_updates"] = [
+                {
+                    "question_id": "Q_DEFECT",
+                    "status": EvidenceGapStatus.CLOSED.value,
+                    "answer": "The selected Lot has a scratch signature.",
+                    "evidence_ids": ["EV_DEFECT"],
+                    "unavailable_reason": None,
+                }
+            ]
+
+        client = RecordingNextActionClient(repair_open_update)
+        decision = QwenNextActionPlanner(client).decide(
+            goal=goal(),
+            questions=questions(),
+            findings=[
+                finding(AgentKind.DEFECT_WAT.value, evidence_id="EV_DEFECT")
+            ],
+            action_records=[],
+            tool_call_count=1,
+        )
+
+        self.assertEqual(len(client.requests), 2)
+        self.assertIn(
+            "question_updates[0].status must be closed or unavailable",
+            str(client.requests[1].payload["previous_validation_error"]),
+        )
+        self.assertEqual(
+            decision.question_updates[0].status,
+            EvidenceGapStatus.CLOSED.value,
+        )
+
+    def test_qwen_cannot_send_a_legacy_full_question_update(self) -> None:
+        def copy_full_question(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(model_act_payload(request))
+            payload["question_updates"] = [
+                {
+                    **request.payload["questions"][0],
+                    "status": EvidenceGapStatus.CLOSED.value,
+                    "answer": "The scratch signature is characterized.",
+                    "evidence_ids": ["EV_DEFECT"],
+                    "unavailable_reason": None,
+                }
+            ]
+
+        with self.assertRaises(QwenNextActionPlannerError) as captured:
+            QwenNextActionPlanner(
+                RecordingNextActionClient(copy_full_question)
+            ).decide(
+                goal=goal(),
+                questions=questions(),
+                findings=[
+                    finding(AgentKind.DEFECT_WAT.value, evidence_id="EV_DEFECT")
+                ],
+                action_records=[],
+                tool_call_count=1,
+            )
+
+        self.assertTrue(
+            all(
+                "question_updates[0]" in error and "unknown fields" in error
+                for error in captured.exception.validation_errors
+            )
         )
 
     def test_invalid_safety_boundaries_fail_twice_with_typed_fallback(self) -> None:
@@ -486,16 +573,33 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
 
         cases.append(("question", unknown_question, [], [], 0))
 
+        def unknown_question_update(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(model_act_payload(request))
+            payload["question_updates"] = [
+                {
+                    "question_id": "Q_UNKNOWN",
+                    "status": EvidenceGapStatus.UNAVAILABLE.value,
+                    "answer": None,
+                    "evidence_ids": [],
+                    "unavailable_reason": "No registered source can answer it.",
+                }
+            ]
+
+        cases.append(("question_update", unknown_question_update, [], [], 0))
+
         def unsupported_question_answer(
             payload: dict[str, Any],
             request: LLMRequest,
         ) -> None:
             payload.clear()
             payload.update(model_act_payload(request))
-            original = request.payload["questions"][0]
             payload["question_updates"] = [
                 {
-                    **original,
+                    "question_id": "Q_DEFECT",
                     "status": EvidenceGapStatus.CLOSED.value,
                     "answer": "An unsupported answer.",
                     "evidence_ids": ["EV_NOT_OBSERVED"],

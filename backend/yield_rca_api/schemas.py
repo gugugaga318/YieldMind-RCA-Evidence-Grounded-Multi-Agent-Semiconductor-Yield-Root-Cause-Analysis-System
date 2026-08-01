@@ -156,6 +156,16 @@ class InvestigationQuestionResponse(APIModel):
     unavailable_reason: str | None = None
 
 
+class QuestionUpdateResponse(APIModel):
+    """A terminal lifecycle delta for an existing investigation question."""
+
+    question_id: str
+    status: Literal["closed", "unavailable"]
+    answer: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+    unavailable_reason: str | None = None
+
+
 class PlannerDecisionResponse(APIModel):
     """One auditable LLM planner decision in the state trace."""
 
@@ -174,7 +184,7 @@ class PlannerDecisionResponse(APIModel):
     next_action: InvestigationActionResponse | None = None
     target_question_ids: list[str] = Field(default_factory=list)
     new_questions: list[InvestigationQuestionResponse] = Field(default_factory=list)
-    question_updates: list[InvestigationQuestionResponse] = Field(default_factory=list)
+    question_updates: list[QuestionUpdateResponse] = Field(default_factory=list)
     stop_reason: Literal[
         "goal_satisfied",
         "critical_contradiction",

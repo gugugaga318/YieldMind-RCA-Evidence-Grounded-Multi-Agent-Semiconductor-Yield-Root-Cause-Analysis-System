@@ -37,10 +37,6 @@ After each observation, return only one JSON object with exactly these fields:
   "question_updates": [
     {
       "question_id": "an existing question id",
-      "goal_id": "the current goal id",
-      "question": "the unchanged existing question",
-      "rationale": "the unchanged existing rationale",
-      "scope": {},
       "status": "closed | unavailable",
       "answer": "an evidence-backed answer, or null when unavailable",
       "evidence_ids": ["existing Evidence ID"],
@@ -69,7 +65,11 @@ For a stop decision:
 
 You may update an existing open question to closed only when its answer cites
 available Evidence IDs. You may mark it unavailable only with an explicit reason.
-Do not rewrite the question, rationale, scope, or goal_id.
+Question updates are terminal deltas: status must be closed or unavailable, never
+open. Do not copy or rewrite goal_id, question, rationale, or scope. When evidence
+only provides partial progress, return question_updates=[] and preserve that
+progress through Findings and Evidence. An act decision cannot update a question
+and target that same question in target_question_ids.
 
 You may add a new open question only when it directly supports the same Goal.
 Never create more than five total questions. An impact Lot is a result inside the

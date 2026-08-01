@@ -26,6 +26,7 @@ from yield_rca_core.investigation_models import (
     InvestigationQuestion,
     InvestigationValidationError,
     PlannerDecision,
+    QuestionUpdate,
     RunEvaluation,
 )
 from yield_rca_core.knowledge_retrieval import (
@@ -188,6 +189,7 @@ __all__ = [
     "PlannerAgent",
     "PlannerConfigurationError",
     "PlannerDecision",
+    "QuestionUpdate",
     "PerformBasicSpcAnalysisTool",
     "PostgresFabRepository",
     "PurePythonRCAWorkflow",

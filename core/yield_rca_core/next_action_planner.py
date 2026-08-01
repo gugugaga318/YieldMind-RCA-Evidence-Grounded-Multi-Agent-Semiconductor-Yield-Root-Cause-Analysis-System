@@ -30,6 +30,7 @@ from yield_rca_core.investigation_models import (
     InvestigationValidationError,
     OrchestrationMode,
     PlannerDecision,
+    QuestionUpdate,
     StopReason,
 )
 from yield_rca_core.investigation_policy import (
@@ -335,7 +336,10 @@ class QwenNextActionPlanner:
             )
             try:
                 response = self.llm_client.complete_json(request)
-                candidate = PlannerDecision.from_dict(response.data)
+                candidate = PlannerDecision.from_dict(
+                    response.data,
+                    allow_legacy_question_updates=False,
+                )
                 self._validate_candidate(
                     candidate,
                     goal=goal,
@@ -447,7 +451,7 @@ class QwenNextActionPlanner:
         open_questions: list[InvestigationQuestion],
         findings: list[AgentFinding],
         available_evidence_ids: set[str],
-    ) -> list[InvestigationQuestion]:
+    ) -> list[QuestionUpdate]:
         if available_evidence_ids:
             answer = " ".join(
                 finding.summary.strip()
@@ -460,8 +464,8 @@ class QwenNextActionPlanner:
                     f"{', '.join(sorted(available_evidence_ids))}."
                 )
             return [
-                replace(
-                    question,
+                QuestionUpdate(
+                    question_id=question.question_id,
                     status=EvidenceGapStatus.CLOSED.value,
                     answer=answer,
                     evidence_ids=sorted(available_evidence_ids),
@@ -470,8 +474,8 @@ class QwenNextActionPlanner:
                 for question in open_questions
             ]
         return [
-            replace(
-                question,
+            QuestionUpdate(
+                question_id=question.question_id,
                 status=EvidenceGapStatus.UNAVAILABLE.value,
                 answer=None,
                 evidence_ids=[],
@@ -625,7 +629,6 @@ class QwenNextActionPlanner:
                 label=f"new_questions[{question.question_id}].scope",
             )
 
-        updated_question_ids: set[str] = set()
         for update in candidate.question_updates:
             current = existing_questions.get(update.question_id)
             if current is None:
@@ -637,23 +640,12 @@ class QwenNextActionPlanner:
                     "question_updates cannot rewrite a terminal question"
                 )
             if (
-                update.goal_id != current.goal_id
-                or update.question != current.question
-                or update.rationale != current.rationale
-                or update.scope != current.scope
-            ):
-                raise InvestigationValidationError(
-                    "question_updates may change only status and answer fields"
-                )
-            if (
                 update.status == EvidenceGapStatus.CLOSED.value
                 and not set(update.evidence_ids) <= available_evidence_ids
             ):
                 raise InvestigationValidationError(
                     "a closed question references unknown Evidence IDs"
                 )
-            updated_question_ids.add(update.question_id)
-
         resulting_questions = {
             **existing_questions,
             **{
@@ -661,8 +653,14 @@ class QwenNextActionPlanner:
                 for question in candidate.new_questions
             },
             **{
-                question.question_id: question
-                for question in candidate.question_updates
+                update.question_id: replace(
+                    existing_questions[update.question_id],
+                    status=update.status,
+                    answer=update.answer,
+                    evidence_ids=list(update.evidence_ids),
+                    unavailable_reason=update.unavailable_reason,
+                )
+                for update in candidate.question_updates
             },
         }
         for target_id in candidate.target_question_ids:

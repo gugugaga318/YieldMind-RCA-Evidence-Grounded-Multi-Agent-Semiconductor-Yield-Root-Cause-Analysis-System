@@ -400,6 +400,125 @@ class InvestigationQuestion:
 
 
 @dataclass(frozen=True)
+class QuestionUpdate:
+    """A terminal-only delta applied to an existing investigation question."""
+
+    question_id: str
+    status: str
+    answer: str | None = None
+    evidence_ids: list[str] = field(default_factory=list)
+    unavailable_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        _non_empty(self.question_id, "question_id")
+        try:
+            status = EvidenceGapStatus(self.status)
+        except ValueError as exc:
+            raise InvestigationValidationError(
+                "status must be closed or unavailable"
+            ) from exc
+        if status == EvidenceGapStatus.OPEN:
+            raise InvestigationValidationError(
+                "status must be closed or unavailable"
+            )
+        _string_list(self.evidence_ids, "evidence_ids")
+        if status == EvidenceGapStatus.CLOSED:
+            if self.answer is None:
+                raise InvestigationValidationError(
+                    "answer must be a non-empty string when status is closed"
+                )
+            _non_empty(self.answer, "answer")
+            if not self.evidence_ids:
+                raise InvestigationValidationError(
+                    "evidence_ids must contain supporting Evidence IDs when status is closed"
+                )
+            if self.unavailable_reason is not None:
+                raise InvestigationValidationError(
+                    "unavailable_reason must be null when status is closed"
+                )
+        else:
+            if self.answer is not None:
+                raise InvestigationValidationError(
+                    "answer must be null when status is unavailable"
+                )
+            if self.unavailable_reason is None:
+                raise InvestigationValidationError(
+                    "unavailable_reason must be a non-empty string when status is unavailable"
+                )
+            _non_empty(self.unavailable_reason, "unavailable_reason")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "question_id": self.question_id,
+            "status": self.status,
+            "answer": self.answer,
+            "evidence_ids": list(self.evidence_ids),
+            "unavailable_reason": self.unavailable_reason,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        payload = _strict_object(
+            data,
+            required={"question_id", "status"},
+            optional={"answer", "evidence_ids", "unavailable_reason"},
+            name="QuestionUpdate",
+        )
+        return cls(
+            question_id=payload["question_id"],
+            status=payload["status"],
+            answer=payload.get("answer"),
+            evidence_ids=payload.get("evidence_ids", []),
+            unavailable_reason=payload.get("unavailable_reason"),
+        )
+
+
+def _raise_with_path(
+    *,
+    path: str,
+    error: InvestigationValidationError,
+) -> None:
+    message = str(error)
+    field_names = (
+        "question_id",
+        "goal_id",
+        "question",
+        "rationale",
+        "scope",
+        "status",
+        "answer",
+        "evidence_ids",
+        "unavailable_reason",
+    )
+    separator = "." if message.startswith(field_names) else ": "
+    raise InvestigationValidationError(f"{path}{separator}{message}") from error
+
+
+def _parse_question_update(
+    data: object,
+    *,
+    goal_id: str,
+) -> QuestionUpdate:
+    """Read compact updates and project legacy full-Question snapshots."""
+
+    legacy_fields = {"goal_id", "question", "rationale", "scope"}
+    if isinstance(data, dict) and legacy_fields & set(data):
+        legacy = InvestigationQuestion.from_dict(data)
+        if legacy.goal_id != goal_id:
+            raise InvestigationValidationError(
+                "goal_id must match the planner decision goal_id"
+            )
+        return QuestionUpdate(
+            question_id=legacy.question_id,
+            status=legacy.status,
+            answer=legacy.answer,
+            evidence_ids=list(legacy.evidence_ids),
+            unavailable_reason=legacy.unavailable_reason,
+        )
+    return QuestionUpdate.from_dict(data)
+
+
+@dataclass(frozen=True)
 class IntentPlan:
     """The bounded Goal and initial evidence questions produced from user intent."""
 
@@ -472,7 +591,7 @@ class PlannerDecision:
     target_question_ids: list[str] = field(default_factory=list)
     new_questions: list[InvestigationQuestion] = field(default_factory=list)
     stop_reason: str | None = None
-    question_updates: list[InvestigationQuestion] = field(default_factory=list)
+    question_updates: list[QuestionUpdate] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         _non_empty(self.decision_id, "decision_id")
@@ -511,20 +630,12 @@ class PlannerDecision:
         if not isinstance(self.question_updates, list):
             raise InvestigationValidationError("question_updates must be a list")
         updated_question_ids: list[str] = []
-        for question in self.question_updates:
-            if not isinstance(question, InvestigationQuestion):
+        for update in self.question_updates:
+            if not isinstance(update, QuestionUpdate):
                 raise InvestigationValidationError(
-                    "question_updates must contain InvestigationQuestion instances"
+                    "question_updates must contain QuestionUpdate instances"
                 )
-            if question.goal_id != self.goal_id:
-                raise InvestigationValidationError(
-                    "a planner decision cannot update a question for another goal"
-                )
-            if question.status == EvidenceGapStatus.OPEN.value:
-                raise InvestigationValidationError(
-                    "question_updates must close a question or mark it unavailable"
-                )
-            updated_question_ids.append(question.question_id)
+            updated_question_ids.append(update.question_id)
         if len(updated_question_ids) != len(set(updated_question_ids)):
             raise InvestigationValidationError(
                 "question_updates must not contain duplicate ids"
@@ -548,6 +659,10 @@ class PlannerDecision:
             if not self.target_question_ids:
                 raise InvestigationValidationError(
                     "an act decision must target at least one investigation question"
+                )
+            if set(updated_question_ids) & set(self.target_question_ids):
+                raise InvestigationValidationError(
+                    "an act decision cannot target a question updated to terminal status"
                 )
         else:
             if self.next_action is not None:
@@ -581,13 +696,16 @@ class PlannerDecision:
             "target_question_ids": list(self.target_question_ids),
             "new_questions": [question.to_dict() for question in self.new_questions],
             "stop_reason": self.stop_reason,
-            "question_updates": [
-                question.to_dict() for question in self.question_updates
-            ],
+            "question_updates": [update.to_dict() for update in self.question_updates],
         }
 
     @classmethod
-    def from_dict(cls, data: object) -> Self:
+    def from_dict(
+        cls,
+        data: object,
+        *,
+        allow_legacy_question_updates: bool = True,
+    ) -> Self:
         payload = _strict_object(
             data,
             required={
@@ -616,6 +734,27 @@ class PlannerDecision:
         raw_question_updates = payload.get("question_updates", [])
         if not isinstance(raw_question_updates, list):
             raise InvestigationValidationError("question_updates must be a list")
+        new_questions: list[InvestigationQuestion] = []
+        for index, question in enumerate(raw_questions):
+            try:
+                new_questions.append(InvestigationQuestion.from_dict(question))
+            except InvestigationValidationError as exc:
+                _raise_with_path(path=f"new_questions[{index}]", error=exc)
+
+        question_updates: list[QuestionUpdate] = []
+        for index, question in enumerate(raw_question_updates):
+            try:
+                if allow_legacy_question_updates:
+                    update = _parse_question_update(
+                        question,
+                        goal_id=payload["goal_id"],
+                    )
+                else:
+                    update = QuestionUpdate.from_dict(question)
+                question_updates.append(update)
+            except InvestigationValidationError as exc:
+                _raise_with_path(path=f"question_updates[{index}]", error=exc)
+
         return cls(
             decision_id=payload["decision_id"],
             goal_id=payload["goal_id"],
@@ -627,14 +766,9 @@ class PlannerDecision:
                 InvestigationAction.from_dict(raw_action) if raw_action is not None else None
             ),
             target_question_ids=payload.get("target_question_ids", []),
-            new_questions=[
-                InvestigationQuestion.from_dict(question) for question in raw_questions
-            ],
+            new_questions=new_questions,
             stop_reason=payload.get("stop_reason"),
-            question_updates=[
-                InvestigationQuestion.from_dict(question)
-                for question in raw_question_updates
-            ],
+            question_updates=question_updates,
         )
 
 
