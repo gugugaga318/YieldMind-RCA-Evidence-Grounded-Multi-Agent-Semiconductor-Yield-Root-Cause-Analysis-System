@@ -221,6 +221,8 @@ export interface ExecutionMetadata {
   orchestration_fallback_reason?: string;
   orchestration_fallback_stage?: "intent_planning" | "next_action_planning";
   orchestration_fallback_after_action_count?: number;
+  orchestration_fallback_attempt_count?: number;
+  orchestration_fallback_validation_errors?: string[];
   tool_latencies?: ToolLatencyRecord[];
 }
 

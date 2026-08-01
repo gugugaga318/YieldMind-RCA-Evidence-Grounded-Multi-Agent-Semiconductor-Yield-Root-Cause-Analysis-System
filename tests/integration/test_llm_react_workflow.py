@@ -291,6 +291,15 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
             state.execution_metadata["orchestration_fallback_after_action_count"],
             1,
         )
+        self.assertEqual(
+            state.execution_metadata["orchestration_fallback_attempt_count"],
+            2,
+        )
+        validation_errors = state.execution_metadata[
+            "orchestration_fallback_validation_errors"
+        ]
+        self.assertEqual(len(validation_errors), 2)
+        self.assertTrue(all("decision_id" in error for error in validation_errors))
         self.assertEqual(len(state.planner_decisions), 1)
         self.assertEqual(
             state.planner_decisions[0].next_action.action_id,
@@ -483,6 +492,17 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         self.assertEqual(
             metadata["orchestration_fallback_after_action_count"],
             1,
+        )
+        self.assertEqual(metadata["orchestration_fallback_attempt_count"], 2)
+        self.assertEqual(
+            len(metadata["orchestration_fallback_validation_errors"]),
+            2,
+        )
+        self.assertTrue(
+            all(
+                "decision_id" in error
+                for error in metadata["orchestration_fallback_validation_errors"]
+            )
         )
         self.assertEqual(len(state["planner_decisions"]), 1)
         self.assertTrue(state["evidence"])

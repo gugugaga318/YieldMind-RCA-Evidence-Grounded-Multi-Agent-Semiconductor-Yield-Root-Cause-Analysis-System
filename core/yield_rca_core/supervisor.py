@@ -635,6 +635,16 @@ class Supervisor:
                     if isinstance(exc, QwenNextActionPlannerError)
                     else "qwen_next_action_call_failed"
                 )
+                validation_diagnostics = (
+                    {
+                        "orchestration_fallback_attempt_count": exc.attempts,
+                        "orchestration_fallback_validation_errors": list(
+                            exc.validation_errors
+                        ),
+                    }
+                    if isinstance(exc, QwenNextActionPlannerError)
+                    else {}
+                )
                 fallback_state = replace(
                     state,
                     execution_metadata={
@@ -646,6 +656,7 @@ class Supervisor:
                         "orchestration_fallback_after_action_count": len(
                             state.action_history
                         ),
+                        **validation_diagnostics,
                     },
                 )
                 return self._continue_controlled(
