@@ -515,8 +515,10 @@ The single impact-scope smoke test is intentionally cheap. After changing the
 Planner output contract, use the stricter Scratch + Cu CMP reliability runner to
 exercise observation, re-planning, QuestionUpdate review, and the final stop
 three consecutive times. Every run has an independent hard limit of 20 paid LLM
-calls, HTTP retries are disabled, and the command refuses to start without the
-explicit `--confirm-paid-qwen` flag.
+calls, hidden Gateway HTTP retries are disabled, and the command refuses to
+start without the explicit `--confirm-paid-qwen` flag. The Next-action Planner
+may retry one transient transport, 408, 429, or 5xx failure through the capped
+client, so that paid retry is visible inside the same 20-call boundary.
 
 ```powershell
 $previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
@@ -545,6 +547,10 @@ rejected ancillary update does not fail a run when its legal Agent action was
 preserved; an invalid core Decision or Action still triggers controlled fallback
 and fails the reliability boundary. The report counts accepted and rejected
 updates by stable reason code without storing prompts or raw model responses.
+Failure diagnostics distinguish transport/provider errors, invalid JSON or
+response envelopes, and typed core Decision validation. A recovered transient
+retry remains on `llm_react`; a second call failure keeps bounded provider
+diagnostics and fails through the existing controlled compatibility handoff.
 
 Secret-free summaries are written under
 `outputs/qwen_question_update_reliability/`; the directory is ignored by Git.

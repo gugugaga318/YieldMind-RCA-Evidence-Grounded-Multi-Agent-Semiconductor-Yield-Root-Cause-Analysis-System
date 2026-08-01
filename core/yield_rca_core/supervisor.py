@@ -83,6 +83,25 @@ SPECIALIST_TOOL_ALLOWLISTS = {
 }
 
 
+def _llm_call_fallback_diagnostics(error: LLMCallError) -> dict[str, Any]:
+    """Expose only bounded, credential-free provider failure facts."""
+
+    diagnostics: dict[str, Any] = {
+        "orchestration_fallback_failure_category": error.failure_category,
+        "orchestration_fallback_call_attempt_count": error.call_attempt_count,
+    }
+    optional_values = {
+        "orchestration_fallback_status_code": error.status_code,
+        "orchestration_fallback_provider_code": error.provider_code,
+        "orchestration_fallback_provider_message": error.provider_message,
+        "orchestration_fallback_request_id": error.request_id,
+    }
+    diagnostics.update(
+        {key: value for key, value in optional_values.items() if value is not None}
+    )
+    return diagnostics
+
+
 def _open_question_gaps(questions: list[InvestigationQuestion]) -> list[str]:
     return [
         question.question_id
@@ -638,13 +657,25 @@ class Supervisor:
                 )
                 validation_diagnostics = (
                     {
+                        "orchestration_fallback_failure_category": (
+                            "planner_output_invalid"
+                        ),
                         "orchestration_fallback_attempt_count": exc.attempts,
                         "orchestration_fallback_validation_errors": list(
                             exc.validation_errors
                         ),
+                        "orchestration_fallback_validation_error_categories": list(
+                            exc.validation_error_categories
+                        ),
+                        "orchestration_fallback_output_parse_error_count": (
+                            exc.output_parse_error_count
+                        ),
+                        "orchestration_fallback_core_validation_error_count": (
+                            exc.core_validation_error_count
+                        ),
                     }
                     if isinstance(exc, QwenNextActionPlannerError)
-                    else {}
+                    else _llm_call_fallback_diagnostics(exc)
                 )
                 fallback_state = replace(
                     state,

@@ -48,17 +48,35 @@ class CallCappedLLMClient:
         self.max_calls = max_calls
         self.call_count = 0
         self.limit_exceeded = False
+        self.planner_call_failure_count = 0
+        self.recovered_planner_call_retry_count = 0
+        self._planner_failure_pending = False
         self.provider = delegate.provider
         self.model = delegate.model
 
     def complete_json(self, request: LLMRequest) -> LLMResponse:
+        is_next_action = request.prompt_name == "next_action_planner"
         if self.call_count >= self.max_calls:
             self.limit_exceeded = True
+            if is_next_action:
+                self.planner_call_failure_count += 1
+                self._planner_failure_pending = True
             raise LLMCallError(
-                "Qwen reliability run exceeded its paid LLM-call limit"
+                "Qwen reliability run exceeded its paid LLM-call limit",
+                failure_category="call_limit",
             )
         self.call_count += 1
-        return self.delegate.complete_json(request)
+        try:
+            response = self.delegate.complete_json(request)
+        except LLMCallError:
+            if is_next_action:
+                self.planner_call_failure_count += 1
+                self._planner_failure_pending = True
+            raise
+        if is_next_action and self._planner_failure_pending:
+            self.recovered_planner_call_retry_count += 1
+            self._planner_failure_pending = False
+        return response
 
 
 def run_qwen_reliability(
@@ -110,6 +128,12 @@ def run_qwen_reliability(
                     call_limit_exceeded=client.limit_exceeded,
                     error=exc,
                     redact_values=[settings.api_key],
+                    planner_call_failure_count=(
+                        client.planner_call_failure_count
+                    ),
+                    recovered_planner_call_retry_count=(
+                        client.recovered_planner_call_retry_count
+                    ),
                 )
             )
             continue
@@ -120,6 +144,10 @@ def run_qwen_reliability(
                 paid_llm_call_count=client.call_count,
                 max_llm_calls=max_llm_calls_per_run,
                 call_limit_exceeded=client.limit_exceeded,
+                planner_call_failure_count=client.planner_call_failure_count,
+                recovered_planner_call_retry_count=(
+                    client.recovered_planner_call_retry_count
+                ),
             )
         )
 
@@ -201,7 +229,12 @@ def main() -> int:
         f"reviews={evaluation['question_update_review_count']}; "
         f"rejected_updates={evaluation['rejected_question_update_count']}; "
         "core_validation_errors="
-        f"{evaluation['core_planner_validation_error_count']}"
+        f"{evaluation['core_planner_validation_error_count']}; "
+        f"output_parse_errors={evaluation['output_parse_error_count']}; "
+        f"transport_provider_failures="
+        f"{evaluation['transport_provider_failure_count']}; "
+        f"recovered_retries="
+        f"{evaluation['recovered_planner_call_retry_count']}"
     )
     print(f"Results: {args.output_dir / 'results.json'}")
     print(f"Report:  {args.output_dir / 'report.md'}")

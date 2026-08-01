@@ -42,7 +42,12 @@ from yield_rca_core.investigation_policy import (
     ActionDefinition,
     InvestigationPolicy,
 )
-from yield_rca_core.llm_gateway import LLMClient, LLMOutputValidationError, LLMRequest
+from yield_rca_core.llm_gateway import (
+    LLMCallError,
+    LLMClient,
+    LLMOutputValidationError,
+    LLMRequest,
+)
 from yield_rca_core.models import (
     AgentFinding,
     AgentKind,
@@ -52,6 +57,23 @@ from yield_rca_core.models import (
 from yield_rca_core.question_update_review import review_qwen_planner_output
 
 _OUTPUT_ATTEMPTS = 2
+_CALL_RETRIES = 1
+_OUTPUT_PARSE_ERROR = "output_parse"
+_CORE_DECISION_VALIDATION_ERROR = "core_decision_validation"
+
+
+def _is_retryable_call_error(error: LLMCallError) -> bool:
+    """Retry only transient failures; configuration and call caps fail fast."""
+
+    if error.failure_category == "call_limit":
+        return False
+    if error.failure_category == "transport_error":
+        return True
+    if error.status_code in {408, 429}:
+        return True
+    if error.status_code is not None and error.status_code >= 500:
+        return True
+    return error.failure_category == "llm_call_error" and error.status_code is None
 
 # Only actions with a Supervisor dispatcher are visible to Qwen. Specialist
 # Tool selection for these actions is bounded separately by Specialist V2.
@@ -81,6 +103,7 @@ class QwenNextActionPlannerError(LLMOutputValidationError):
     def __init__(
         self,
         validation_errors: list[str],
+        validation_error_categories: list[str],
         *,
         goal_id: str,
         completed_steps: int,
@@ -88,6 +111,13 @@ class QwenNextActionPlannerError(LLMOutputValidationError):
     ) -> None:
         self.attempts = len(validation_errors)
         self.validation_errors = tuple(validation_errors)
+        self.validation_error_categories = tuple(validation_error_categories)
+        self.output_parse_error_count = self.validation_error_categories.count(
+            _OUTPUT_PARSE_ERROR
+        )
+        self.core_validation_error_count = self.validation_error_categories.count(
+            _CORE_DECISION_VALIDATION_ERROR
+        )
         self.goal_id = goal_id
         self.completed_steps = completed_steps
         self.tool_call_count = tool_call_count
@@ -407,6 +437,9 @@ class QwenNextActionPlanner:
             critical_contradictions=contradictions,
         )
         validation_errors: list[str] = []
+        validation_error_categories: list[str] = []
+        call_retry_count = 0
+        failed_provider_call_attempt_count = 0
 
         for attempt in range(1, _OUTPUT_ATTEMPTS + 1):
             request = LLMRequest(
@@ -459,8 +492,35 @@ class QwenNextActionPlanner:
                 },
                 temperature=0.0,
             )
+            response = None
+            while True:
+                try:
+                    response = self.llm_client.complete_json(request)
+                except LLMCallError as exc:
+                    failed_provider_call_attempt_count += exc.call_attempt_count
+                    if (
+                        call_retry_count < _CALL_RETRIES
+                        and _is_retryable_call_error(exc)
+                    ):
+                        call_retry_count += 1
+                        continue
+                    raise LLMCallError(
+                        "Qwen Next-action Planner call failed after its bounded retry",
+                        status_code=exc.status_code,
+                        provider_code=exc.provider_code,
+                        provider_message=exc.provider_message,
+                        request_id=exc.request_id,
+                        failure_category=exc.failure_category,
+                        call_attempt_count=failed_provider_call_attempt_count,
+                    ) from exc
+                except LLMOutputValidationError as exc:
+                    message = str(exc).strip() or type(exc).__name__
+                    validation_errors.append(message)
+                    validation_error_categories.append(_OUTPUT_PARSE_ERROR)
+                break
+            if response is None:
+                continue
             try:
-                response = self.llm_client.complete_json(request)
                 outcome = (
                     review_qwen_planner_output(
                         response.data,
@@ -500,9 +560,15 @@ class QwenNextActionPlanner:
             ) as exc:
                 message = str(exc).strip() or type(exc).__name__
                 validation_errors.append(message)
+                validation_error_categories.append(
+                    _OUTPUT_PARSE_ERROR
+                    if isinstance(exc, LLMOutputValidationError)
+                    else _CORE_DECISION_VALIDATION_ERROR
+                )
 
         raise QwenNextActionPlannerError(
             validation_errors,
+            validation_error_categories,
             goal_id=goal.goal_id,
             completed_steps=len(action_records),
             tool_call_count=tool_call_count,

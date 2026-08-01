@@ -19,6 +19,7 @@ from yield_rca_core.investigation_models import (  # noqa: E402
 )
 from yield_rca_core.llm_gateway import (  # noqa: E402
     FakeLLMClient,
+    LLMCallError,
     LLMRequest,
     LLMResponse,
     LLMSettings,
@@ -68,6 +69,41 @@ class InvalidNextActionAfterFirstClient(RecordingFakeClient):
         if self.next_action_call_count == 1:
             return response
         return LLMResponse(data={}, usage=response.usage)
+
+
+class TransientNextActionCallFailureClient(RecordingFakeClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.failure_injected = False
+
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        if request.prompt_name == "next_action_planner" and not self.failure_injected:
+            self.requests.append(request)
+            self.failure_injected = True
+            raise LLMCallError(
+                "temporary throttling",
+                status_code=429,
+                provider_code="Throttling",
+                failure_category="provider_http_error",
+            )
+        return super().complete_json(request)
+
+
+class PersistentNextActionCallFailureClient(RecordingFakeClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        if request.prompt_name == "next_action_planner":
+            self.requests.append(request)
+            raise LLMCallError(
+                "persistent throttling",
+                status_code=429,
+                provider_code="Throttling",
+                provider_message=(
+                    "Authorization: Bearer workflow-secret api_key=workflow-secret"
+                ),
+                request_id="req-workflow-429",
+                failure_category="provider_http_error",
+            )
+        return super().complete_json(request)
 
 
 class InvalidIntentClient(RecordingFakeClient):
@@ -194,6 +230,65 @@ def run_lot(
 
 
 class LLMReactWorkflowIntegrationTest(unittest.TestCase):
+    def test_one_transient_next_action_failure_recovers_on_llm_react(self) -> None:
+        client = TransientNextActionCallFailureClient()
+
+        state = run_lot(
+            client,
+            ROOT_CAUSE_QUERY,
+            job_id="JOB_LLM_REACT_TRANSIENT_RECOVERY",
+        )
+
+        self.assertEqual(state.execution_metadata["orchestration_mode"], "llm_react")
+        self.assertNotIn(
+            "orchestration_fallback_reason",
+            state.execution_metadata,
+        )
+        next_action_requests = [
+            request
+            for request in client.requests
+            if request.prompt_name == "next_action_planner"
+        ]
+        self.assertEqual(len(next_action_requests), len(state.action_history) + 2)
+        self.assertEqual(
+            next_action_requests[0].payload["output_attempt"],
+            next_action_requests[1].payload["output_attempt"],
+        )
+
+    def test_two_next_action_call_failures_fallback_with_safe_diagnostics(
+        self,
+    ) -> None:
+        state = run_lot(
+            PersistentNextActionCallFailureClient(),
+            ROOT_CAUSE_QUERY,
+            job_id="JOB_LLM_REACT_PROVIDER_FALLBACK",
+        )
+
+        metadata = state.execution_metadata
+        self.assertEqual(metadata["orchestration_mode"], "controlled_react")
+        self.assertEqual(
+            metadata["orchestration_fallback_reason"],
+            "qwen_next_action_call_failed",
+        )
+        self.assertEqual(
+            metadata["orchestration_fallback_failure_category"],
+            "provider_http_error",
+        )
+        self.assertEqual(metadata["orchestration_fallback_call_attempt_count"], 2)
+        self.assertEqual(metadata["orchestration_fallback_status_code"], 429)
+        self.assertEqual(
+            metadata["orchestration_fallback_provider_code"],
+            "Throttling",
+        )
+        self.assertEqual(
+            metadata["orchestration_fallback_request_id"],
+            "req-workflow-429",
+        )
+        self.assertNotIn(
+            "workflow-secret",
+            metadata["orchestration_fallback_provider_message"],
+        )
+
     def test_fake_qwen_intents_produce_different_bounded_action_chains(self) -> None:
         impact = run_lot(
             RecordingFakeClient(),

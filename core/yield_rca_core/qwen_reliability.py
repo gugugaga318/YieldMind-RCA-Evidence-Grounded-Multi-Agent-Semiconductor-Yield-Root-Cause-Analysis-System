@@ -97,6 +97,8 @@ def summarize_qwen_reliability_run(
     paid_llm_call_count: int,
     max_llm_calls: int,
     call_limit_exceeded: bool = False,
+    planner_call_failure_count: int = 0,
+    recovered_planner_call_retry_count: int = 0,
 ) -> dict[str, Any]:
     """Convert one terminal state into bounded, secret-free acceptance facts."""
 
@@ -113,11 +115,46 @@ def summarize_qwen_reliability_run(
         for value in metadata.get("orchestration_fallback_validation_errors", [])
         if isinstance(value, str) and value.strip()
     ]
+    raw_validation_categories = metadata.get(
+        "orchestration_fallback_validation_error_categories",
+        [],
+    )
+    validation_categories = (
+        [value for value in raw_validation_categories if isinstance(value, str)]
+        if isinstance(raw_validation_categories, list)
+        else []
+    )
+    output_parse_errors = [
+        error
+        for error, category in zip(
+            fallback_errors,
+            validation_categories,
+            strict=False,
+        )
+        if category == "output_parse"
+    ]
     question_update_errors = [
         error
         for error in fallback_errors
         if _is_question_update_validation_error(error)
     ]
+    core_validation_errors = [
+        error
+        for error, category in zip(
+            fallback_errors,
+            validation_categories,
+            strict=False,
+        )
+        if category == "core_decision_validation"
+    ]
+    if (
+        not validation_categories
+        and metadata.get("orchestration_fallback_reason")
+        == "qwen_next_action_output_invalid"
+    ):
+        core_validation_errors = [
+            error for error in fallback_errors if error not in question_update_errors
+        ]
     serialized_updates = [
         update.to_dict()
         for decision in state.planner_decisions
@@ -186,13 +223,34 @@ def summarize_qwen_reliability_run(
         "actual_mode": metadata.get("orchestration_mode"),
         "fallback_reason": metadata.get("orchestration_fallback_reason"),
         "fallback_stage": metadata.get("orchestration_fallback_stage"),
+        "fallback_failure_category": metadata.get(
+            "orchestration_fallback_failure_category"
+        ),
         "fallback_after_action_count": metadata.get(
             "orchestration_fallback_after_action_count"
         ),
         "fallback_attempt_count": metadata.get(
             "orchestration_fallback_attempt_count"
         ),
+        "fallback_call_attempt_count": metadata.get(
+            "orchestration_fallback_call_attempt_count"
+        ),
+        "fallback_status_code": metadata.get(
+            "orchestration_fallback_status_code"
+        ),
+        "fallback_provider_code": metadata.get(
+            "orchestration_fallback_provider_code"
+        ),
+        "fallback_provider_message": metadata.get(
+            "orchestration_fallback_provider_message"
+        ),
+        "fallback_request_id": metadata.get(
+            "orchestration_fallback_request_id"
+        ),
         "fallback_validation_errors": fallback_errors,
+        "fallback_validation_error_categories": validation_categories,
+        "output_parse_validation_errors": output_parse_errors,
+        "core_planner_validation_errors": core_validation_errors,
         "question_update_validation_errors": question_update_errors,
         "action_chain": action_chain,
         "planner_decision_count": len(state.planner_decisions),
@@ -206,6 +264,8 @@ def summarize_qwen_reliability_run(
         "paid_llm_call_count": paid_llm_call_count,
         "max_llm_calls": max_llm_calls,
         "call_limit_exceeded": call_limit_exceeded,
+        "planner_call_failure_count": planner_call_failure_count,
+        "recovered_planner_call_retry_count": recovered_planner_call_retry_count,
         "goal_success": run_evaluation.goal_success if run_evaluation else None,
         "stop_correct": run_evaluation.stop_correct if run_evaluation else None,
         "error_type": None,
@@ -221,6 +281,8 @@ def qwen_reliability_failure(
     call_limit_exceeded: bool,
     error: Exception,
     redact_values: list[str] | None = None,
+    planner_call_failure_count: int = 0,
+    recovered_planner_call_retry_count: int = 0,
 ) -> dict[str, Any]:
     """Return the same report shape when a bounded workflow raises."""
 
@@ -237,9 +299,18 @@ def qwen_reliability_failure(
         "actual_mode": None,
         "fallback_reason": None,
         "fallback_stage": None,
+        "fallback_failure_category": getattr(error, "failure_category", None),
         "fallback_after_action_count": None,
         "fallback_attempt_count": None,
+        "fallback_call_attempt_count": getattr(error, "call_attempt_count", None),
+        "fallback_status_code": getattr(error, "status_code", None),
+        "fallback_provider_code": getattr(error, "provider_code", None),
+        "fallback_provider_message": getattr(error, "provider_message", None),
+        "fallback_request_id": getattr(error, "request_id", None),
         "fallback_validation_errors": [],
+        "fallback_validation_error_categories": [],
+        "output_parse_validation_errors": [],
+        "core_planner_validation_errors": [],
         "question_update_validation_errors": [],
         "action_chain": [],
         "planner_decision_count": 0,
@@ -253,6 +324,8 @@ def qwen_reliability_failure(
         "paid_llm_call_count": paid_llm_call_count,
         "max_llm_calls": max_llm_calls,
         "call_limit_exceeded": call_limit_exceeded,
+        "planner_call_failure_count": planner_call_failure_count,
+        "recovered_planner_call_retry_count": recovered_planner_call_retry_count,
         "goal_success": None,
         "stop_correct": None,
         "error_type": type(error).__name__,
@@ -287,7 +360,21 @@ def aggregate_qwen_reliability_runs(
         int(run.get("rejected_question_update_count", 0)) for run in runs
     )
     core_validation_error_count = sum(
-        len(run.get("fallback_validation_errors", [])) for run in runs
+        len(run.get("core_planner_validation_errors", [])) for run in runs
+    )
+    output_parse_error_count = sum(
+        len(run.get("output_parse_validation_errors", [])) for run in runs
+    )
+    transport_provider_failure_count = sum(
+        run.get("fallback_failure_category")
+        in {"transport_error", "provider_http_error"}
+        for run in runs
+    )
+    planner_call_failure_count = sum(
+        int(run.get("planner_call_failure_count", 0)) for run in runs
+    )
+    recovered_planner_call_retry_count = sum(
+        int(run.get("recovered_planner_call_retry_count", 0)) for run in runs
     )
     rejection_reason_counts: dict[str, int] = {}
     for run in runs:
@@ -300,7 +387,7 @@ def aggregate_qwen_reliability_runs(
                     rejection_reason_counts.get(reason_code, 0) + count
                 )
     return {
-        "schema_version": "2.0",
+        "schema_version": "2.1",
         "suite": "qwen_planner_review_reliability",
         "generated_at": datetime.now(UTC).isoformat(),
         "provider": provider,
@@ -313,6 +400,10 @@ def aggregate_qwen_reliability_runs(
         "pass_rate": passed_count / len(runs),
         "controlled_fallback_count": fallback_count,
         "core_planner_validation_error_count": core_validation_error_count,
+        "output_parse_error_count": output_parse_error_count,
+        "transport_provider_failure_count": transport_provider_failure_count,
+        "planner_call_failure_count": planner_call_failure_count,
+        "recovered_planner_call_retry_count": recovered_planner_call_retry_count,
         "question_update_validation_error_count": question_update_error_count,
         "question_update_review_count": review_count,
         "accepted_question_update_count": accepted_update_count,
@@ -342,8 +433,11 @@ def render_qwen_reliability_report(evaluation: dict[str, Any]) -> str:
         "",
         "## Run summary",
         "",
-        "| Run | Status | Actual path | Actions | Accepted / rejected updates | Paid calls |",
-        "| --- | --- | --- | --- | --- | --- |",
+        (
+            "| Run | Status | Actual path | Actions | Accepted / rejected updates "
+            "| Recovered retries | Paid calls |"
+        ),
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for run in evaluation["runs"]:
         chain = " -> ".join(run["action_chain"]) or "(none)"
@@ -352,6 +446,7 @@ def render_qwen_reliability_report(evaluation: dict[str, Any]) -> str:
             f"{run['actual_mode'] or '(none)'} | {chain} | "
             f"{run['accepted_question_update_count']} / "
             f"{run['rejected_question_update_count']} | "
+            f"{run['recovered_planner_call_retry_count']} | "
             f"{run['paid_llm_call_count']}/{run['max_llm_calls']} |"
         )
 
@@ -395,6 +490,21 @@ def render_qwen_reliability_report(evaluation: dict[str, Any]) -> str:
             )
             if run["error_message"]:
                 lines.extend(["", f"Error: `{run['error_message']}`"])
+            diagnostic_parts = [
+                ("category", run.get("fallback_failure_category")),
+                ("call attempts", run.get("fallback_call_attempt_count")),
+                ("status", run.get("fallback_status_code")),
+                ("provider code", run.get("fallback_provider_code")),
+                ("provider message", run.get("fallback_provider_message")),
+                ("request id", run.get("fallback_request_id")),
+            ]
+            rendered_diagnostics = ", ".join(
+                f"{label}=`{value}`"
+                for label, value in diagnostic_parts
+                if value is not None
+            )
+            if rendered_diagnostics:
+                lines.extend(["", f"Provider diagnostics: {rendered_diagnostics}"])
             for error in run["fallback_validation_errors"]:
                 lines.extend(["", f"- `{error}`"])
 

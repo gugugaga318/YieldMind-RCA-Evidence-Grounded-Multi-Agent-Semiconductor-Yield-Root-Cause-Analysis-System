@@ -5,7 +5,7 @@
 - Target branch: `feature/autonomous-qwen-react`
 - Model provider: DashScope
 - Model: `qwen-plus`
-- Current implementation stage: Batch 20.9.8 QuestionUpdate Review Reliability, stage 3 complete
+- Current implementation stage: Batch 20.9.8 QuestionUpdate Review Reliability, stage 4 complete
 
 ## Goal
 
@@ -62,6 +62,15 @@ second output is still invalid, the current Findings, Evidence, Questions, and
 Action History are retained and the deterministic policy resumes from that
 state. The fallback does not restart the investigation.
 
+Transport/provider failures follow a separate boundary. The Planner retries one
+transient transport, 408, 429, or 5xx failure without advancing the structured-
+output attempt. Configuration errors, non-transient 4xx responses, and paid-call
+cap failures are not retried. The retry calls the wrapped client again, so the
+reliability runner counts it against the hard paid-call cap. A second transient
+failure hands off to `controlled_react` with bounded status, provider code,
+provider message, request ID, failure category, and attempt count diagnostics.
+No prompt, raw response, or credential is persisted.
+
 The maximum action and Tool-call budgets are Python runtime boundaries.
 Duplicate `Action + Scope` attempts, source-Lot replacement, missing Finding
 prerequisites, and unregistered Agent/action combinations are rejected.
@@ -84,7 +93,8 @@ Python is responsible only for runtime safety:
 - Duplicate `Action + Scope` rejection.
 - A maximum of eight cross-domain actions.
 - Specialist-local Tool limits.
-- One Qwen parse retry.
+- One structured-output repair attempt.
+- One separately bounded, call-cap-visible transient provider retry.
 - Explicit fallback to `controlled_react` after the retry fails.
 
 The Evidence/Hypothesis Gate remains authoritative for the final conclusion
@@ -150,7 +160,9 @@ audit every accepted/rejected claim, and pass the existing Goal Success and Stop
 Correct checks. A rejected ancillary claim is allowed only when its core Action
 is committed and the run stays on `llm_react`; a core Planner validation failure
 fails the lane. Reports contain bounded state summaries and stable reason-code
-counts only, never prompts, raw model responses, or credentials.
+counts only, never prompts, raw model responses, or credentials. The report
+separately attributes transport/provider failures, invalid JSON or response
+envelopes, typed core Decision validation, and recovered transient retries.
 
 ## Decision Contract
 

@@ -34,6 +34,7 @@ from yield_rca_core.investigation_models import (  # noqa: E402
 )
 from yield_rca_core.llm_gateway import (  # noqa: E402
     FakeLLMClient,
+    LLMCallError,
     LLMRequest,
     LLMResponse,
     capture_llm_usage,
@@ -177,6 +178,34 @@ class InvalidThenValidClient(RecordingNextActionClient):
             )
             return LLMResponse(data=payload, usage=response.usage)
         return response
+
+
+class TransientCallFailureClient(RecordingNextActionClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            raise LLMCallError(
+                "temporary provider failure",
+                status_code=429,
+                provider_code="Throttling",
+                failure_category="provider_http_error",
+            )
+        return FakeLLMClient.complete_json(self, request)
+
+
+class PersistentCallFailureClient(RecordingNextActionClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        self.requests.append(request)
+        raise LLMCallError(
+            "provider unavailable",
+            status_code=429,
+            provider_code="Throttling",
+            provider_message=(
+                "Authorization: Bearer planner-secret api_key=planner-secret"
+            ),
+            request_id="req-429",
+            failure_category="provider_http_error",
+        )
 
 
 class QwenNextActionPlannerContractTest(unittest.TestCase):
@@ -474,6 +503,50 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             str(client.requests[1].payload["previous_validation_error"]),
         )
 
+    def test_one_transient_call_failure_is_retried_without_advancing_output_attempt(
+        self,
+    ) -> None:
+        client = TransientCallFailureClient()
+
+        decision = QwenNextActionPlanner(client).decide(
+            goal=goal(),
+            questions=questions(),
+            findings=[],
+            action_records=[],
+            tool_call_count=0,
+        )
+
+        self.assertEqual(
+            decision.next_action.kind,
+            ActionKind.INSPECT_DEFECT_PATTERN.value,
+        )
+        self.assertEqual(len(client.requests), 2)
+        self.assertEqual(
+            [request.payload["output_attempt"] for request in client.requests],
+            [1, 1],
+        )
+
+    def test_two_call_failures_exhaust_retry_with_sanitized_diagnostics(self) -> None:
+        client = PersistentCallFailureClient()
+
+        with self.assertRaises(LLMCallError) as captured:
+            QwenNextActionPlanner(client).decide(
+                goal=goal(),
+                questions=questions(),
+                findings=[],
+                action_records=[],
+                tool_call_count=0,
+            )
+
+        error = captured.exception
+        self.assertEqual(len(client.requests), 2)
+        self.assertEqual(error.call_attempt_count, 2)
+        self.assertEqual(error.failure_category, "provider_http_error")
+        self.assertEqual(error.status_code, 429)
+        self.assertEqual(error.provider_code, "Throttling")
+        self.assertEqual(error.request_id, "req-429")
+        self.assertNotIn("planner-secret", error.provider_message or "")
+
     def test_review_path_still_falls_back_for_an_invalid_core_action(self) -> None:
         def wrong_agent(payload: dict[str, Any], request: LLMRequest) -> None:
             payload.clear()
@@ -502,6 +575,8 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
                 for error in captured.exception.validation_errors
             )
         )
+        self.assertEqual(captured.exception.core_validation_error_count, 2)
+        self.assertEqual(captured.exception.output_parse_error_count, 0)
 
     def test_strict_compatibility_path_still_retries_close_and_target(self) -> None:
         def close_and_target(

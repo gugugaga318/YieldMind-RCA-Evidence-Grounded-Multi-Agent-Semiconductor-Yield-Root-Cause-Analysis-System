@@ -28,6 +28,27 @@ class LLMConfigurationError(RuntimeError):
     """Raised when LLM mode is selected without valid provider configuration."""
 
 
+def _sanitize_diagnostic_value(value: Any, *, limit: int) -> str | None:
+    """Bound provider diagnostics and remove common credential representations."""
+
+    if not isinstance(value, (str, int, float)):
+        return None
+    sanitized = str(value).replace("\r", " ").replace("\n", " ").strip()
+    if not sanitized:
+        return None
+    sanitized = re.sub(
+        r"(?i)\b(bearer)\s+[a-z0-9._~+/=-]+",
+        r"\1 [REDACTED]",
+        sanitized,
+    )
+    sanitized = re.sub(
+        r"(?i)\b(api[_ -]?key|authorization)\b\s*[:=]\s*[^\s,;]+",
+        r"\1=[REDACTED]",
+        sanitized,
+    )
+    return sanitized[:limit]
+
+
 class LLMCallError(RuntimeError):
     """Raised when the configured model request fails."""
 
@@ -39,12 +60,22 @@ class LLMCallError(RuntimeError):
         provider_code: str | None = None,
         provider_message: str | None = None,
         request_id: str | None = None,
+        failure_category: str = "llm_call_error",
+        call_attempt_count: int = 1,
     ) -> None:
         super().__init__(message)
         self.status_code = status_code
-        self.provider_code = provider_code
-        self.provider_message = provider_message
-        self.request_id = request_id
+        self.provider_code = _sanitize_diagnostic_value(provider_code, limit=100)
+        self.provider_message = _sanitize_diagnostic_value(
+            provider_message,
+            limit=500,
+        )
+        self.request_id = _sanitize_diagnostic_value(request_id, limit=100)
+        self.failure_category = (
+            _sanitize_diagnostic_value(failure_category, limit=100)
+            or "llm_call_error"
+        )
+        self.call_attempt_count = max(1, call_attempt_count)
 
 
 class LLMOutputValidationError(ValueError):
@@ -177,22 +208,10 @@ def _parse_json_content(content: str) -> dict[str, Any]:
 def _sanitize_provider_value(value: Any, *, api_key: str, limit: int) -> str | None:
     if not isinstance(value, (str, int, float)):
         return None
-    sanitized = str(value).replace("\r", " ").replace("\n", " ").strip()
-    if not sanitized:
-        return None
+    sanitized = str(value)
     if api_key:
         sanitized = sanitized.replace(api_key, "[REDACTED]")
-    sanitized = re.sub(
-        r"(?i)\b(bearer)\s+[a-z0-9._~+/=-]+",
-        r"\1 [REDACTED]",
-        sanitized,
-    )
-    sanitized = re.sub(
-        r"(?i)\b(api[_ -]?key|authorization)\b\s*[:=]\s*[^\s,;]+",
-        r"\1=[REDACTED]",
-        sanitized,
-    )
-    return sanitized[:limit]
+    return _sanitize_diagnostic_value(sanitized, limit=limit)
 
 
 def _extract_provider_error(
@@ -268,13 +287,41 @@ class DashScopeLLMClient:
         last_provider_code: str | None = None
         last_provider_message: str | None = None
         last_request_id: str | None = None
+        failure_category = "transport_error"
+        call_attempt_count = 0
         for _ in range(self.settings.max_retries + 1):
+            call_attempt_count += 1
             try:
                 with httpx.Client(timeout=self.settings.timeout_seconds) as client:
                     response = client.post(endpoint, headers=headers, json=body)
                     response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                last_status_code = exc.response.status_code
+                failure_category = "provider_http_error"
+                (
+                    last_provider_code,
+                    last_provider_message,
+                    last_request_id,
+                ) = _extract_provider_error(
+                    exc.response,
+                    api_key=self.settings.api_key,
+                )
+                if 400 <= last_status_code < 500 and last_status_code not in {408, 429}:
+                    break
+                continue
+            except httpx.HTTPError as exc:
+                last_error = exc
+                failure_category = "transport_error"
+                continue
+
+            try:
                 payload = response.json()
-                content = str(payload["choices"][0]["message"]["content"])
+                if not isinstance(payload, dict):
+                    raise TypeError("response payload must be a JSON object")
+                content = payload["choices"][0]["message"]["content"]
+                if not isinstance(content, str):
+                    raise TypeError("response content must be a string")
                 usage_payload = dict(payload.get("usage", {}))
                 prompt_tokens = int(usage_payload.get("prompt_tokens", 0))
                 completion_tokens = int(usage_payload.get("completion_tokens", 0))
@@ -300,21 +347,26 @@ class DashScopeLLMClient:
                 )
                 _record_usage(usage)
                 return LLMResponse(data=_parse_json_content(content), usage=usage)
-            except httpx.HTTPStatusError as exc:
-                last_error = exc
-                last_status_code = exc.response.status_code
-                (
-                    last_provider_code,
-                    last_provider_message,
-                    last_request_id,
-                ) = _extract_provider_error(
-                    exc.response,
-                    api_key=self.settings.api_key,
+            except LLMOutputValidationError:
+                raise
+            except (KeyError, IndexError, TypeError, ValueError) as exc:
+                _record_usage(
+                    LLMUsageEvent(
+                        call_id=call_id,
+                        agent=request.agent,
+                        provider=self.provider,
+                        model=self.model,
+                        prompt_version=request.prompt_version,
+                        prompt_tokens=0,
+                        completion_tokens=0,
+                        total_tokens=0,
+                        latency_ms=round((perf_counter() - started) * 1000.0, 3),
+                        status="failed",
+                    )
                 )
-                if 400 <= last_status_code < 500 and last_status_code not in {408, 429}:
-                    break
-            except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
-                last_error = exc
+                raise LLMOutputValidationError(
+                    "model response envelope is invalid"
+                ) from exc
         _record_usage(
             LLMUsageEvent(
                 call_id=call_id,
@@ -335,6 +387,8 @@ class DashScopeLLMClient:
             provider_code=last_provider_code,
             provider_message=last_provider_message,
             request_id=last_request_id,
+            failure_category=failure_category,
+            call_attempt_count=call_attempt_count,
         ) from last_error
 
 

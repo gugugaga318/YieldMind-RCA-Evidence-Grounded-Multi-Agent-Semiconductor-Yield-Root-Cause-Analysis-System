@@ -12,6 +12,8 @@ sys.path.insert(0, str(ROOT))
 
 from yield_rca_core.llm_gateway import (  # noqa: E402
     FakeLLMClient,
+    LLMCallError,
+    LLMOutputValidationError,
     LLMRequest,
     LLMResponse,
     LLMSettings,
@@ -97,6 +99,43 @@ class InvalidCoreDecisionAfterObservationClient(FakeLLMClient):
         if self.next_action_calls == 1:
             return response
         return LLMResponse(data={}, usage=response.usage)
+
+
+class TransientPlannerCallFailureClient(FakeLLMClient):
+    def __init__(self) -> None:
+        self.failure_injected = False
+
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        if request.prompt_name == "next_action_planner" and not self.failure_injected:
+            self.failure_injected = True
+            raise LLMCallError(
+                "temporary throttling",
+                status_code=429,
+                provider_code="Throttling",
+                failure_category="provider_http_error",
+            )
+        return super().complete_json(request)
+
+
+class PersistentPlannerCallFailureClient(FakeLLMClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        if request.prompt_name == "next_action_planner":
+            raise LLMCallError(
+                "persistent throttling",
+                status_code=429,
+                provider_code="Throttling",
+                provider_message="retry later",
+                request_id="req-reliability-429",
+                failure_category="provider_http_error",
+            )
+        return super().complete_json(request)
+
+
+class InvalidJsonPlannerOutputClient(FakeLLMClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        if request.prompt_name == "next_action_planner":
+            raise LLMOutputValidationError("model response is not valid JSON")
+        return super().complete_json(request)
 
 
 class QwenReliabilityEvaluationTest(unittest.TestCase):
@@ -254,6 +293,72 @@ class QwenReliabilityEvaluationTest(unittest.TestCase):
         report = render_qwen_reliability_report(evaluation)
         self.assertIn("Acceptance: **FAIL**", report)
         self.assertIn("qwen_next_action_output_invalid", report)
+
+    def test_one_transient_call_failure_is_counted_and_recovers(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            evaluation = run_qwen_reliability(
+                settings=LLMSettings(agent_mode="fake"),
+                seed_dir=SEED_DIR,
+                output_dir=Path(temporary_directory),
+                runs=1,
+                max_llm_calls_per_run=20,
+                client_factory=lambda _settings: TransientPlannerCallFailureClient(),
+            )
+
+        self.assertTrue(evaluation["passed"])
+        self.assertEqual(evaluation["controlled_fallback_count"], 0)
+        self.assertEqual(evaluation["planner_call_failure_count"], 1)
+        self.assertEqual(evaluation["recovered_planner_call_retry_count"], 1)
+        run = evaluation["runs"][0]
+        self.assertEqual(run["actual_mode"], "llm_react")
+        self.assertEqual(run["planner_call_failure_count"], 1)
+        self.assertEqual(run["recovered_planner_call_retry_count"], 1)
+        self.assertLessEqual(run["paid_llm_call_count"], 20)
+
+    def test_two_call_failures_fallback_with_provider_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            evaluation = run_qwen_reliability(
+                settings=LLMSettings(agent_mode="fake"),
+                seed_dir=SEED_DIR,
+                output_dir=Path(temporary_directory),
+                runs=1,
+                max_llm_calls_per_run=20,
+                client_factory=lambda _settings: PersistentPlannerCallFailureClient(),
+            )
+
+        self.assertFalse(evaluation["passed"])
+        self.assertEqual(evaluation["transport_provider_failure_count"], 1)
+        self.assertEqual(evaluation["planner_call_failure_count"], 2)
+        self.assertEqual(evaluation["recovered_planner_call_retry_count"], 0)
+        run = evaluation["runs"][0]
+        self.assertEqual(run["fallback_failure_category"], "provider_http_error")
+        self.assertEqual(run["fallback_call_attempt_count"], 2)
+        self.assertEqual(run["fallback_status_code"], 429)
+        self.assertEqual(run["fallback_provider_code"], "Throttling")
+        self.assertEqual(run["fallback_request_id"], "req-reliability-429")
+        report = render_qwen_reliability_report(evaluation)
+        self.assertIn("provider_http_error", report)
+        self.assertIn("Throttling", report)
+
+    def test_output_parse_failure_is_separate_from_core_validation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            evaluation = run_qwen_reliability(
+                settings=LLMSettings(agent_mode="fake"),
+                seed_dir=SEED_DIR,
+                output_dir=Path(temporary_directory),
+                runs=1,
+                max_llm_calls_per_run=20,
+                client_factory=lambda _settings: InvalidJsonPlannerOutputClient(),
+            )
+
+        self.assertFalse(evaluation["passed"])
+        self.assertEqual(evaluation["output_parse_error_count"], 2)
+        self.assertEqual(evaluation["core_planner_validation_error_count"], 0)
+        self.assertEqual(evaluation["transport_provider_failure_count"], 0)
+        run = evaluation["runs"][0]
+        self.assertEqual(len(run["output_parse_validation_errors"]), 2)
+        self.assertEqual(run["core_planner_validation_errors"], [])
+        self.assertEqual(run["fallback_failure_category"], "planner_output_invalid")
 
     def test_paid_call_cap_is_a_hard_failed_acceptance_boundary(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

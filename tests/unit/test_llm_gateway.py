@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "core"))
 from yield_rca_core.llm_gateway import (  # noqa: E402
     DashScopeLLMClient,
     LLMCallError,
+    LLMOutputValidationError,
     LLMRequest,
     LLMSettings,
 )
@@ -57,6 +58,8 @@ def test_dashscope_error_preserves_request_contract_and_provider_diagnostic() ->
     assert captured.value.provider_code == "InvalidParameter"
     assert captured.value.provider_message == "unsupported parameter"
     assert captured.value.request_id == "req-123"
+    assert captured.value.failure_category == "provider_http_error"
+    assert captured.value.call_attempt_count == 1
 
 
 def test_dashscope_provider_error_is_bounded_and_redacts_credentials() -> None:
@@ -85,3 +88,32 @@ def test_dashscope_provider_error_is_bounded_and_redacts_credentials() -> None:
     assert captured.value.provider_message is not None
     assert api_key not in captured.value.provider_message
     assert api_key not in str(captured.value)
+
+
+def test_dashscope_invalid_json_is_output_validation_not_call_failure() -> None:
+    response = httpx.Response(
+        200,
+        json={
+            "choices": [{"message": {"content": "not-json"}}],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 2,
+                "total_tokens": 12,
+            },
+        },
+        request=httpx.Request("POST", "https://example.test/chat/completions"),
+    )
+    client_context = MagicMock()
+    client_context.__enter__.return_value.post.return_value = response
+    settings = LLMSettings(
+        agent_mode="llm",
+        base_url="https://example.test",
+        api_key="test-secret",
+        max_retries=1,
+    )
+
+    with patch("yield_rca_core.llm_gateway.httpx.Client", return_value=client_context):
+        with pytest.raises(LLMOutputValidationError, match="not valid JSON"):
+            DashScopeLLMClient(settings).complete_json(_request())
+
+    assert client_context.__enter__.return_value.post.call_count == 1
