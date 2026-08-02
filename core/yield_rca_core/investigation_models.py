@@ -33,6 +33,73 @@ class InvestigationIntent(StrEnum):
     FULL_RCA = "full_rca"
 
 
+class QuestionKind(StrEnum):
+    """Bounded semantic type for one investigation evidence gap.
+
+    ``UNSUPPORTED`` is an internal compatibility classification used when a
+    legacy snapshot has no stable kind suffix.  It is intentionally not an
+    executable capability and cannot be autonomously targeted by Qwen.
+    """
+
+    DEFECT_SIGNATURE = "defect_signature"
+    IMPACT_SCOPE = "impact_scope"
+    SPC_SIGNAL = "spc_signal"
+    PROCESS_MECHANISM = "process_mechanism"
+    PRODUCT_OUTCOME = "product_outcome"
+    HISTORICAL_MATCH = "historical_match"
+    TOOL_HISTORY = "tool_history"
+    RECIPE_HISTORY = "recipe_history"
+    METROLOGY_CORRELATION = "metrology_correlation"
+    MATERIAL_TRACE = "material_trace"
+    UNSUPPORTED = "unsupported"
+
+
+@dataclass(frozen=True)
+class CapabilityNotice:
+    """A typed explanation for a requested capability that is unavailable."""
+
+    capability: str
+    supported: bool
+    reason: str
+    available_alternatives: list[str] = field(default_factory=list)
+    request_source: str = "user"
+
+    def __post_init__(self) -> None:
+        _non_empty(self.capability, "capability")
+        _boolean(self.supported, "supported")
+        _non_empty(self.reason, "reason")
+        _string_list(self.available_alternatives, "available_alternatives")
+        if self.request_source not in {"user", "qwen", "system"}:
+            raise InvestigationValidationError(
+                "request_source must be user, qwen, or system"
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "capability": self.capability,
+            "supported": self.supported,
+            "reason": self.reason,
+            "available_alternatives": list(self.available_alternatives),
+            "request_source": self.request_source,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        payload = _strict_object(
+            data,
+            required={"capability", "supported", "reason"},
+            optional={"available_alternatives", "request_source"},
+            name="CapabilityNotice",
+        )
+        return cls(
+            capability=payload["capability"],
+            supported=payload["supported"],
+            reason=payload["reason"],
+            available_alternatives=payload.get("available_alternatives", []),
+            request_source=payload.get("request_source", "user"),
+        )
+
+
 class ActionKind(StrEnum):
     INSPECT_DEFECT_PATTERN = "inspect_defect_pattern"
     VALIDATE_SHARED_DEFECT_PATTERN = "validate_shared_defect_pattern"
@@ -43,6 +110,44 @@ class ActionKind(StrEnum):
     VALIDATE_HISTORICAL_CASE = "validate_historical_case"
     RUN_RCA_REASONING = "run_rca_reasoning"
     CONCLUDE_INCONCLUSIVE = "conclude_inconclusive"
+
+
+def _legacy_question_kind(question_id: str, question: str = "") -> str:
+    """Infer a kind only for legacy snapshots that predate ``question_kind``.
+
+    New planner output must carry the field explicitly.  The adapter is kept
+    deliberately narrow: stable Intent Planner suffixes are preferred, with a
+    small compatibility vocabulary for older fixtures that used ``Q_DEFECT``
+    and ``Q_MECHANISM`` identifiers.
+    """
+
+    normalized_id = question_id.casefold().replace("-", "_")
+    known_suffixes = {
+        kind.value: kind.value
+        for kind in QuestionKind
+        if kind is not QuestionKind.UNSUPPORTED
+    }
+    for suffix, kind in known_suffixes.items():
+        if normalized_id.endswith(suffix) or normalized_id.endswith(f"_{suffix}"):
+            return kind
+    if normalized_id.endswith("q_defect") or "defect" in normalized_id:
+        return QuestionKind.DEFECT_SIGNATURE.value
+    if normalized_id.endswith("q_mechanism") or "mechanism" in normalized_id:
+        return QuestionKind.PROCESS_MECHANISM.value
+    if normalized_id.endswith("q_impact") or "impact" in normalized_id:
+        return QuestionKind.IMPACT_SCOPE.value
+    if normalized_id.endswith("q_spc") or "spc" in normalized_id:
+        return QuestionKind.SPC_SIGNAL.value
+    lowered_question = question.casefold()
+    if any(token in lowered_question for token in ("mechanism", "root cause", "cause")):
+        return QuestionKind.PROCESS_MECHANISM.value
+    if any(token in lowered_question for token in ("impact", "affected lot", "share the relevant")):
+        return QuestionKind.IMPACT_SCOPE.value
+    if "spc" in lowered_question or "control chart" in lowered_question:
+        return QuestionKind.SPC_SIGNAL.value
+    if any(token in lowered_question for token in ("defect", "scratch", "product outcome")):
+        return QuestionKind.DEFECT_SIGNATURE.value
+    return QuestionKind.UNSUPPORTED.value
 
 
 class GoalStatus(StrEnum):
@@ -333,6 +438,7 @@ class InvestigationQuestion:
     goal_id: str
     question: str
     rationale: str
+    question_kind: str | None = None
     scope: dict[str, Any] = field(default_factory=dict)
     status: str = EvidenceGapStatus.OPEN.value
     answer: str | None = None
@@ -344,6 +450,14 @@ class InvestigationQuestion:
         _non_empty(self.goal_id, "goal_id")
         _non_empty(self.question, "question")
         _non_empty(self.rationale, "rationale")
+        question_kind = self.question_kind
+        if question_kind is None or not str(question_kind).strip():
+            question_kind = _legacy_question_kind(self.question_id, self.question)
+        try:
+            question_kind = QuestionKind(question_kind).value
+        except ValueError as exc:
+            raise InvestigationValidationError("question_kind is invalid") from exc
+        object.__setattr__(self, "question_kind", question_kind)
         _json_object(self.scope, "scope")
         try:
             status = EvidenceGapStatus(self.status)
@@ -384,6 +498,7 @@ class InvestigationQuestion:
             "goal_id": self.goal_id,
             "question": self.question,
             "rationale": self.rationale,
+            "question_kind": self.question_kind,
             "scope": dict(self.scope),
             "status": self.status,
             "answer": self.answer,
@@ -398,6 +513,7 @@ class InvestigationQuestion:
             required={"question_id", "goal_id", "question", "rationale"},
             optional={
                 "scope",
+                "question_kind",
                 "status",
                 "answer",
                 "evidence_ids",
@@ -410,6 +526,7 @@ class InvestigationQuestion:
             goal_id=payload["goal_id"],
             question=payload["question"],
             rationale=payload["rationale"],
+            question_kind=payload.get("question_kind"),
             scope=payload.get("scope", {}),
             status=payload.get("status", EvidenceGapStatus.OPEN.value),
             answer=payload.get("answer"),
@@ -503,6 +620,7 @@ def _raise_with_path(
         "goal_id",
         "question",
         "rationale",
+        "question_kind",
         "scope",
         "status",
         "answer",
@@ -543,6 +661,7 @@ class IntentPlan:
 
     goal: InvestigationGoal
     questions: list[InvestigationQuestion]
+    capability_notices: list[CapabilityNotice] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not isinstance(self.goal, InvestigationGoal):
@@ -570,11 +689,21 @@ class IntentPlan:
             question_ids.append(question.question_id)
         if len(question_ids) != len(set(question_ids)):
             raise InvestigationValidationError("questions must not contain duplicate ids")
+        if not isinstance(self.capability_notices, list) or any(
+            not isinstance(notice, CapabilityNotice)
+            for notice in self.capability_notices
+        ):
+            raise InvestigationValidationError(
+                "capability_notices must contain CapabilityNotice instances"
+            )
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "goal": self.goal.to_dict(),
             "questions": [question.to_dict() for question in self.questions],
+            "capability_notices": [
+                notice.to_dict() for notice in self.capability_notices
+            ],
         }
 
     @classmethod
@@ -582,16 +711,22 @@ class IntentPlan:
         payload = _strict_object(
             data,
             required={"goal", "questions"},
-            optional=set(),
+            optional={"capability_notices"},
             name="IntentPlan",
         )
         raw_questions = payload["questions"]
         if not isinstance(raw_questions, list):
             raise InvestigationValidationError("questions must be a list")
+        raw_notices = payload.get("capability_notices", [])
+        if not isinstance(raw_notices, list):
+            raise InvestigationValidationError("capability_notices must be a list")
         return cls(
             goal=InvestigationGoal.from_dict(payload["goal"]),
             questions=[
                 InvestigationQuestion.from_dict(question) for question in raw_questions
+            ],
+            capability_notices=[
+                CapabilityNotice.from_dict(notice) for notice in raw_notices
             ],
         )
 

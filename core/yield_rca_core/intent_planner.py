@@ -16,10 +16,12 @@ from yield_rca_core.investigation_models import (
     InvestigationQuestion,
     InvestigationValidationError,
     OrchestrationMode,
+    QuestionKind,
 )
 from yield_rca_core.llm_gateway import LLMClient, LLMOutputValidationError, LLMRequest
 from yield_rca_core.models import AgentKind, ModelValidationError
 from yield_rca_core.planner_agent import PlannerAgent
+from yield_rca_core.question_capability import requested_capability_notices
 
 _OUTPUT_ATTEMPTS = 2
 _FORBIDDEN_KNOWN_FACT_KEYS = frozenset(
@@ -115,12 +117,14 @@ def _question(
     suffix: str,
     text: str,
     rationale: str,
+    question_kind: QuestionKind,
 ) -> InvestigationQuestion:
     return InvestigationQuestion(
         question_id=f"{goal.goal_id}:q:{suffix}",
         goal_id=goal.goal_id,
         question=text,
         rationale=rationale,
+        question_kind=question_kind.value,
         scope=dict(goal.known_facts),
     )
 
@@ -133,6 +137,7 @@ def _baseline_questions(goal: InvestigationGoal) -> list[InvestigationQuestion]:
                 "impact_scope",
                 "Which Lots share the relevant process exposure with the source scope?",
                 "The requested outcome is the bounded impact-Lot population.",
+                QuestionKind.IMPACT_SCOPE,
             )
         ]
     if goal.intent == InvestigationIntent.SPC_CHECK.value:
@@ -142,6 +147,7 @@ def _baseline_questions(goal: InvestigationGoal) -> list[InvestigationQuestion]:
                 "spc_signal",
                 "Which process parameter and SPC rule show the reported excursion?",
                 "The requested outcome is an SPC assessment, not a root-cause conclusion.",
+                QuestionKind.SPC_SIGNAL,
             )
         ]
     if goal.intent == InvestigationIntent.HISTORICAL_LOOKUP.value:
@@ -151,6 +157,7 @@ def _baseline_questions(goal: InvestigationGoal) -> list[InvestigationQuestion]:
                 "historical_match",
                 "Which approved historical cases match the reported incident signature?",
                 "Only confirmed knowledge can support a historical comparison.",
+                QuestionKind.HISTORICAL_MATCH,
             )
         ]
     if goal.intent == InvestigationIntent.FULL_RCA.value:
@@ -160,18 +167,21 @@ def _baseline_questions(goal: InvestigationGoal) -> list[InvestigationQuestion]:
                 "defect_signature",
                 "What is the defect or product-outcome signature of the source Lot?",
                 "The observed symptom must be characterized before mechanism analysis.",
+                QuestionKind.DEFECT_SIGNATURE,
             ),
             _question(
                 goal,
                 "impact_scope",
                 "Which Lots share the relevant process exposure with the source Lot?",
                 "The user requested impact scope as part of the same investigation.",
+                QuestionKind.IMPACT_SCOPE,
             ),
             _question(
                 goal,
                 "process_mechanism",
                 "Which process or equipment mechanism explains the reported symptom?",
                 "A supported RCA needs process evidence linked to the product outcome.",
+                QuestionKind.PROCESS_MECHANISM,
             ),
         ]
     return [
@@ -180,12 +190,14 @@ def _baseline_questions(goal: InvestigationGoal) -> list[InvestigationQuestion]:
             "defect_signature",
             "What is the defect or product-outcome signature of the source scope?",
             "The reported symptom must be characterized before mechanism analysis.",
+            QuestionKind.DEFECT_SIGNATURE,
         ),
         _question(
             goal,
             "process_mechanism",
             "Which process or equipment mechanism explains the reported symptom?",
             "The user requested an evidence-backed root cause.",
+            QuestionKind.PROCESS_MECHANISM,
         ),
     ]
 
@@ -252,7 +264,40 @@ class QwenIntentPlanner:
                     baseline=baseline,
                     explicit_lot_id=protected_lot_id,
                 )
-                return candidate
+                baseline_material_questions = [
+                    question
+                    for question in baseline.questions
+                    if question.question_kind == QuestionKind.MATERIAL_TRACE.value
+                ]
+                candidate_material_questions = [
+                    question
+                    for question in candidate.questions
+                    if question.question_kind == QuestionKind.MATERIAL_TRACE.value
+                ]
+                if baseline_material_questions:
+                    if len(baseline.questions) == len(baseline_material_questions):
+                        # A pure unsupported request cannot be converted into a
+                        # supported investigation by a model response.
+                        candidate = replace(
+                            candidate,
+                            questions=list(baseline_material_questions),
+                        )
+                    elif not candidate_material_questions:
+                        # Preserve the unsupported mixed-request component even
+                        # when Qwen focuses its supported questions first.
+                        candidate = replace(
+                            candidate,
+                            questions=[
+                                *candidate.questions,
+                                baseline_material_questions[0],
+                            ],
+                        )
+                # Capability notices are Python-owned and cannot be omitted or
+                # rewritten by Qwen's structured response.
+                return replace(
+                    candidate,
+                    capability_notices=list(baseline.capability_notices),
+                )
             except (
                 InvestigationValidationError,
                 LLMOutputValidationError,
@@ -282,7 +327,58 @@ class QwenIntentPlanner:
             required_evidence=list(_REQUIRED_EVIDENCE_BY_INTENT[intent]),
             max_steps=MAX_CROSS_DOMAIN_ACTIONS,
         )
-        return IntentPlan(goal=goal, questions=_baseline_questions(goal))
+        notices = requested_capability_notices(query)
+        questions = _baseline_questions(goal)
+        if notices:
+            supported_tokens = (
+                "root cause",
+                "rca",
+                "impact",
+                "spc",
+                "historical",
+                "defect",
+                "scratch",
+                "yield",
+                "良率",
+                "原因",
+            )
+            if not any(token in lowered for token in supported_tokens):
+                questions = [
+                    _question(
+                        goal,
+                        "material_trace",
+                        (
+                            "Which material, supplier, or consumable batch is linked "
+                            "to the source scope?"
+                        ),
+                        (
+                            "The user explicitly requested material genealogy, which "
+                            "is not configured."
+                        ),
+                        QuestionKind.MATERIAL_TRACE,
+                    )
+                ]
+            elif len(questions) < 5:
+                questions.append(
+                    _question(
+                        goal,
+                        "material_trace",
+                        (
+                            "Which material, supplier, or consumable batch is linked "
+                            "to the source scope?"
+                        ),
+                        (
+                            "The user explicitly requested material genealogy in "
+                            "addition to supported RCA work."
+                        ),
+                        QuestionKind.MATERIAL_TRACE,
+                    )
+                )
+        return IntentPlan(
+            goal=goal,
+            questions=questions,
+            capability_notices=notices,
+        )
 
     @staticmethod
     def _validate_candidate(
@@ -308,6 +404,21 @@ class QwenIntentPlanner:
                 "Intent Planner cannot assert conclusions as known facts: "
                 f"{sorted(forbidden_keys)}"
             )
+        baseline_notice_kinds = {
+            notice.capability for notice in baseline.capability_notices
+        }
+        for question in candidate.questions:
+            if question.question_kind == QuestionKind.UNSUPPORTED.value:
+                raise InvestigationValidationError(
+                    "unsupported_question_kind: Qwen created an unrecognized Question kind"
+                )
+            if (
+                question.question_kind == QuestionKind.MATERIAL_TRACE.value
+                and QuestionKind.MATERIAL_TRACE.value not in baseline_notice_kinds
+            ):
+                raise InvestigationValidationError(
+                    "unsupported_question_kind: material_trace was not requested by the user"
+                )
         if explicit_lot_id is not None:
             if candidate.goal.known_facts.get("lot_id") != explicit_lot_id:
                 raise InvestigationValidationError(

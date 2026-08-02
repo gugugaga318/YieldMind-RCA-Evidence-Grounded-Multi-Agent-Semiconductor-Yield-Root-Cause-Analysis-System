@@ -149,11 +149,22 @@ class InvestigationQuestionResponse(APIModel):
     goal_id: str
     question: str
     rationale: str
+    question_kind: str = "unsupported"
     scope: dict[str, Any] = Field(default_factory=dict)
     status: Literal["open", "closed", "unavailable"] = "open"
     answer: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     unavailable_reason: str | None = None
+
+
+class CapabilityNoticeResponse(APIModel):
+    """Typed notice for a requested capability absent from this deployment."""
+
+    capability: str
+    supported: bool
+    reason: str
+    available_alternatives: list[str] = Field(default_factory=list)
+    request_source: Literal["user", "qwen", "system"] = "user"
 
 
 class QuestionUpdateResponse(APIModel):
@@ -323,6 +334,7 @@ class RCAJobStateResponse(APIModel):
     llm_usage: list[LLMUsageEventResponse] = Field(default_factory=list)
     execution_metadata: dict[str, Any] = Field(default_factory=dict)
     investigation_goal: dict[str, Any] | None = None
+    capability_notices: list[CapabilityNoticeResponse] = Field(default_factory=list)
     investigation_questions: list[InvestigationQuestionResponse] = Field(
         default_factory=list
     )

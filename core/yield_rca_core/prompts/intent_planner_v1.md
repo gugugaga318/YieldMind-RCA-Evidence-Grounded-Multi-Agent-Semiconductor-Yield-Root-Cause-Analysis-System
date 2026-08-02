@@ -18,6 +18,7 @@ Return only one JSON object with exactly these top-level fields:
       "goal_id": "string",
       "question": "string",
       "rationale": "string",
+      "question_kind": "defect_signature | impact_scope | spc_signal | process_mechanism | product_outcome | historical_match | tool_history | recipe_history | metrology_correlation | material_trace",
       "scope": {},
       "status": "open",
       "answer": null,
@@ -42,3 +43,6 @@ stated by the user. Do not infer a root cause, hypothesis, affected Lots, or imp
 Create between one and five open engineering questions that are necessary for the same
 goal. Every question must use the same goal_id. An impact Lot is a result, not a new
 objective. Do not choose an Agent, Action, Tool, SQL query, root cause, or report.
+Every question must declare exactly one bounded question_kind. Use material_trace only
+when the user's request explicitly asks for material, supplier, or consumable genealogy;
+the runtime will report that capability as unavailable when no Material Tool is configured.

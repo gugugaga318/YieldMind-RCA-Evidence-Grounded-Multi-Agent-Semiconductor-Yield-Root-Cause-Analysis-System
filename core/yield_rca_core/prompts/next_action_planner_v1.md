@@ -26,6 +26,7 @@ After each observation, return only one JSON object with exactly these fields:
       "goal_id": "string",
       "question": "string",
       "rationale": "string",
+      "question_kind": "defect_signature | impact_scope | spc_signal | process_mechanism | product_outcome | historical_match | tool_history | recipe_history | metrology_correlation | material_trace",
       "scope": {},
       "status": "open",
       "answer": null,
@@ -55,6 +56,9 @@ For an act decision:
 - Satisfy every required_finding_agents prerequisite shown by allowed_actions.
 - Use only Evidence IDs present in available_evidence_ids.
 - Do not repeat an Action + Scope from action_history.
+- The selected Action must be compatible with every target Question. Python owns
+  the Question capability registry and will reject an Action/Question mismatch or
+  scope mismatch before any Specialist or Tool executes.
 
 For a stop decision:
 

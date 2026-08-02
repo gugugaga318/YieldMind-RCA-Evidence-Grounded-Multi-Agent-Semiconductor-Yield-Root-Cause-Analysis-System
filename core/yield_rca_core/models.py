@@ -35,6 +35,7 @@ from yield_rca_core.evidence_models import (
 )
 from yield_rca_core.investigation_models import (
     ActionRecord,
+    CapabilityNotice,
     ConclusionLevel,
     GoalStatus,
     InvestigationAction,
@@ -824,6 +825,7 @@ class RCAState:
     llm_usage: list[LLMUsageEvent] = field(default_factory=list)
     execution_metadata: dict[str, Any] = field(default_factory=dict)
     investigation_goal: InvestigationGoal | None = None
+    capability_notices: list[CapabilityNotice] = field(default_factory=list)
     investigation_questions: list[InvestigationQuestion] = field(default_factory=list)
     action_history: list[ActionRecord] = field(default_factory=list)
     planner_decisions: list[PlannerDecision] = field(default_factory=list)
@@ -860,6 +862,13 @@ class RCAState:
             self.investigation_goal, InvestigationGoal
         ):
             raise ModelValidationError("investigation_goal must be an InvestigationGoal")
+        if not isinstance(self.capability_notices, list) or any(
+            not isinstance(notice, CapabilityNotice)
+            for notice in self.capability_notices
+        ):
+            raise ModelValidationError(
+                "capability_notices must contain CapabilityNotice instances"
+            )
         if not isinstance(self.investigation_questions, list):
             raise ModelValidationError("investigation_questions must be a list")
         for question in self.investigation_questions:
@@ -1199,6 +1208,9 @@ class RCAState:
             "investigation_goal": (
                 self.investigation_goal.to_dict() if self.investigation_goal else None
             ),
+            "capability_notices": [
+                notice.to_dict() for notice in self.capability_notices
+            ],
             "investigation_questions": [
                 item.to_dict() for item in self.investigation_questions
             ],
@@ -1253,6 +1265,10 @@ class RCAState:
                 if data.get("investigation_goal")
                 else None
             ),
+            capability_notices=[
+                CapabilityNotice.from_dict(item)
+                for item in data.get("capability_notices", [])
+            ],
             investigation_questions=[
                 InvestigationQuestion.from_dict(item)
                 for item in raw_investigation_questions

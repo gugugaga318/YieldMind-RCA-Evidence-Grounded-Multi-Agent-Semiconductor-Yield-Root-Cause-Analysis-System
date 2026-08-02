@@ -54,6 +54,11 @@ from yield_rca_core.models import (
     Hypothesis,
     ModelValidationError,
 )
+from yield_rca_core.question_capability import (
+    QUESTION_CAPABILITY_REGISTRY,
+    capability_for_question,
+    validate_action_for_questions,
+)
 from yield_rca_core.question_update_review import review_qwen_planner_output
 
 _OUTPUT_ATTEMPTS = 2
@@ -436,6 +441,12 @@ class QwenNextActionPlanner:
             prior_decisions=normalized_prior_decisions,
             critical_contradictions=contradictions,
         )
+        open_questions = [
+            question
+            for question in questions
+            if question.status == EvidenceGapStatus.OPEN.value
+        ]
+        advertised_actions = self._advertised_actions(open_questions)
         validation_errors: list[str] = []
         validation_error_categories: list[str] = []
         call_retry_count = 0
@@ -483,7 +494,14 @@ class QwenNextActionPlanner:
                             ),
                         }
                         for definition in self.registry.values()
+                        if definition.kind in advertised_actions
                     ],
+                    "question_action_capabilities": {
+                        question.question_id: sorted(
+                            capability_for_question(question).allowed_actions
+                        )
+                        for question in open_questions
+                    },
                     "deterministic_planner_decision": baseline.to_dict(),
                     "output_attempt": attempt,
                     "previous_validation_error": (
@@ -610,6 +628,34 @@ class QwenNextActionPlanner:
         ):
             scope = dict(action.scope or goal.known_facts or {"goal_id": goal.goal_id})
             bounded_action = replace(action, scope=scope)
+            target = next(
+                (
+                    question
+                    for question in open_questions
+                    if action.kind
+                    in capability_for_question(question).allowed_actions
+                    and capability_for_question(question).supported
+                ),
+                None,
+            )
+            if target is None:
+                return PlannerDecision(
+                    decision_id=decision_id,
+                    goal_id=goal.goal_id,
+                    decision_type=DecisionType.STOP.value,
+                    reason=(
+                        "No registered Action can target the remaining typed "
+                        "Questions."
+                    ),
+                    goal_status=GoalStatus.BLOCKED.value,
+                    proposed_conclusion_level=ConclusionLevel.INCONCLUSIVE.value,
+                    stop_reason=StopReason.NO_ALLOWED_ACTION.value,
+                    question_updates=self._terminal_question_updates(
+                        open_questions=open_questions,
+                        findings=findings,
+                        available_evidence_ids=available_evidence_ids,
+                    ),
+                )
             return PlannerDecision(
                 decision_id=decision_id,
                 goal_id=goal.goal_id,
@@ -618,7 +664,7 @@ class QwenNextActionPlanner:
                 goal_status=GoalStatus.IN_PROGRESS.value,
                 proposed_conclusion_level=policy_decision.conclusion_level,
                 next_action=bounded_action,
-                target_question_ids=[open_questions[0].question_id],
+                target_question_ids=[target.question_id],
             )
 
         if action is not None:
@@ -830,6 +876,12 @@ class QwenNextActionPlanner:
             )
         source_lot_id = _normalized_lot_id(goal.known_facts.get("lot_id"))
         for question in candidate.new_questions:
+            capability = QUESTION_CAPABILITY_REGISTRY.get(question.question_kind)
+            if capability is None or not capability.supported:
+                raise InvestigationValidationError(
+                    "unsupported_question_kind: Qwen cannot create an unsupported "
+                    f"Question kind {question.question_kind!r}"
+                )
             _assert_source_lot_boundary(
                 question.scope,
                 source_lot_id=source_lot_id,
@@ -913,6 +965,14 @@ class QwenNextActionPlanner:
         action = candidate.next_action
         if action is None:
             raise InvestigationValidationError("an act decision requires next_action")
+        targeted_questions = [
+            resulting_questions[question_id]
+            for question_id in candidate.target_question_ids
+            if question_id in resulting_questions
+        ]
+        # This is deliberately atomic: one incompatible target rejects the
+        # complete Decision instead of silently dropping that target.
+        validate_action_for_questions(action, targeted_questions)
         definition = self.registry.get(action.kind)
         if definition is None:
             raise InvestigationValidationError(
@@ -994,6 +1054,23 @@ class QwenNextActionPlanner:
             raise InvestigationValidationError(
                 "find_shared_exposure is single-use within one bounded investigation"
             )
+
+    def _advertised_actions(
+        self,
+        questions: list[InvestigationQuestion],
+    ) -> frozenset[str]:
+        """Advertise only Actions that can target at least one open Question."""
+
+        advertised: set[str] = set()
+        for question in questions:
+            capability = QUESTION_CAPABILITY_REGISTRY.get(question.question_kind)
+            if capability is not None and capability.supported:
+                advertised.update(
+                    action_kind
+                    for action_kind in capability.allowed_actions
+                    if action_kind in self.registry
+                )
+        return frozenset(advertised)
 
 
 __all__ = [

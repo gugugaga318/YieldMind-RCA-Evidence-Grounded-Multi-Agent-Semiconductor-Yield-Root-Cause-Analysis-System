@@ -19,6 +19,7 @@ from yield_rca_core.investigation_models import (
     InvestigationIntent,
     InvestigationQuestion,
     PlannerDecisionOutcome,
+    StopReason,
 )
 from yield_rca_core.investigation_policy import ACTION_REGISTRY, InvestigationPolicy
 from yield_rca_core.llm_gateway import (
@@ -628,12 +629,55 @@ class Supervisor:
         state = RCAState(
             job=replace(job, status=TaskStatus.RUNNING.value),
             investigation_goal=intent_plan.goal,
+            capability_notices=list(intent_plan.capability_notices),
             investigation_questions=list(intent_plan.questions),
             execution_metadata={
                 "orchestration_requested_mode": "llm_react",
                 "orchestration_mode": "llm_react",
             },
         )
+        unsupported_kinds = {
+            notice.capability
+            for notice in intent_plan.capability_notices
+            if not notice.supported
+        }
+        if unsupported_kinds:
+            questions = [
+                replace(
+                    question,
+                    status=EvidenceGapStatus.UNAVAILABLE.value,
+                    answer=None,
+                    evidence_ids=[],
+                    unavailable_reason=next(
+                        (
+                            notice.reason
+                            for notice in intent_plan.capability_notices
+                            if notice.capability == question.question_kind
+                        ),
+                        "The requested capability is not configured.",
+                    ),
+                )
+                if question.question_kind in unsupported_kinds
+                and question.status == EvidenceGapStatus.OPEN.value
+                else question
+                for question in state.investigation_questions
+            ]
+            state = replace(state, investigation_questions=questions)
+            if not any(
+                question.status == EvidenceGapStatus.OPEN.value
+                for question in questions
+            ):
+                terminal = replace(
+                    state,
+                    job=replace(state.job, status=TaskStatus.COMPLETED.value),
+                    goal_status=GoalStatus.BLOCKED.value,
+                    conclusion_level=ConclusionLevel.INCONCLUSIVE.value,
+                    evidence_gaps=[],
+                    stop_reason=StopReason.DATA_UNAVAILABLE.value,
+                )
+                # No investigation Evidence exists for a pure unsupported
+                # request, so a traceable RCA report would be misleading.
+                return terminal
         observed_tool_latencies = tool_latencies if tool_latencies is not None else []
         while True:
             try:
