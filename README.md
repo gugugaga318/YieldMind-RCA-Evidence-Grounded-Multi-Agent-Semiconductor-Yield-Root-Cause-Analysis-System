@@ -510,6 +510,38 @@ Without the key or opt-in flag, the same command reports the paid smoke test as
 skipped rather than passed. Do not commit `.env`, test output containing raw
 model responses, or any API credential.
 
+### Real Qwen Intent Planner diagnosis
+
+When an `llm_react` request hands off during Intent Planning, run the isolated
+diagnostic before changing a Prompt or validation rule. It executes only the
+Golden Scratch + Cu CMP Intent Planner boundary, never enters Next Action
+Planning or any Specialist/Tool path, and permits at most two paid calls per
+run. Three runs therefore have a hard maximum of six paid calls.
+
+```powershell
+$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
+$qwenSecret = Read-Host "DashScope API key" -AsSecureString
+try {
+    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+    & .\.venv\Scripts\python.exe scripts\run_qwen_intent_diagnosis.py `
+        --confirm-paid-qwen `
+        --runs 3
+} finally {
+    if ($null -eq $previousApiKey) {
+        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+    } else {
+        $env:DASHSCOPE_API_KEY = $previousApiKey
+    }
+    Remove-Variable qwenSecret, previousApiKey -ErrorAction SilentlyContinue
+}
+```
+
+The runner distinguishes provider failure, JSON/output parsing, typed contract
+validation, and semantic guard rejection. It aggregates stable reason codes and
+field paths under `outputs/qwen_intent_diagnosis/`. Results contain only bounded
+candidate shape summaries and baseline differences; the API key, complete
+Prompt, user-query payload, and raw Qwen response are never written.
+
 ### Repeated Qwen Planner-review reliability evaluation
 
 The single impact-scope smoke test is intentionally cheap. After changing the
