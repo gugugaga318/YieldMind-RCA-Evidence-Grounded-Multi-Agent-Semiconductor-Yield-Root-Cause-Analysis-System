@@ -28,7 +28,7 @@ class QuestionCapabilityError(InvestigationValidationError):
 
     def __init__(self, reason_code: str, message: str) -> None:
         self.reason_code = reason_code
-        super().__init__(message)
+        super().__init__(f"{reason_code}: {message}")
 
 
 @dataclass(frozen=True)
@@ -173,13 +173,17 @@ QUESTION_CAPABILITY_REGISTRY: Mapping[str, QuestionCapabilityDefinition] = Mappi
             direct=(ActionKind.INSPECT_FDC_SPC,),
             supporting=(ActionKind.FIND_SHARED_EXPOSURE,),
             evidence=(
+                EvidenceType.IMPACT_SCOPE,
+                EvidenceType.LOT_CONTEXT,
+                EvidenceType.PROCESS_EXPOSURE,
+                EvidenceType.EQUIPMENT_EXPOSURE,
                 EvidenceType.PARAMETER_DEVIATION,
                 EvidenceType.TREND_DEVIATION,
                 EvidenceType.SPC_VIOLATION,
                 EvidenceType.OOC_EVENT,
                 EvidenceType.EXCURSION_WINDOW,
             ),
-            closure=("process_anomaly",),
+            closure=("shared_exposure", "process_anomaly"),
             contributions={
                 ActionKind.INSPECT_FDC_SPC: ("process_anomaly",),
                 ActionKind.FIND_SHARED_EXPOSURE: ("shared_exposure",),
@@ -195,6 +199,10 @@ QUESTION_CAPABILITY_REGISTRY: Mapping[str, QuestionCapabilityDefinition] = Mappi
                 ActionKind.VALIDATE_HISTORICAL_CASE,
             ),
             evidence=(
+                EvidenceType.IMPACT_SCOPE,
+                EvidenceType.LOT_CONTEXT,
+                EvidenceType.PROCESS_EXPOSURE,
+                EvidenceType.EQUIPMENT_EXPOSURE,
                 EvidenceType.PARAMETER_DEVIATION,
                 EvidenceType.TREND_DEVIATION,
                 EvidenceType.SPC_VIOLATION,
@@ -205,10 +213,17 @@ QUESTION_CAPABILITY_REGISTRY: Mapping[str, QuestionCapabilityDefinition] = Mappi
                 EvidenceType.ELECTRICAL_FAILURE,
                 EvidenceType.HISTORICAL_CASE_MATCH,
             ),
-            closure=("process_anomaly", "product_signal", "shared_exposure"),
+            closure=(
+                "process_anomaly",
+                "product_signal",
+                "shared_exposure",
+                "shared_product_signal",
+            ),
             contributions={
                 ActionKind.INSPECT_DEFECT_PATTERN: ("product_signal",),
-                ActionKind.VALIDATE_SHARED_DEFECT_PATTERN: ("product_signal", "shared_exposure"),
+                ActionKind.VALIDATE_SHARED_DEFECT_PATTERN: (
+                    "shared_product_signal",
+                ),
                 ActionKind.FIND_SHARED_EXPOSURE: ("shared_exposure",),
                 ActionKind.INSPECT_FDC_SPC: ("process_anomaly",),
                 ActionKind.VALIDATE_HISTORICAL_CASE: ("historical_context",),
@@ -240,9 +255,37 @@ QUESTION_CAPABILITY_REGISTRY: Mapping[str, QuestionCapabilityDefinition] = Mappi
                 ActionKind.INSPECT_DEFECT_PATTERN,
                 ActionKind.VALIDATE_SHARED_DEFECT_PATTERN,
             ),
-            evidence=(EvidenceType.HISTORICAL_CASE_MATCH,),
-            closure=("historical_context",),
-            contributions={ActionKind.VALIDATE_HISTORICAL_CASE: ("historical_context",)},
+            evidence=(
+                EvidenceType.HISTORICAL_CASE_MATCH,
+                EvidenceType.LOT_CONTEXT,
+                EvidenceType.PROCESS_EXPOSURE,
+                EvidenceType.EQUIPMENT_EXPOSURE,
+                EvidenceType.EXCURSION_WINDOW,
+                EvidenceType.PARAMETER_DEVIATION,
+                EvidenceType.TREND_DEVIATION,
+                EvidenceType.SPC_VIOLATION,
+                EvidenceType.OOC_EVENT,
+                EvidenceType.DEFECT_SIGNAL,
+                EvidenceType.METROLOGY_DEVIATION,
+                EvidenceType.ELECTRICAL_FAILURE,
+                EvidenceType.NEGATIVE_SIGNAL,
+            ),
+            closure=(
+                "product_signal",
+                "shared_exposure",
+                "shared_product_signal",
+                "process_anomaly",
+                "historical_context",
+            ),
+            contributions={
+                ActionKind.INSPECT_DEFECT_PATTERN: ("product_signal",),
+                ActionKind.FIND_SHARED_EXPOSURE: ("shared_exposure",),
+                ActionKind.VALIDATE_SHARED_DEFECT_PATTERN: (
+                    "shared_product_signal",
+                ),
+                ActionKind.INSPECT_FDC_SPC: ("process_anomaly",),
+                ActionKind.VALIDATE_HISTORICAL_CASE: ("historical_context",),
+            },
         ),
         QuestionKind.TOOL_HISTORY.value: _definition(
             QuestionKind.TOOL_HISTORY,
@@ -471,6 +514,12 @@ def validate_action_for_questions(
                     "no_expected_evidence_gain",
                     f"Action {action.kind} cannot fill a currently missing Evidence "
                     f"group for Question {question.question_id}",
+                )
+            if not missing and "hypothesis_synthesis" not in contribution:
+                raise QuestionCapabilityError(
+                    "no_expected_evidence_gain",
+                    f"Question {question.question_id} has no unsatisfied Evidence "
+                    f"group that Action {action.kind} can fill",
                 )
 
 

@@ -131,6 +131,21 @@ class QuestionCapabilityContractTest(unittest.TestCase):
             )
         self.assertEqual(caught.exception.reason_code, "action_question_mismatch")
 
+    def test_action_must_contribute_to_a_currently_missing_evidence_group(self) -> None:
+        mechanism = question(QuestionKind.PROCESS_MECHANISM)
+        with self.assertRaises(QuestionCapabilityError) as caught:
+            validate_action_for_questions(
+                action(ActionKind.INSPECT_FDC_SPC),
+                [mechanism],
+                missing_evidence_groups={
+                    mechanism.question_id: frozenset(
+                        {"product_signal", "shared_exposure"}
+                    )
+                },
+            )
+
+        self.assertEqual(caught.exception.reason_code, "no_expected_evidence_gain")
+
 
 if __name__ == "__main__":
     unittest.main()

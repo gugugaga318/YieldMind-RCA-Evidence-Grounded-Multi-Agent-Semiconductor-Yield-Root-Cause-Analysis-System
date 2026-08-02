@@ -176,7 +176,7 @@
           "action_kind": "find_shared_exposure",
           "decision_type": "act",
           "decision_valid": true,
-          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 1 new applicable QuestionEvidenceLink for its target Question.",
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 3 new applicable QuestionEvidenceLinks for its target Question.",
           "evidence_gain": true,
           "new_evidence_ids": [
             "EV_MES_SOURCE_LOT_CONTEXT",
@@ -398,7 +398,7 @@
           "action_kind": "find_shared_exposure",
           "decision_type": "act",
           "decision_valid": true,
-          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 1 new applicable QuestionEvidenceLink for its target Question.",
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 3 new applicable QuestionEvidenceLinks for its target Question.",
           "evidence_gain": true,
           "new_evidence_ids": [
             "EV_MES_SOURCE_LOT_CONTEXT",
@@ -598,8 +598,8 @@
           "action_kind": "inspect_defect_pattern",
           "decision_type": "act",
           "decision_valid": true,
-          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added new Evidence IDs, but none produced an applicable QuestionEvidenceLink for its target Question.",
-          "evidence_gain": false,
+          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added 2 new applicable QuestionEvidenceLinks for its target Question.",
+          "evidence_gain": true,
           "new_evidence_ids": [
             "EV_DEFECT_SCRATCH",
             "EV_WAT_LEAKAGE"
@@ -611,8 +611,8 @@
           "action_kind": "find_shared_exposure",
           "decision_type": "act",
           "decision_valid": true,
-          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added new Evidence IDs, but none produced an applicable QuestionEvidenceLink for its target Question.",
-          "evidence_gain": false,
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 2 new applicable QuestionEvidenceLinks for its target Question.",
+          "evidence_gain": true,
           "new_evidence_ids": [
             "EV_MES_SOURCE_LOT_CONTEXT",
             "EV_WAT_SOURCE_LOT_ANOMALY",
@@ -626,8 +626,8 @@
           "action_kind": "validate_shared_defect_pattern",
           "decision_type": "act",
           "decision_valid": true,
-          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added new Evidence IDs, but none produced an applicable QuestionEvidenceLink for its target Question.",
-          "evidence_gain": false,
+          "evaluation_reason": "The allowlisted defect_wat action matched its completed ActionRecord and added 2 new applicable QuestionEvidenceLinks for its target Question.",
+          "evidence_gain": true,
           "new_evidence_ids": [
             "EV_DEFECT_SCRATCH_SHARED_EXPOSURE",
             "EV_WAT_LEAKAGE_SHARED_EXPOSURE"
@@ -639,7 +639,7 @@
           "action_kind": "inspect_fdc_spc",
           "decision_type": "act",
           "decision_valid": true,
-          "evaluation_reason": "The allowlisted fdc action matched its completed ActionRecord and added 1 new applicable QuestionEvidenceLink for its target Question.",
+          "evaluation_reason": "The allowlisted fdc action matched its completed ActionRecord and added 3 new applicable QuestionEvidenceLinks for its target Question.",
           "evidence_gain": true,
           "new_evidence_ids": [
             "EV_FDC_ENDPOINT_TIME",
@@ -943,8 +943,8 @@
           "action_kind": "find_shared_exposure",
           "decision_type": "act",
           "decision_valid": true,
-          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added new Evidence IDs, but none produced an applicable QuestionEvidenceLink for its target Question.",
-          "evidence_gain": false,
+          "evaluation_reason": "The allowlisted mes action matched its completed ActionRecord and added 2 new applicable QuestionEvidenceLinks for its target Question.",
+          "evidence_gain": true,
           "new_evidence_ids": [
             "EV_ANALYTICS_AFFECTED_LOTS",
             "EV_MES_COMMON_CHAMBER",
@@ -1359,8 +1359,8 @@
     },
     "evidence_gain": {
       "act_decision_count": 20,
-      "gain_count": 14,
-      "rate": 0.7
+      "gain_count": 18,
+      "rate": 0.9
     },
     "goal_success": {
       "positive_run_count": 6,

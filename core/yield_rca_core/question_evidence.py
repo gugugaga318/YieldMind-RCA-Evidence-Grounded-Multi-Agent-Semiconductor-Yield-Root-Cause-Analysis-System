@@ -17,14 +17,22 @@ from yield_rca_core.question_capability import (
 )
 
 _GROUP_PREFERENCES: Mapping[str, tuple[str, ...]] = {
-    EvidenceType.DEFECT_SIGNAL.value: ("product_signal",),
-    EvidenceType.ELECTRICAL_FAILURE.value: ("product_signal",),
+    EvidenceType.DEFECT_SIGNAL.value: (
+        "product_signal",
+        "shared_product_signal",
+    ),
+    EvidenceType.ELECTRICAL_FAILURE.value: (
+        "product_signal",
+        "shared_product_signal",
+    ),
     EvidenceType.METROLOGY_DEVIATION.value: (
         "metrology_signal",
         "product_signal",
+        "shared_product_signal",
     ),
     EvidenceType.NEGATIVE_SIGNAL.value: (
         "product_signal",
+        "shared_product_signal",
         "process_anomaly",
         "shared_exposure",
         "context",

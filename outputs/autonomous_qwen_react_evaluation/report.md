@@ -18,7 +18,7 @@ The deterministic result requires the Fake-Qwen autonomous lane, the controlled 
 | Metric | Count | Rate |
 | --- | --- | --- |
 | Decision valid | 28/28 | 100.0% |
-| Evidence gain (ACT only) | 14/20 | 70.0% |
+| Evidence gain (ACT only) | 18/20 | 90.0% |
 | Redundant (ACT only) | 0/20 | 0.0% |
 | Goal success (positive autonomous runs) | 6/6 | 100.0% |
 | Stop correct (positive autonomous runs) | 6/6 | 100.0% |

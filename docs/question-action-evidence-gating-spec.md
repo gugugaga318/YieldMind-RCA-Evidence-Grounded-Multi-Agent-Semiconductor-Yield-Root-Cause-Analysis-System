@@ -179,7 +179,7 @@ For example:
 ```text
 process_mechanism.action_contributions:
   inspect_defect_pattern -> product_signal
-  validate_shared_defect_pattern -> product_signal
+  validate_shared_defect_pattern -> shared_product_signal
   find_shared_exposure -> shared_exposure
   inspect_fdc_spc -> process_anomaly
   validate_historical_case -> historical_context
@@ -200,10 +200,10 @@ This distinction prevents an overly rigid one-Action-per-Question Workflow.
 | --- | --- | --- | --- |
 | `defect_signature` | `inspect_defect_pattern`, `validate_shared_defect_pattern` | None | `defect_signal`, `electrical_failure`, `metrology_deviation`, explicit quality `negative_signal` |
 | `impact_scope` | `find_shared_exposure` | `validate_shared_defect_pattern` | `impact_scope`, `lot_context`, `process_exposure`, `equipment_exposure`, `excursion_window` |
-| `spc_signal` | `inspect_fdc_spc` | `find_shared_exposure` when process context is missing | `parameter_deviation`, `trend_deviation`, `spc_violation`, `ooc_event`, `excursion_window` |
-| `process_mechanism` | `inspect_fdc_spc`, `run_rca_reasoning` | `inspect_defect_pattern`, `find_shared_exposure`, `validate_shared_defect_pattern`, `validate_historical_case` | process anomaly + product signal + shared exposure; historical Evidence is contextual only |
+| `spc_signal` | `inspect_fdc_spc` | `find_shared_exposure` when process context is missing | shared exposure context + `parameter_deviation`, `trend_deviation`, `spc_violation`, `ooc_event`, `excursion_window` |
+| `process_mechanism` | `inspect_fdc_spc`, `run_rca_reasoning` | `inspect_defect_pattern`, `find_shared_exposure`, `validate_shared_defect_pattern`, `validate_historical_case` | process anomaly + source product signal + shared exposure + shared-Lot product validation; historical Evidence is contextual only |
 | `product_outcome` | `inspect_defect_pattern`, `validate_shared_defect_pattern` | `find_shared_exposure` | `electrical_failure`, `defect_signal`, `metrology_deviation`, explicit quality `negative_signal` |
-| `historical_match` | `validate_historical_case` | Current MES/FDC/Defect context collection | `historical_case_match`; missing source data may prove unavailability |
+| `historical_match` | `validate_historical_case` | Current MES/FDC/Defect context collection | current product signal + shared exposure + shared-Lot validation + process anomaly + `historical_case_match`; missing source data may prove unavailability |
 | `tool_history` | `find_shared_exposure` | `inspect_fdc_spc` | `lot_context`, `process_exposure`, `equipment_exposure`, `recipe_change`, `hold_event` |
 | `recipe_history` | `find_shared_exposure` | None in the initial LLM Action allowlist | `lot_context`, `recipe_change`; missing records may prove unavailability |
 | `metrology_correlation` | `inspect_defect_pattern` | `validate_shared_defect_pattern` | explicit `metrology_deviation` or source-specific `negative_signal` |

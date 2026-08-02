@@ -76,7 +76,7 @@ class AutonomousQwenEvaluationSuiteTest(unittest.TestCase):
         )
         self.assertEqual(metrics["decision_valid"]["rate"], 1.0)
         self.assertEqual(metrics["decision_valid"]["decision_count"], 28)
-        self.assertEqual(metrics["evidence_gain"]["gain_count"], 14)
+        self.assertEqual(metrics["evidence_gain"]["gain_count"], 18)
         self.assertEqual(metrics["evidence_gain"]["act_decision_count"], 20)
         self.assertEqual(metrics["redundant"]["redundant_count"], 0)
         self.assertEqual(metrics["goal_success"]["rate"], 1.0)

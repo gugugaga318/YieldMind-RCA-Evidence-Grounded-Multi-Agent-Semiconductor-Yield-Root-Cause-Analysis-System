@@ -19,6 +19,8 @@ from yield_rca_core import (  # noqa: E402
     InvestigationIntent,
     InvestigationQuestion,
     PlannerDecision,
+    QuestionEvidenceLink,
+    QuestionEvidenceRelation,
     QuestionUpdateDisposition,
     QuestionUpdateReasonCode,
     QwenNextActionPlanner,
@@ -278,6 +280,103 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
         )
         self.assertEqual(decision.decision_id, "MODEL_DECISION_1")
         self.assertEqual(len(client.requests), 1)
+
+    def test_action_that_only_repeats_a_satisfied_group_is_retried_atomically(
+        self,
+    ) -> None:
+        mechanism = questions()[1]
+        spc_question = InvestigationQuestion(
+            question_id="Q_SPC",
+            goal_id=mechanism.goal_id,
+            question="Which SPC signal is abnormal?",
+            rationale="The process signal must be inspected.",
+            question_kind="spc_signal",
+            scope={"lot_id": "LOT_01", "module": "CU_CMP"},
+        )
+        prior_record = action_record(
+            kind=ActionKind.INSPECT_FDC_SPC.value,
+            agent=AgentKind.FDC.value,
+            scope={
+                "lot_id": "LOT_01",
+                "module": "CU_CMP",
+                "parameter": "THK",
+            },
+            action_id="PRIOR_FDC_PROCESS_SIGNAL",
+        )
+        prior_record = ActionRecord(
+            action=prior_record.action,
+            status=prior_record.status,
+            produced_finding_ids=list(prior_record.produced_finding_ids),
+            produced_evidence_ids=["EV_PROCESS_SIGNAL"],
+            decision_summary=prior_record.decision_summary,
+        )
+        prior_decision = PlannerDecision(
+            decision_id="PRIOR_FDC_DECISION",
+            goal_id=mechanism.goal_id,
+            decision_type=DecisionType.ACT.value,
+            reason="The first FDC Action filled process_anomaly.",
+            goal_status=GoalStatus.IN_PROGRESS.value,
+            proposed_conclusion_level=ConclusionLevel.SIGNAL.value,
+            next_action=prior_record.action,
+            target_question_ids=[mechanism.question_id],
+        )
+        process_link = QuestionEvidenceLink(
+            question_id=mechanism.question_id,
+            evidence_id="EV_PROCESS_SIGNAL",
+            action_id=prior_record.action.action_id,
+            relation=QuestionEvidenceRelation.SUPPORTS.value,
+            matched_evidence_group="process_anomaly",
+            reason="The first FDC observation filled process_anomaly.",
+        )
+
+        def repeat_fdc_for_both_questions(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(
+                model_act_payload(
+                    request,
+                    kind=ActionKind.INSPECT_FDC_SPC.value,
+                    agent=AgentKind.FDC.value,
+                )
+            )
+            payload["next_action"]["scope"]["parameter"] = "PRESSURE"
+            payload["target_question_ids"] = [
+                spc_question.question_id,
+                mechanism.question_id,
+            ]
+
+        client = RecordingNextActionClient(repeat_fdc_for_both_questions)
+        with self.assertRaises(QwenNextActionPlannerError) as caught:
+            QwenNextActionPlanner(client).decide(
+                goal=goal(),
+                questions=[mechanism, spc_question],
+                findings=[finding(AgentKind.MES.value)],
+                action_records=[prior_record],
+                tool_call_count=1,
+                evidence_ids=["EV_PROCESS_SIGNAL"],
+                question_evidence_links=[process_link],
+                prior_decisions=[prior_decision],
+            )
+
+        self.assertEqual(len(client.requests), 2)
+        self.assertTrue(
+            all(
+                "no_expected_evidence_gain" in error
+                and mechanism.question_id in error
+                for error in caught.exception.validation_errors
+            )
+        )
+        self.assertTrue(
+            all(
+                request.payload["previous_validation_error"] is None
+                if index == 0
+                else "no_expected_evidence_gain"
+                in str(request.payload["previous_validation_error"])
+                for index, request in enumerate(client.requests)
+            )
+        )
 
     def test_product_defect_inspection_requires_mes_selected_lots(self) -> None:
         product_goal = InvestigationGoal(
@@ -627,7 +726,13 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             request: LLMRequest,
         ) -> None:
             payload.clear()
-            payload.update(model_act_payload(request))
+            payload.update(
+                model_act_payload(
+                    request,
+                    kind=ActionKind.INSPECT_DEFECT_PATTERN.value,
+                    agent=AgentKind.DEFECT_WAT.value,
+                )
+            )
             payload["target_question_ids"] = ["Q_DEFECT"]
             payload["question_updates"] = [
                 {

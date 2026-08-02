@@ -60,6 +60,7 @@ from yield_rca_core.models import (
 )
 from yield_rca_core.question_capability import (
     QUESTION_CAPABILITY_REGISTRY,
+    QuestionCapabilityError,
     action_scope_matches_question,
     capability_for_question,
     validate_action_for_questions,
@@ -186,6 +187,30 @@ def _assert_source_lot_boundary(
                 raise InvestigationValidationError(
                     f"{label}.{key} cannot replace source Lot {source_lot_id}"
                 )
+
+
+def _missing_groups_for_questions(
+    questions: list[InvestigationQuestion],
+    links: list[QuestionEvidenceLink],
+) -> dict[str, frozenset[str]]:
+    """Project the current unsatisfied closure groups from Python-owned links."""
+
+    satisfied_groups: dict[str, set[str]] = {
+        question.question_id: set() for question in questions
+    }
+    for link in links:
+        if (
+            link.question_id in satisfied_groups
+            and link.relation == QuestionEvidenceRelation.SUPPORTS.value
+        ):
+            satisfied_groups[link.question_id].add(link.matched_evidence_group)
+    return {
+        question.question_id: frozenset(
+            set(capability_for_question(question).closure_evidence_groups)
+            - satisfied_groups[question.question_id]
+        )
+        for question in questions
+    }
 
 
 def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
@@ -690,16 +715,22 @@ class QwenNextActionPlanner:
         ):
             scope = dict(action.scope or goal.known_facts or {"goal_id": goal.goal_id})
             bounded_action = replace(action, scope=scope)
-            target = next(
-                (
-                    question
-                    for question in open_questions
-                    if action.kind
-                    in capability_for_question(question).allowed_actions
-                    and capability_for_question(question).supported
-                ),
-                None,
+            missing_evidence_groups = _missing_groups_for_questions(
+                open_questions,
+                question_evidence_links,
             )
+            target = None
+            for question in open_questions:
+                try:
+                    validate_action_for_questions(
+                        bounded_action,
+                        [question],
+                        missing_evidence_groups=missing_evidence_groups,
+                    )
+                except QuestionCapabilityError:
+                    continue
+                target = question
+                break
             if target is None:
                 return PlannerDecision(
                     decision_id=decision_id,
@@ -1126,9 +1157,17 @@ class QwenNextActionPlanner:
             for question_id in candidate.target_question_ids
             if question_id in resulting_questions
         ]
+        missing_evidence_groups = _missing_groups_for_questions(
+            targeted_questions,
+            question_evidence_links,
+        )
         # This is deliberately atomic: one incompatible target rejects the
         # complete Decision instead of silently dropping that target.
-        validate_action_for_questions(action, targeted_questions)
+        validate_action_for_questions(
+            action,
+            targeted_questions,
+            missing_evidence_groups=missing_evidence_groups,
+        )
         self._validate_no_gain_boundary(
             action=action,
             target_questions=targeted_questions,
