@@ -6,6 +6,7 @@
 - Model provider: DashScope
 - Model: `qwen-plus`
 - Current implementation stage: Batch 20.9.8 QuestionUpdate Review Reliability, stage 4 complete
+- Proposed semantic successor: [Question-Action-Evidence Semantic Gating](question-action-evidence-gating-spec.md)
 
 ## Goal
 
