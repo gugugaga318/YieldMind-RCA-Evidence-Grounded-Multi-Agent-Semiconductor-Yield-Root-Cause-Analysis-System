@@ -6,16 +6,24 @@ dispatch Tools, inspect evidence, infer a root cause, or enable llm_react.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
+from typing import Any
 
 from yield_rca_core.investigation_models import (
     MAX_CROSS_DOMAIN_ACTIONS,
     IntentPlan,
+    IntentPlannerReasonCode,
+    IntentPlanOutcome,
     InvestigationGoal,
     InvestigationIntent,
     InvestigationQuestion,
     InvestigationValidationError,
     OrchestrationMode,
+    PlannerAttemptDiagnostic,
+    PlannerAttemptOutcome,
+    PlannerAttemptStage,
+    PlannerFailureCategory,
     QuestionKind,
 )
 from yield_rca_core.llm_gateway import LLMClient, LLMOutputValidationError, LLMRequest
@@ -60,6 +68,16 @@ _REQUIRED_EVIDENCE_BY_INTENT: dict[str, list[str]] = {
         "product_outcome",
     ],
 }
+_SENSITIVE_FIELD_TOKENS = ("api_key", "authorization", "password", "secret", "token")
+
+
+class _IntentCandidateValidationError(InvestigationValidationError):
+    """Internal semantic rejection with a stable audit reason and field path."""
+
+    def __init__(self, reason_code: IntentPlannerReasonCode, field_path: str, message: str) -> None:
+        self.reason_code = reason_code.value
+        self.field_path = field_path
+        super().__init__(message)
 
 
 class QwenIntentPlannerError(LLMOutputValidationError):
@@ -67,13 +85,172 @@ class QwenIntentPlannerError(LLMOutputValidationError):
 
     fallback_mode = OrchestrationMode.CONTROLLED_REACT.value
 
-    def __init__(self, validation_errors: list[str]) -> None:
+    def __init__(
+        self,
+        validation_errors: list[str],
+        attempt_diagnostics: list[PlannerAttemptDiagnostic] | None = None,
+    ) -> None:
         self.attempts = len(validation_errors)
         self.validation_errors = tuple(validation_errors)
+        self.attempt_diagnostics = tuple(attempt_diagnostics or ())
         super().__init__(
             "Qwen Intent Planner returned invalid output twice; "
             f"fallback to {self.fallback_mode} is required"
         )
+
+
+def _safe_message(error: Exception) -> str:
+    """Bound validation feedback and redact common credential representations."""
+
+    message = str(error).replace("\r", " ").replace("\n", " ").strip()
+    message = message or type(error).__name__
+    message = re.sub(
+        r"(?i)\b(bearer)\s+[a-z0-9._~+/=-]+",
+        r"\1 [REDACTED]",
+        message,
+    )
+    message = re.sub(
+        r"(?i)\b(api[_ -]?key|authorization|password|secret)\b\s*[:=]\s*[^\s,;]+",
+        r"\1=[REDACTED]",
+        message,
+    )
+    message = re.sub(
+        r"(?i)\b(api[_ -]?key|authorization|password|secret|access[_ -]?token)\b",
+        "[SENSITIVE_FIELD]",
+        message,
+    )
+    return message[:500]
+
+
+def _safe_field_names(value: object) -> list[str]:
+    if not isinstance(value, dict):
+        return []
+    names: list[str] = []
+    for key in value:
+        if not isinstance(key, str) or not key.strip():
+            continue
+        normalized = key.casefold().replace("-", "_").replace(" ", "_")
+        if any(token in normalized for token in _SENSITIVE_FIELD_TOKENS):
+            continue
+        names.append(key[:100])
+    return sorted(names)[:30]
+
+
+def _candidate_summary(candidate: object) -> dict[str, Any]:
+    """Summarize shape only; never retain the raw response or fact values."""
+
+    if not isinstance(candidate, dict):
+        return {
+            "response_type": type(candidate).__name__,
+            "response_is_object": False,
+        }
+    summary: dict[str, Any] = {
+        "response_type": "object",
+        "response_is_object": True,
+        "top_level_fields": _safe_field_names(candidate),
+    }
+    goal = candidate.get("goal")
+    if isinstance(goal, dict):
+        summary["goal_fields"] = _safe_field_names(goal)
+        intent = goal.get("intent")
+        if isinstance(intent, str) and intent in {item.value for item in InvestigationIntent}:
+            summary["intent"] = intent
+        summary["known_fact_keys"] = _safe_field_names(goal.get("known_facts"))
+    questions = candidate.get("questions")
+    if isinstance(questions, list):
+        summary["question_count"] = len(questions)
+        allowed_kinds = {item.value for item in QuestionKind}
+        question_kinds = {
+            question.get("question_kind")
+            for question in questions
+            if isinstance(question, dict)
+            and question.get("question_kind") in allowed_kinds
+        }
+        summary["question_kinds"] = sorted(question_kinds)
+    return summary
+
+
+def _baseline_diff(candidate: object, baseline: IntentPlan) -> dict[str, Any]:
+    """Return bounded structural differences without retaining candidate values."""
+
+    if not isinstance(candidate, dict):
+        return {"candidate_object_missing": True}
+    goal = candidate.get("goal")
+    if not isinstance(goal, dict):
+        return {"goal_object_missing": True}
+    baseline_goal = baseline.goal.to_dict()
+    baseline_facts = baseline_goal["known_facts"]
+    candidate_facts = goal.get("known_facts")
+    diff: dict[str, Any] = {
+        "goal_id_changed": goal.get("goal_id") != baseline_goal["goal_id"],
+        "intent_changed": goal.get("intent") != baseline_goal["intent"],
+        "budget_fields_changed": sorted(
+            field_name
+            for field_name in ("max_steps", "max_tool_calls")
+            if goal.get(field_name) != baseline_goal[field_name]
+        ),
+    }
+    if isinstance(candidate_facts, dict):
+        diff["known_fact_keys_removed"] = sorted(
+            key for key in baseline_facts if key not in candidate_facts
+        )
+        diff["known_fact_keys_changed"] = sorted(
+            key
+            for key, value in baseline_facts.items()
+            if key in candidate_facts and candidate_facts[key] != value
+        )
+        diff["known_fact_keys_added"] = [
+            key for key in _safe_field_names(candidate_facts) if key not in baseline_facts
+        ]
+    else:
+        diff["known_facts_object_missing"] = True
+    questions = candidate.get("questions")
+    if isinstance(questions, list):
+        diff["question_count_delta"] = len(questions) - len(baseline.questions)
+    return diff
+
+
+def _contract_failure(error: Exception) -> tuple[str, str]:
+    message = str(error).casefold()
+    if "intent is invalid" in message:
+        return IntentPlannerReasonCode.INTENT_INVALID.value, "$.goal.intent"
+    if "question_kind is invalid" in message or "unsupported_question_kind" in message:
+        return IntentPlannerReasonCode.UNSUPPORTED_QUESTION_KIND.value, "$.questions"
+    if "known_facts" in message:
+        return IntentPlannerReasonCode.MALFORMED_OUTPUT.value, "$.goal.known_facts"
+    if "goal" in message and "question" not in message:
+        return IntentPlannerReasonCode.MALFORMED_OUTPUT.value, "$.goal"
+    if "question" in message:
+        return IntentPlannerReasonCode.MALFORMED_OUTPUT.value, "$.questions"
+    return IntentPlannerReasonCode.MALFORMED_OUTPUT.value, "$"
+
+
+def _failure_details(error: Exception) -> tuple[str, str, str | None]:
+    if isinstance(error, _IntentCandidateValidationError):
+        return (
+            PlannerFailureCategory.SEMANTIC_VALIDATION_ERROR.value,
+            error.reason_code,
+            error.field_path,
+        )
+    if isinstance(error, LLMOutputValidationError):
+        return (
+            PlannerFailureCategory.OUTPUT_PARSE_ERROR.value,
+            IntentPlannerReasonCode.MALFORMED_OUTPUT.value,
+            "$",
+        )
+    reason_code, field_path = _contract_failure(error)
+    return (
+        PlannerFailureCategory.CONTRACT_VALIDATION_ERROR.value,
+        reason_code,
+        field_path,
+    )
+
+
+def _provider_request_id(response: object) -> str | None:
+    request_id = getattr(response, "provider_request_id", None)
+    if not isinstance(request_id, str) or not request_id.strip():
+        return None
+    return request_id.strip()[:100]
 
 
 def _normalize_query(user_query: str) -> str:
@@ -224,6 +401,18 @@ class QwenIntentPlanner:
         *,
         lot_id: str | None = None,
     ) -> IntentPlan:
+        """Compatibility interface returning only the accepted IntentPlan."""
+
+        return self.plan_with_diagnostics(user_query, lot_id=lot_id).plan
+
+    def plan_with_diagnostics(
+        self,
+        user_query: str,
+        *,
+        lot_id: str | None = None,
+    ) -> IntentPlanOutcome:
+        """Return the accepted plan plus an immutable audit for every attempt."""
+
         query = _normalize_query(user_query)
         if lot_id is not None and not isinstance(lot_id, str):
             raise ModelValidationError("lot_id must be a string or null")
@@ -235,6 +424,7 @@ class QwenIntentPlanner:
         if protected_lot_id is None and baseline.goal.known_facts.get("lot_id"):
             protected_lot_id = str(baseline.goal.known_facts["lot_id"])
         validation_errors: list[str] = []
+        attempt_diagnostics: list[PlannerAttemptDiagnostic] = []
 
         for attempt in range(1, _OUTPUT_ATTEMPTS + 1):
             request = LLMRequest(
@@ -256,6 +446,7 @@ class QwenIntentPlanner:
                 },
                 temperature=0.0,
             )
+            response = None
             try:
                 response = self.llm_client.complete_json(request)
                 candidate = IntentPlan.from_dict(response.data)
@@ -294,9 +485,26 @@ class QwenIntentPlanner:
                         )
                 # Capability notices are Python-owned and cannot be omitted or
                 # rewritten by Qwen's structured response.
-                return replace(
+                accepted_plan = replace(
                     candidate,
                     capability_notices=list(baseline.capability_notices),
+                )
+                attempt_diagnostics.append(
+                    PlannerAttemptDiagnostic(
+                        stage=PlannerAttemptStage.INTENT_PLANNING.value,
+                        attempt=attempt,
+                        prompt_name=request.prompt_name,
+                        prompt_version=request.prompt_version,
+                        outcome=PlannerAttemptOutcome.SUCCESS.value,
+                        repair_feedback_sent=False,
+                        candidate_summary=_candidate_summary(response.data),
+                        baseline_diff=_baseline_diff(response.data, baseline),
+                        provider_request_id=_provider_request_id(response),
+                    )
+                )
+                return IntentPlanOutcome(
+                    plan=accepted_plan,
+                    attempt_diagnostics=attempt_diagnostics,
                 )
             except (
                 InvestigationValidationError,
@@ -304,10 +512,29 @@ class QwenIntentPlanner:
                 KeyError,
                 TypeError,
             ) as exc:
-                message = str(exc).strip() or type(exc).__name__
+                message = _safe_message(exc)
                 validation_errors.append(message)
+                failure_category, reason_code, field_path = _failure_details(exc)
+                response_data = response.data if response is not None else None
+                attempt_diagnostics.append(
+                    PlannerAttemptDiagnostic(
+                        stage=PlannerAttemptStage.INTENT_PLANNING.value,
+                        attempt=attempt,
+                        prompt_name=request.prompt_name,
+                        prompt_version=request.prompt_version,
+                        outcome=PlannerAttemptOutcome.FAILURE.value,
+                        failure_category=failure_category,
+                        reason_code=reason_code,
+                        field_path=field_path,
+                        message=message,
+                        repair_feedback_sent=attempt < _OUTPUT_ATTEMPTS,
+                        candidate_summary=_candidate_summary(response_data),
+                        baseline_diff=_baseline_diff(response_data, baseline),
+                        provider_request_id=_provider_request_id(response),
+                    )
+                )
 
-        raise QwenIntentPlannerError(validation_errors)
+        raise QwenIntentPlannerError(validation_errors, attempt_diagnostics)
 
     def _baseline_plan(self, query: str, *, lot_id: str | None) -> IntentPlan:
         base_goal = self.fallback_planner.plan_investigation_goal(query, lot_id=lot_id)
@@ -388,45 +615,85 @@ class QwenIntentPlanner:
         explicit_lot_id: str | None,
     ) -> None:
         if candidate.goal.goal_id != baseline.goal.goal_id:
-            raise InvestigationValidationError("Qwen changed the requested goal_id")
+            raise _IntentCandidateValidationError(
+                IntentPlannerReasonCode.GOAL_ID_CHANGED,
+                "$.goal.goal_id",
+                "Qwen changed the requested goal_id",
+            )
         if candidate.goal.max_steps != baseline.goal.max_steps:
-            raise InvestigationValidationError("Qwen changed the fixed max_steps budget")
+            raise _IntentCandidateValidationError(
+                IntentPlannerReasonCode.BUDGET_CHANGED,
+                "$.goal.max_steps",
+                "Qwen changed the fixed max_steps budget",
+            )
         if candidate.goal.max_tool_calls != baseline.goal.max_tool_calls:
-            raise InvestigationValidationError("Qwen changed the fixed max_tool_calls budget")
+            raise _IntentCandidateValidationError(
+                IntentPlannerReasonCode.BUDGET_CHANGED,
+                "$.goal.max_tool_calls",
+                "Qwen changed the fixed max_tool_calls budget",
+            )
         for key, expected_value in baseline.goal.known_facts.items():
-            if candidate.goal.known_facts.get(key) != expected_value:
-                raise InvestigationValidationError(
-                    f"Qwen changed or removed explicit known fact: {key}"
+            if key not in candidate.goal.known_facts:
+                reason_code = (
+                    IntentPlannerReasonCode.SOURCE_LOT_SCOPE_MISMATCH
+                    if key == "lot_id"
+                    else IntentPlannerReasonCode.KNOWN_FACT_REMOVED
+                )
+                raise _IntentCandidateValidationError(
+                    reason_code,
+                    f"$.goal.known_facts.{key}",
+                    f"Qwen changed or removed explicit known fact: {key}",
+                )
+            if candidate.goal.known_facts[key] != expected_value:
+                reason_code = (
+                    IntentPlannerReasonCode.SOURCE_LOT_SCOPE_MISMATCH
+                    if key == "lot_id"
+                    else IntentPlannerReasonCode.KNOWN_FACT_CHANGED
+                )
+                raise _IntentCandidateValidationError(
+                    reason_code,
+                    f"$.goal.known_facts.{key}",
+                    f"Qwen changed or removed explicit known fact: {key}",
                 )
         forbidden_keys = _FORBIDDEN_KNOWN_FACT_KEYS & set(candidate.goal.known_facts)
         if forbidden_keys:
-            raise InvestigationValidationError(
+            raise _IntentCandidateValidationError(
+                IntentPlannerReasonCode.FORBIDDEN_KNOWN_FACT_ADDED,
+                "$.goal.known_facts",
                 "Intent Planner cannot assert conclusions as known facts: "
-                f"{sorted(forbidden_keys)}"
+                f"{sorted(forbidden_keys)}",
             )
         baseline_notice_kinds = {
             notice.capability for notice in baseline.capability_notices
         }
         for question in candidate.questions:
             if question.question_kind == QuestionKind.UNSUPPORTED.value:
-                raise InvestigationValidationError(
-                    "unsupported_question_kind: Qwen created an unrecognized Question kind"
+                raise _IntentCandidateValidationError(
+                    IntentPlannerReasonCode.UNSUPPORTED_QUESTION_KIND,
+                    "$.questions[].question_kind",
+                    "unsupported_question_kind: Qwen created an unrecognized Question kind",
                 )
             if (
                 question.question_kind == QuestionKind.MATERIAL_TRACE.value
                 and QuestionKind.MATERIAL_TRACE.value not in baseline_notice_kinds
             ):
-                raise InvestigationValidationError(
-                    "unsupported_question_kind: material_trace was not requested by the user"
+                raise _IntentCandidateValidationError(
+                    IntentPlannerReasonCode.UNREQUESTED_MATERIAL_TRACE,
+                    "$.questions[].question_kind",
+                    "unsupported_question_kind: material_trace was not requested by the user",
                 )
         if explicit_lot_id is not None:
             if candidate.goal.known_facts.get("lot_id") != explicit_lot_id:
-                raise InvestigationValidationError(
-                    "Qwen changed or removed the explicit lot_id"
+                raise _IntentCandidateValidationError(
+                    IntentPlannerReasonCode.SOURCE_LOT_SCOPE_MISMATCH,
+                    "$.goal.known_facts.lot_id",
+                    "Qwen changed or removed the explicit lot_id",
                 )
-            for question in candidate.questions:
+            for question_index, question in enumerate(candidate.questions):
                 scoped_lot_id = question.scope.get("lot_id")
                 if scoped_lot_id is not None and scoped_lot_id != explicit_lot_id:
-                    raise InvestigationValidationError(
-                        "an initial question cannot expand to another Lot scope"
+                    raise _IntentCandidateValidationError(
+                        IntentPlannerReasonCode.SOURCE_LOT_SCOPE_MISMATCH,
+                        f"$.questions[{question_index}].scope.lot_id",
+                        "an initial question cannot expand to another Lot scope",
                     )

@@ -184,6 +184,35 @@ class DecisionType(StrEnum):
     STOP = "stop"
 
 
+class PlannerAttemptStage(StrEnum):
+    INTENT_PLANNING = "intent_planning"
+
+
+class PlannerAttemptOutcome(StrEnum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+
+
+class PlannerFailureCategory(StrEnum):
+    TRANSPORT_PROVIDER_FAILURE = "transport_provider_failure"
+    OUTPUT_PARSE_ERROR = "output_parse_error"
+    CONTRACT_VALIDATION_ERROR = "contract_validation_error"
+    SEMANTIC_VALIDATION_ERROR = "semantic_validation_error"
+
+
+class IntentPlannerReasonCode(StrEnum):
+    GOAL_ID_CHANGED = "goal_id_changed"
+    INTENT_INVALID = "intent_invalid"
+    BUDGET_CHANGED = "budget_changed"
+    KNOWN_FACT_REMOVED = "known_fact_removed"
+    KNOWN_FACT_CHANGED = "known_fact_changed"
+    FORBIDDEN_KNOWN_FACT_ADDED = "forbidden_known_fact_added"
+    UNSUPPORTED_QUESTION_KIND = "unsupported_question_kind"
+    UNREQUESTED_MATERIAL_TRACE = "unrequested_material_trace"
+    SOURCE_LOT_SCOPE_MISMATCH = "source_lot_scope_mismatch"
+    MALFORMED_OUTPUT = "malformed_output"
+
+
 class QuestionUpdateDisposition(StrEnum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
@@ -795,6 +824,199 @@ class IntentPlan:
             ],
             capability_notices=[
                 CapabilityNotice.from_dict(notice) for notice in raw_notices
+            ],
+        )
+
+
+@dataclass(frozen=True)
+class PlannerAttemptDiagnostic:
+    """Bounded, non-sensitive audit data for one Planner output attempt."""
+
+    stage: str
+    attempt: int
+    prompt_name: str
+    prompt_version: str
+    outcome: str
+    failure_category: str | None = None
+    reason_code: str | None = None
+    field_path: str | None = None
+    message: str | None = None
+    repair_feedback_sent: bool = False
+    candidate_summary: dict[str, Any] = field(default_factory=dict)
+    baseline_diff: dict[str, Any] = field(default_factory=dict)
+    provider_request_id: str | None = None
+
+    def __post_init__(self) -> None:
+        try:
+            PlannerAttemptStage(self.stage)
+        except ValueError as exc:
+            raise InvestigationValidationError("planner diagnostic stage is invalid") from exc
+        if type(self.attempt) is not int or self.attempt < 1:
+            raise InvestigationValidationError(
+                "planner diagnostic attempt must be a positive integer"
+            )
+        _non_empty(self.prompt_name, "prompt_name")
+        _non_empty(self.prompt_version, "prompt_version")
+        try:
+            outcome = PlannerAttemptOutcome(self.outcome)
+        except ValueError as exc:
+            raise InvestigationValidationError(
+                "planner diagnostic outcome is invalid"
+            ) from exc
+        _boolean(self.repair_feedback_sent, "repair_feedback_sent")
+        _json_object(self.candidate_summary, "candidate_summary")
+        _json_object(self.baseline_diff, "baseline_diff")
+        if self.provider_request_id is not None:
+            _non_empty(self.provider_request_id, "provider_request_id")
+        if outcome == PlannerAttemptOutcome.SUCCESS:
+            if any(
+                value is not None
+                for value in (
+                    self.failure_category,
+                    self.reason_code,
+                    self.field_path,
+                    self.message,
+                )
+            ):
+                raise InvestigationValidationError(
+                    "a successful planner diagnostic cannot carry failure details"
+                )
+            if self.repair_feedback_sent:
+                raise InvestigationValidationError(
+                    "a successful planner attempt cannot send repair feedback"
+                )
+            return
+        try:
+            PlannerFailureCategory(self.failure_category or "")
+        except ValueError as exc:
+            raise InvestigationValidationError(
+                "a failed planner diagnostic requires a valid failure_category"
+            ) from exc
+        try:
+            IntentPlannerReasonCode(self.reason_code or "")
+        except ValueError as exc:
+            raise InvestigationValidationError(
+                "a failed planner diagnostic requires a valid reason_code"
+            ) from exc
+        if self.field_path is not None:
+            _non_empty(self.field_path, "field_path")
+        if self.message is None:
+            raise InvestigationValidationError(
+                "a failed planner diagnostic requires a message"
+            )
+        _non_empty(self.message, "message")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "stage": self.stage,
+            "attempt": self.attempt,
+            "prompt_name": self.prompt_name,
+            "prompt_version": self.prompt_version,
+            "outcome": self.outcome,
+            "failure_category": self.failure_category,
+            "reason_code": self.reason_code,
+            "field_path": self.field_path,
+            "message": self.message,
+            "repair_feedback_sent": self.repair_feedback_sent,
+            "candidate_summary": dict(self.candidate_summary),
+            "baseline_diff": dict(self.baseline_diff),
+            "provider_request_id": self.provider_request_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        payload = _strict_object(
+            data,
+            required={
+                "stage",
+                "attempt",
+                "prompt_name",
+                "prompt_version",
+                "outcome",
+                "failure_category",
+                "reason_code",
+                "field_path",
+                "message",
+                "repair_feedback_sent",
+                "candidate_summary",
+                "baseline_diff",
+                "provider_request_id",
+            },
+            optional=set(),
+            name="PlannerAttemptDiagnostic",
+        )
+        return cls(
+            stage=payload["stage"],
+            attempt=payload["attempt"],
+            prompt_name=payload["prompt_name"],
+            prompt_version=payload["prompt_version"],
+            outcome=payload["outcome"],
+            failure_category=payload["failure_category"],
+            reason_code=payload["reason_code"],
+            field_path=payload["field_path"],
+            message=payload["message"],
+            repair_feedback_sent=payload["repair_feedback_sent"],
+            candidate_summary=payload["candidate_summary"],
+            baseline_diff=payload["baseline_diff"],
+            provider_request_id=payload["provider_request_id"],
+        )
+
+
+@dataclass(frozen=True)
+class IntentPlanOutcome:
+    """An accepted IntentPlan and the complete bounded attempt audit."""
+
+    plan: IntentPlan
+    attempt_diagnostics: list[PlannerAttemptDiagnostic]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.plan, IntentPlan):
+            raise InvestigationValidationError("plan must be an IntentPlan")
+        if not isinstance(self.attempt_diagnostics, list) or not self.attempt_diagnostics:
+            raise InvestigationValidationError(
+                "attempt_diagnostics must be a non-empty list"
+            )
+        for expected_attempt, diagnostic in enumerate(self.attempt_diagnostics, start=1):
+            if not isinstance(diagnostic, PlannerAttemptDiagnostic):
+                raise InvestigationValidationError(
+                    "attempt_diagnostics must contain PlannerAttemptDiagnostic instances"
+                )
+            if diagnostic.attempt != expected_attempt:
+                raise InvestigationValidationError(
+                    "attempt_diagnostics must be ordered with contiguous attempt numbers"
+                )
+        if (
+            self.attempt_diagnostics[-1].outcome
+            != PlannerAttemptOutcome.SUCCESS.value
+        ):
+            raise InvestigationValidationError(
+                "an IntentPlanOutcome must end with a successful attempt"
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "plan": self.plan.to_dict(),
+            "attempt_diagnostics": [
+                diagnostic.to_dict() for diagnostic in self.attempt_diagnostics
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        payload = _strict_object(
+            data,
+            required={"plan", "attempt_diagnostics"},
+            optional=set(),
+            name="IntentPlanOutcome",
+        )
+        raw_diagnostics = payload["attempt_diagnostics"]
+        if not isinstance(raw_diagnostics, list):
+            raise InvestigationValidationError("attempt_diagnostics must be a list")
+        return cls(
+            plan=IntentPlan.from_dict(payload["plan"]),
+            attempt_diagnostics=[
+                PlannerAttemptDiagnostic.from_dict(diagnostic)
+                for diagnostic in raw_diagnostics
             ],
         )
 
