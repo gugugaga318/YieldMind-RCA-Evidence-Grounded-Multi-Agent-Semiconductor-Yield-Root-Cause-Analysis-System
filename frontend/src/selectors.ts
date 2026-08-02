@@ -6,12 +6,14 @@ import type {
   AgentTraceNodeViewModel,
   AgentTraceOrigin,
   AgentTraceViewModel,
+  CapabilityNotice,
   CreateRCAJobRequest,
   Evidence,
   EvidenceChainItem,
   FindingKind,
   InvestigationAction,
   InvestigationMode,
+  QuestionEvidenceLink,
   OrchestrationMode,
   PlannerDecision,
   RCAState,
@@ -549,6 +551,9 @@ function parseSpecialistTrace(
 export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
   const integrityIssues: string[] = [];
   const questions = state.investigation_questions ?? [];
+  const capabilityNotices: CapabilityNotice[] = state.capability_notices ?? [];
+  const questionEvidenceLinks: QuestionEvidenceLink[] =
+    state.question_evidence_links ?? [];
   const decisions = state.planner_decisions ?? [];
   const questionUpdateReviews = state.question_update_reviews ?? [];
   const records = state.action_history ?? [];
@@ -944,6 +949,8 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
     runEvaluation,
     goal: state.investigation_goal ?? null,
     questions: [...questionIndex.values.values()],
+    capabilityNotices,
+    questionEvidenceLinks,
     nodes,
     fallbackReason,
     fallbackStage,

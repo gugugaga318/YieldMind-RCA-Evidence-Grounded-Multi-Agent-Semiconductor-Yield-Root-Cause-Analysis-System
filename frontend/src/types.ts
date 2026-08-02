@@ -77,11 +77,33 @@ export interface InvestigationQuestion {
   goal_id: string;
   question: string;
   rationale: string;
+  question_kind?: string;
   scope: Record<string, unknown>;
   status: EvidenceGapStatus;
   answer: string | null;
   evidence_ids: string[];
   unavailable_reason: string | null;
+  satisfied_evidence_groups?: string[];
+  missing_evidence_groups?: string[];
+  compatible_action_kinds?: string[];
+  evidence_links?: QuestionEvidenceLink[];
+}
+
+export interface CapabilityNotice {
+  capability: string;
+  supported: boolean;
+  reason: string;
+  available_alternatives: string[];
+  request_source: "user" | "qwen" | "system";
+}
+
+export interface QuestionEvidenceLink {
+  question_id: string;
+  evidence_id: string;
+  action_id: string;
+  relation: "supports" | "contradicts" | "context" | "unavailable";
+  matched_evidence_group: string;
+  reason: string;
 }
 
 export interface QuestionUpdate {
@@ -103,7 +125,11 @@ export type QuestionUpdateReasonCode =
   | "new_question_conflict"
   | "terminal_question"
   | "target_overlap"
-  | "unknown_evidence";
+  | "unknown_evidence"
+  | "evidence_not_applicable"
+  | "insufficient_evidence_coverage"
+  | "unsupported_capability"
+  | "missing_unavailability_evidence";
 
 export interface QuestionUpdateReview {
   decision_id: string;
@@ -288,6 +314,7 @@ export interface RCAState {
   report: RCAReport | null;
   llm_usage: LLMUsageEvent[];
   execution_metadata: ExecutionMetadata;
+  capability_notices?: CapabilityNotice[];
   investigation_goal?: {
     goal_id: string;
     intent: string;
@@ -298,6 +325,7 @@ export interface RCAState {
     max_tool_calls: number;
   } | null;
   investigation_questions?: InvestigationQuestion[];
+  question_evidence_links?: QuestionEvidenceLink[];
   action_history?: ActionRecord[];
   planner_decisions?: PlannerDecision[];
   question_update_reviews?: QuestionUpdateReview[];
@@ -385,6 +413,8 @@ export interface AgentTraceViewModel {
   runEvaluation: RunEvaluation | null;
   goal: RCAState["investigation_goal"];
   questions: InvestigationQuestion[];
+  capabilityNotices: CapabilityNotice[];
+  questionEvidenceLinks: QuestionEvidenceLink[];
   nodes: AgentTraceNodeViewModel[];
   fallbackReason: string | null;
   fallbackStage: "intent_planning" | "next_action_planning" | null;

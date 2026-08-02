@@ -14,6 +14,7 @@ from fastapi import FastAPI, HTTPException, Request, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from yield_rca_core.llm_gateway import LLMCallError, LLMOutputValidationError
 from yield_rca_core.models import RCAJob, RCAState, TaskStatus
+from yield_rca_core.question_capability import QUESTION_CAPABILITY_REGISTRY
 from yield_rca_core.supervisor import SupervisorExecutionError
 from yield_rca_core.workflow import (
     PurePythonRCAWorkflow,
@@ -58,6 +59,55 @@ from yield_rca_api.store import (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SEED_DIR = PROJECT_ROOT / "data" / "seeds" / "golden_case"
 LOGGER = logging.getLogger("yield_rca_api")
+
+
+def _state_api_payload(state: RCAState) -> dict[str, object]:
+    """Project derived Question semantics into the public API response.
+
+    The registry and links remain Python-owned facts.  The API merely groups
+    them for product consumers; clients cannot submit these fields back to the
+    Planner or mutate them through this projection.
+    """
+
+    payload = state.to_dict()
+    raw_links = payload.get("question_evidence_links", [])
+    links = [item for item in raw_links if isinstance(item, dict)]
+    links_by_question: dict[str, list[dict[str, object]]] = {}
+    for link in links:
+        question_id = link.get("question_id")
+        if isinstance(question_id, str):
+            links_by_question.setdefault(question_id, []).append(link)
+
+    raw_questions = payload.get("investigation_questions", [])
+    if isinstance(raw_questions, list):
+        for question in raw_questions:
+            if not isinstance(question, dict):
+                continue
+            question_id = question.get("question_id")
+            kind = question.get("question_kind")
+            definition = (
+                QUESTION_CAPABILITY_REGISTRY.get(kind)
+                if isinstance(kind, str)
+                else None
+            )
+            question_links = links_by_question.get(question_id, [])
+            satisfied = {
+                str(link["matched_evidence_group"])
+                for link in question_links
+                if link.get("relation") != "unavailable"
+                and isinstance(link.get("matched_evidence_group"), str)
+                and definition is not None
+                and str(link["matched_evidence_group"])
+                in definition.closure_evidence_groups
+            }
+            required = set(definition.closure_evidence_groups) if definition else set()
+            question["satisfied_evidence_groups"] = sorted(satisfied)
+            question["missing_evidence_groups"] = sorted(required - satisfied)
+            question["compatible_action_kinds"] = sorted(
+                definition.allowed_actions if definition is not None else ()
+            )
+            question["evidence_links"] = question_links
+    return payload
 
 
 def _find_nested_error(
@@ -602,7 +652,7 @@ def create_app(
         return RCAJobResponse(
             job_id=job_id,
             status=state.job.status,
-            state=RCAJobStateResponse.model_validate(state.to_dict()),
+            state=RCAJobStateResponse.model_validate(_state_api_payload(state)),
         )
 
     @application.get("/rca/jobs/{job_id}/report", response_model=RCAReportResponse)

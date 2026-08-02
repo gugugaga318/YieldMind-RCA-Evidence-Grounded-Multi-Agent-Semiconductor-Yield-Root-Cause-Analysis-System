@@ -1,14 +1,15 @@
-# Batch 20.9.7 Autonomous Qwen ReAct Final Evaluation
+# Batch 21.2 Product Surface + Semantic Evaluation
 
 Deterministic acceptance: **PASS**
 
-The deterministic result requires both the Fake-Qwen autonomous lane and the fixed-workflow compatibility baseline. The optional real-Qwen smoke is reported separately and is not converted into a pass.
+The deterministic result requires the Fake-Qwen autonomous lane, the controlled compatibility path, and the fixed-workflow baseline. The optional real-Qwen smoke is reported separately and is not converted into a pass.
 
 ## Verification lanes
 
 | Lane | Status | Result |
 | --- | --- | --- |
 | Autonomous Fake | PASS | 10/10 scenarios |
+| Controlled ReAct | PASS | Scratch + Cu CMP compatibility path |
 | Fixed workflow | PASS | 10/10 scenarios |
 | Real Qwen smoke | SKIPPED | DASHSCOPE_API_KEY and RUN_REAL_QWEN_TEST=1 are not configured. |
 
@@ -23,6 +24,14 @@ The deterministic result requires both the Fake-Qwen autonomous lane and the fix
 | Stop correct (positive autonomous runs) | 6/6 | 100.0% |
 
 Evidence gain is descriptive rather than a target of 100%: RCA reasoning correctly adds analysis without inventing new Evidence, so it records `evidence_gain=false` and `redundant=false`.
+
+## Semantic negative cases
+
+The semantic lane is a required acceptance boundary, not a sixth public metric.
+
+| Scenario | Status | Link count | Review result |
+| --- | --- | ---: | --- |
+| SEMANTIC_MATERIAL_TRACE_NEGATIVE | PASS | 0 | `unsupported_capability` |
 
 ## Autonomous scenarios
 

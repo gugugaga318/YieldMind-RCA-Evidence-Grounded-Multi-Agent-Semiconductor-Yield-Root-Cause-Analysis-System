@@ -1254,6 +1254,29 @@
       "scenario_pass_count": 10,
       "status": "PASS"
     },
+    "controlled_react": {
+      "action_chain": [
+        "inspect_defect_pattern",
+        "find_shared_exposure",
+        "validate_shared_defect_pattern",
+        "inspect_fdc_spc",
+        "run_rca_reasoning"
+      ],
+      "checks": {
+        "exact_scratch_chain": true,
+        "goal_satisfied": true,
+        "job_completed": true,
+        "not_attributed_to_qwen": true,
+        "semantic_links_are_additive": true,
+        "supported_conclusion": true,
+        "terminal_stop": true
+      },
+      "conclusion_level": "supported",
+      "goal_status": "satisfied",
+      "passed": true,
+      "status": "PASS",
+      "stop_reason": "goal_satisfied"
+    },
     "fixed_workflow": {
       "acceptance": {
         "confidence_calibration_ece": true,
@@ -1356,6 +1379,30 @@
     }
   },
   "passed": true,
-  "schema_version": "1.0",
-  "suite": "batch_20_9_7_autonomous_qwen_react"
+  "schema_version": "1.1",
+  "semantic_evaluation": {
+    "scenario_count": 1,
+    "scenario_pass_count": 1,
+    "scenarios": [
+      {
+        "checks": {
+          "conclusion_not_supported": true,
+          "fabricated_close_is_rejected": true,
+          "fdc_evidence_has_no_material_link": true,
+          "unsupported_notice_is_typed": true
+        },
+        "evidence_ids": [
+          "EV_SEMANTIC_FDC_ONLY"
+        ],
+        "link_count": 0,
+        "passed": true,
+        "question_kind": "material_trace",
+        "review_reason_code": "unsupported_capability",
+        "scenario_id": "SEMANTIC_MATERIAL_TRACE_NEGATIVE",
+        "title": "FDC Evidence cannot close an unsupported material-trace Question"
+      }
+    ],
+    "status": "PASS"
+  },
+  "suite": "batch_21_2_product_surface_semantic_evaluation"
 }

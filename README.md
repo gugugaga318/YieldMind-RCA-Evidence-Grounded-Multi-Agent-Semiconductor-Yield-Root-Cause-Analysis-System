@@ -451,18 +451,19 @@ The Dashboard displays Agent mode, model, prompt version, token usage, LLM
 latency, and Tool call count. API keys are runtime-only and are never included
 in logs or frontend responses.
 
-### Batch 20.9.7 deterministic final evaluation
+### Batch 21.2 product-surface and semantic final evaluation
 
-Run the repeatable Fake-Qwen autonomous matrix together with the existing
-fixed-workflow compatibility baseline:
+Run the repeatable Fake-Qwen autonomous matrix together with the preserved
+Controlled ReAct path, fixed-workflow compatibility baseline, and semantic
+negative cases:
 
 ```powershell
 & .\.venv\Scripts\python.exe scripts\run_autonomous_qwen_evaluation.py
 ```
 
 The command performs no paid network call. A passing run reports Autonomous
-Fake `10/10`, fixed Workflow `10/10`, and writes stable, secret-free artifacts
-to:
+Fake `10/10`, Controlled ReAct `PASS`, Fixed Workflow `10/10`, and a passing
+material-trace negative case. It writes stable, secret-free artifacts to:
 
 ```text
 outputs/autonomous_qwen_react_evaluation/results.json

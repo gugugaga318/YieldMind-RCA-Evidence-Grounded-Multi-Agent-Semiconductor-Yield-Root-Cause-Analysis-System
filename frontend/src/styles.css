@@ -1114,6 +1114,57 @@ p {
   margin-top: 14px;
 }
 
+.agent-trace-capability-notices {
+  margin-top: 12px;
+  padding: 11px 12px;
+  color: #754f15;
+  background: #fff8e8;
+  border: 1px solid #ead4a8;
+  border-left: 3px solid #bd8123;
+  border-radius: 5px;
+}
+
+.agent-trace-capability-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.agent-trace-capability-heading span,
+.agent-trace-question-groups > div > span,
+.agent-trace-question-compatible-actions > span {
+  display: block;
+  color: #52605a;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.agent-trace-capability-heading strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.agent-trace-capability-notices ul {
+  display: grid;
+  gap: 7px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-trace-capability-notices li {
+  padding-top: 7px;
+  border-top: 1px solid #eadfca;
+}
+
+.agent-trace-capability-notices p {
+  margin: 4px 0 0;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .agent-trace-goal code,
 .agent-trace-question-heading code,
 .agent-trace-node-heading h3,
@@ -1239,6 +1290,69 @@ p {
   text-transform: uppercase;
 }
 
+.agent-trace-question-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.agent-trace-question-compatible-actions {
+  margin-top: 8px;
+}
+
+.agent-trace-question-links-details {
+  margin-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.agent-trace-question-links-details summary {
+  padding: 7px 0 0;
+}
+
+.agent-trace-question-links {
+  display: grid;
+  gap: 6px;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-trace-question-links li {
+  padding: 7px 8px;
+  background: #f7faf8;
+  border: 1px solid var(--line-soft);
+}
+
+.agent-trace-question-links li > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.agent-trace-question-links small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.question-link-relation {
+  color: var(--accent-dark);
+  font-size: 8px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.relation-unavailable,
+.relation-contradicts {
+  color: var(--critical);
+}
+
 .question-status,
 .trace-badge {
   flex: 0 0 auto;
@@ -1350,6 +1464,12 @@ p {
   margin-bottom: 0;
   color: #745a18;
   font-weight: 700;
+}
+
+.agent-trace-question-updates p.agent-trace-question-review-accepted {
+  margin-bottom: 0;
+  color: var(--accent-dark);
+  font-size: 9px;
 }
 
 .agent-trace-question-updates p {

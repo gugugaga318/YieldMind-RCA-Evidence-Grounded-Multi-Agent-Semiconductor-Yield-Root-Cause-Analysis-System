@@ -155,6 +155,13 @@ class InvestigationQuestionResponse(APIModel):
     answer: str | None = None
     evidence_ids: list[str] = Field(default_factory=list)
     unavailable_reason: str | None = None
+    # These are derived, read-only product projections of the Python-owned
+    # capability registry.  They are intentionally not accepted as Planner
+    # input or persisted as mutable Question facts.
+    satisfied_evidence_groups: list[str] = Field(default_factory=list)
+    missing_evidence_groups: list[str] = Field(default_factory=list)
+    compatible_action_kinds: list[str] = Field(default_factory=list)
+    evidence_links: list[QuestionEvidenceLinkResponse] = Field(default_factory=list)
 
 
 class CapabilityNoticeResponse(APIModel):
@@ -165,6 +172,17 @@ class CapabilityNoticeResponse(APIModel):
     reason: str
     available_alternatives: list[str] = Field(default_factory=list)
     request_source: Literal["user", "qwen", "system"] = "user"
+
+
+class QuestionEvidenceLinkResponse(APIModel):
+    """Typed relation connecting a Question to applicable Evidence."""
+
+    question_id: str
+    evidence_id: str
+    action_id: str
+    relation: Literal["supports", "contradicts", "context", "unavailable"]
+    matched_evidence_group: str
+    reason: str
 
 
 class QuestionUpdateResponse(APIModel):
@@ -231,17 +249,6 @@ class QuestionUpdateReviewResponse(APIModel):
     update_index: int | None = None
     question_id: str | None = None
     claimed_status: str | None = None
-
-
-class QuestionEvidenceLinkResponse(APIModel):
-    """Typed relation connecting a Question to applicable Evidence."""
-
-    question_id: str
-    evidence_id: str
-    action_id: str
-    relation: Literal["supports", "contradicts", "context", "unavailable"]
-    matched_evidence_group: str
-    reason: str
 
 
 class DecisionEvaluationResponse(APIModel):

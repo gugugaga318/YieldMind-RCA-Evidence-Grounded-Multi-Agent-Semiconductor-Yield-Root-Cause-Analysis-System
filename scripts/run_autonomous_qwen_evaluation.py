@@ -1,4 +1,4 @@
-"""Run the deterministic Batch 20.9.7 autonomous Qwen ReAct evaluation."""
+"""Run the deterministic Batch 21.2 product-surface evaluation."""
 
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ def run_autonomous_evaluation(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run Batch 20.9.7 autonomous Qwen ReAct final evaluation."
+        description="Run Batch 21.2 product-surface and semantic final evaluation."
     )
     parser.add_argument(
         "--autonomous-seed-dir",
@@ -112,7 +112,7 @@ def main() -> int:
     )
     lanes = evaluation["lanes"]
     print(
-        "Batch 20.9.7 deterministic acceptance: "
+        "Batch 21.2 deterministic acceptance: "
         f"{'PASS' if evaluation['passed'] else 'FAIL'}; "
         f"autonomous_fake={lanes['autonomous_fake']['status']} "
         f"({lanes['autonomous_fake']['scenario_pass_count']}/"

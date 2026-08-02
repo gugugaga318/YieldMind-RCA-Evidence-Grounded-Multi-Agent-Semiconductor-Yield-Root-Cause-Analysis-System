@@ -18,6 +18,8 @@ import type {
   AgentTraceEvaluationStatus,
   AgentTraceNodeViewModel,
   InvestigationQuestion,
+  CapabilityNotice,
+  QuestionEvidenceLink,
   QuestionUpdate,
   QuestionUpdateReview,
   RCAState,
@@ -199,7 +201,73 @@ function ObjectFields({
   );
 }
 
-function QuestionList({ questions }: { questions: InvestigationQuestion[] }) {
+function CapabilityNoticeList({ notices }: { notices: CapabilityNotice[] }) {
+  if (notices.length === 0) return null;
+  return (
+    <section className="agent-trace-capability-notices" aria-label="Capability notices">
+      <div className="agent-trace-capability-heading">
+        <CircleAlert size={16} aria-hidden="true" />
+        <div>
+          <span>Capability boundary</span>
+          <strong>Requested data sources and availability</strong>
+        </div>
+      </div>
+      <ul>
+        {notices.map((notice) => (
+          <li key={`${notice.request_source}:${notice.capability}`}>
+            <div className="agent-trace-question-heading">
+              <code>{formatTraceLabel(notice.capability)}</code>
+              <span
+                className={`question-status question-${notice.supported ? "closed" : "unavailable"}`}
+              >
+                {notice.supported ? "available" : "unsupported"}
+              </span>
+            </div>
+            <p>{notice.reason}</p>
+            {notice.available_alternatives.length > 0 && (
+              <p>
+                <span>Available alternatives</span>{" "}
+                {notice.available_alternatives.map(formatTraceLabel).join(", ")}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function QuestionEvidenceLinks({ links }: { links: QuestionEvidenceLink[] }) {
+  if (links.length === 0) {
+    return <p className="empty-copy">No applicable Evidence links.</p>;
+  }
+  return (
+    <ul className="agent-trace-question-links">
+      {links.map((link) => (
+        <li key={`${link.question_id}:${link.evidence_id}:${link.action_id}:${link.relation}`}>
+          <div>
+            <code>{link.evidence_id}</code>
+            <span className={`question-link-relation relation-${link.relation}`}>
+              {link.relation}
+            </span>
+            <span>{formatTraceLabel(link.matched_evidence_group)}</span>
+          </div>
+          <small>
+            Action <code>{link.action_id}</code> · {link.reason}
+          </small>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function QuestionList({
+  questions,
+  links,
+}: {
+  questions: InvestigationQuestion[];
+  links: QuestionEvidenceLink[];
+}) {
   const counts = {
     open: questions.filter((question) => question.status === "open").length,
     closed: questions.filter((question) => question.status === "closed").length,
@@ -232,6 +300,9 @@ function QuestionList({ questions }: { questions: InvestigationQuestion[] }) {
               <li key={question.question_id}>
                 <div className="agent-trace-question-heading">
                   <code>{question.question_id}</code>
+                  <span className="trace-badge trace-badge-neutral">
+                    {formatTraceLabel(question.question_kind ?? "unsupported")}
+                  </span>
                   <span className={`question-status question-${question.status}`}>
                     {question.status}
                   </span>
@@ -254,6 +325,38 @@ function QuestionList({ questions }: { questions: InvestigationQuestion[] }) {
                   values={question.evidence_ids}
                   emptyText="No supporting Evidence"
                 />
+                <div className="agent-trace-question-groups">
+                  <div>
+                    <span>Satisfied Evidence groups</span>
+                    <ChipList
+                      values={question.satisfied_evidence_groups ?? []}
+                      emptyText="None"
+                    />
+                  </div>
+                  <div>
+                    <span>Missing Evidence groups</span>
+                    <ChipList
+                      values={question.missing_evidence_groups ?? []}
+                      emptyText="None"
+                    />
+                  </div>
+                </div>
+                <details className="agent-trace-question-links-details">
+                  <summary>
+                    Question–Evidence links (
+                    {links.filter((link) => link.question_id === question.question_id).length}
+                    )
+                  </summary>
+                  <QuestionEvidenceLinks
+                    links={links.filter((link) => link.question_id === question.question_id)}
+                  />
+                </details>
+                {(question.compatible_action_kinds?.length ?? 0) > 0 && (
+                  <div className="agent-trace-question-compatible-actions">
+                    <span>Compatible Actions</span>
+                    <ChipList values={question.compatible_action_kinds ?? []} />
+                  </div>
+                )}
               </li>
             ))}
           </ol>
@@ -274,6 +377,9 @@ function QuestionUpdateList({
 }) {
   const rejectedReviews = reviews.filter(
     (review) => review.disposition === "rejected",
+  );
+  const acceptedReviews = reviews.filter(
+    (review) => review.disposition === "accepted",
   );
   if (updates.length === 0 && rejectedReviews.length === 0) return null;
   return (
@@ -297,6 +403,13 @@ function QuestionUpdateList({
               values={update.evidence_ids}
               emptyText="No supporting Evidence"
             />
+            {acceptedReviews
+              .filter((review) => review.question_id === update.question_id)
+              .map((review) => (
+                <p className="agent-trace-question-review-accepted" key={`accepted-review:${review.update_index}`}>
+                  Review accepted: <code>{review.reason_code}</code> — {review.reason}
+                </p>
+              ))}
           </li>
         ))}
         {rejectedReviews.map((review, index) => (
@@ -930,7 +1043,11 @@ export function AgentDecisionTrace({ state }: AgentDecisionTraceProps) {
       )}
 
       <GoalSummary trace={trace} />
-      <QuestionList questions={trace.questions} />
+      <CapabilityNoticeList notices={trace.capabilityNotices} />
+      <QuestionList
+        questions={trace.questions}
+        links={trace.questionEvidenceLinks}
+      />
       <IntegrityIssues issues={trace.integrityIssues} label="Agent trace integrity issue" />
 
       {trace.nodes.length > 0 ? (

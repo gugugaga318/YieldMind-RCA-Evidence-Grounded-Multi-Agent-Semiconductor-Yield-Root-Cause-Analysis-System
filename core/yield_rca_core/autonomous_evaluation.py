@@ -17,13 +17,26 @@ from dataclasses import dataclass
 from typing import Any
 
 from yield_rca_core.evaluation import EvaluationScenario, evaluate_scenarios
+from yield_rca_core.evidence_builder import EvidenceBuilder
+from yield_rca_core.evidence_models import (
+    EntityType,
+    EvidenceEntity,
+    EvidenceSourceType,
+    EvidenceType,
+)
 from yield_rca_core.investigation_models import (
+    ActionKind,
+    ActionRecord,
     ConclusionLevel,
     DecisionType,
     EvidenceGapStatus,
     GoalStatus,
+    InvestigationAction,
     InvestigationIntent,
+    InvestigationQuestion,
     OrchestrationMode,
+    PlannerDecision,
+    QuestionKind,
     StopReason,
 )
 from yield_rca_core.llm_gateway import (
@@ -39,7 +52,11 @@ from yield_rca_core.models import (
     InvestigationMode,
     RCAState,
     TaskStatus,
+    ToolInput,
 )
+from yield_rca_core.question_capability import capability_notice_for
+from yield_rca_core.question_evidence import QuestionEvidenceResolver
+from yield_rca_core.question_update_review import review_question_updates
 from yield_rca_core.repositories import FabRepository
 from yield_rca_core.workflow import PurePythonRCAWorkflow, build_workflow
 
@@ -746,6 +763,106 @@ def _evaluate_intent_fallback(repository: FabRepository) -> dict[str, Any]:
     }
 
 
+def _evaluate_semantic_negative_case() -> dict[str, Any]:
+    """Prove unrelated FDC Evidence cannot close an unsupported material gap."""
+
+    question = InvestigationQuestion(
+        question_id="GOAL_MATERIAL:q:material_trace",
+        goal_id="GOAL_MATERIAL",
+        question="Which material batch is linked to the source Lot?",
+        rationale="The user explicitly requested material genealogy.",
+        question_kind=QuestionKind.MATERIAL_TRACE.value,
+        scope={"lot_id": "LOT_A_001"},
+    )
+    action = InvestigationAction(
+        action_id="ACT_FDC_MATERIAL_NEGATIVE",
+        kind=ActionKind.INSPECT_FDC_SPC.value,
+        agent=AgentKind.FDC.value,
+        reason="Attempted only as a negative semantic-gating fixture.",
+        inputs={"lot_id": "LOT_A_001"},
+        scope={"lot_id": "LOT_A_001"},
+    )
+    item = EvidenceBuilder.from_tool(
+        tool_input=ToolInput(
+            tool_name="perform_basic_spc_analysis",
+            request_id="semantic-negative:fdc",
+            parameters={"lot_id": "LOT_A_001"},
+            requested_by=AgentKind.FDC.value,
+        ),
+        evidence_id="EV_SEMANTIC_FDC_ONLY",
+        evidence_type=EvidenceType.PARAMETER_DEVIATION,
+        source_type=EvidenceSourceType.FDC,
+        source_id="fdc:LOT_A_001",
+        observation="Cu CMP thickness parameter deviation is observed.",
+        entities=[EvidenceEntity(entity_type=EntityType.LOT.value, entity_id="LOT_A_001")],
+        confidence=0.9,
+    )
+    record = ActionRecord(
+        action=action,
+        status="completed",
+        produced_finding_ids=["FINDING_SEMANTIC_NEGATIVE"],
+        produced_evidence_ids=[item.evidence_id],
+        decision_summary="FDC Evidence exists but does not identify material genealogy.",
+    )
+    links = QuestionEvidenceResolver().resolve(
+        questions=[question],
+        action_record=record,
+        evidence=[item],
+    )
+    notice = capability_notice_for(QuestionKind.MATERIAL_TRACE)
+    decision = PlannerDecision(
+        decision_id="DECISION_SEMANTIC_NEGATIVE",
+        goal_id=question.goal_id,
+        decision_type=DecisionType.STOP.value,
+        reason="The requested material source is not configured.",
+        goal_status=GoalStatus.BLOCKED.value,
+        proposed_conclusion_level=ConclusionLevel.CANDIDATE.value,
+        stop_reason=StopReason.DATA_UNAVAILABLE.value,
+    )
+    review = review_question_updates(
+        decision,
+        [
+            {
+                "question_id": question.question_id,
+                "status": EvidenceGapStatus.CLOSED.value,
+                "answer": "The FDC deviation proves the material batch.",
+                "evidence_ids": [item.evidence_id],
+                "unavailable_reason": None,
+            }
+        ],
+        questions=[question],
+        available_evidence_ids={item.evidence_id},
+        question_evidence_links=links,
+        capability_notices=[notice],
+    )
+    checks = {
+        "fdc_evidence_has_no_material_link": links == [],
+        "unsupported_notice_is_typed": (
+            notice.capability == QuestionKind.MATERIAL_TRACE.value
+            and not notice.supported
+            and notice.request_source == "user"
+        ),
+        "fabricated_close_is_rejected": (
+            review.decision.question_updates == []
+            and len(review.question_update_reviews) == 1
+            and review.question_update_reviews[0].reason_code
+            == "unsupported_capability"
+        ),
+        "conclusion_not_supported": decision.proposed_conclusion_level
+        != ConclusionLevel.SUPPORTED.value,
+    }
+    return {
+        "scenario_id": "SEMANTIC_MATERIAL_TRACE_NEGATIVE",
+        "title": "FDC Evidence cannot close an unsupported material-trace Question",
+        "passed": all(checks.values()),
+        "checks": checks,
+        "question_kind": question.question_kind,
+        "evidence_ids": [item.evidence_id],
+        "link_count": len(links),
+        "review_reason_code": review.question_update_reviews[0].reason_code,
+    }
+
+
 def _metric_summary(
     autonomous_states: list[tuple[_AutonomousScenario, RCAState]],
 ) -> dict[str, Any]:
@@ -852,6 +969,42 @@ def _fixed_baseline_summary(evaluation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _controlled_compatibility_summary(repository: FabRepository) -> dict[str, Any]:
+    """Run the preserved deterministic controlled-ReAct compatibility path."""
+
+    state = build_workflow(
+        repository,
+        llm_settings=LLMSettings(agent_mode="deterministic"),
+        orchestration_mode=OrchestrationMode.CONTROLLED_REACT.value,
+    ).run(
+        LOT_ROOT_QUERY,
+        job_id="JOB_BATCH_21_2_CONTROLLED_COMPATIBILITY",
+        lot_id="LOT_A_001",
+    )
+    action_chain = [record.action.kind for record in state.action_history]
+    expected_chain = list(_ROOT_CHAIN)
+    checks = {
+        "job_completed": state.job.status == TaskStatus.COMPLETED.value,
+        "exact_scratch_chain": action_chain == expected_chain,
+        "supported_conclusion": state.conclusion_level == ConclusionLevel.SUPPORTED.value,
+        "goal_satisfied": state.goal_status == GoalStatus.SATISFIED.value,
+        "terminal_stop": state.stop_reason == StopReason.GOAL_SATISFIED.value,
+        "not_attributed_to_qwen": state.run_evaluation is None,
+        # Semantic links are additive for compatibility mode; the historical
+        # controlled path is allowed to omit the autonomous link projection.
+        "semantic_links_are_additive": state.question_evidence_links == [],
+    }
+    return {
+        "status": "PASS" if all(checks.values()) else "FAIL",
+        "passed": all(checks.values()),
+        "checks": checks,
+        "action_chain": action_chain,
+        "conclusion_level": state.conclusion_level,
+        "goal_status": state.goal_status,
+        "stop_reason": state.stop_reason,
+    }
+
+
 def evaluate_autonomous_qwen_react(
     autonomous_repository: FabRepository,
     *,
@@ -914,10 +1067,17 @@ def evaluate_autonomous_qwen_react(
 
     fixed_evaluation = evaluate_scenarios(fixed_repository, fixed_scenarios)
     fixed_summary = _fixed_baseline_summary(fixed_evaluation)
-    deterministic_passed = fake_passed and fixed_summary["passed"]
+    controlled_summary = _controlled_compatibility_summary(autonomous_repository)
+    semantic_negative = _evaluate_semantic_negative_case()
+    deterministic_passed = (
+        fake_passed
+        and controlled_summary["passed"]
+        and fixed_summary["passed"]
+        and semantic_negative["passed"]
+    )
     return {
-        "schema_version": "1.0",
-        "suite": "batch_20_9_7_autonomous_qwen_react",
+        "schema_version": "1.1",
+        "suite": "batch_21_2_product_surface_semantic_evaluation",
         "passed": deterministic_passed,
         "lanes": {
             "autonomous_fake": {
@@ -929,6 +1089,7 @@ def evaluate_autonomous_qwen_react(
                 ),
             },
             "fixed_workflow": fixed_summary,
+            "controlled_react": controlled_summary,
             "real_qwen_smoke": {
                 "status": real_qwen_status,
                 "required_for_deterministic_acceptance": False,
@@ -937,6 +1098,12 @@ def evaluate_autonomous_qwen_react(
         },
         "metrics": _metric_summary(autonomous_states),
         "acceptance": cross_scenario_checks,
+        "semantic_evaluation": {
+            "status": "PASS" if semantic_negative["passed"] else "FAIL",
+            "scenario_count": 1,
+            "scenario_pass_count": 1 if semantic_negative["passed"] else 0,
+            "scenarios": [semantic_negative],
+        },
         "autonomous_scenarios": autonomous_results,
         "fallback_scenarios": fallback_results,
     }
@@ -948,12 +1115,12 @@ def render_autonomous_qwen_report(evaluation: dict[str, Any]) -> str:
     lanes = evaluation["lanes"]
     metrics = evaluation["metrics"]
     lines = [
-        "# Batch 20.9.7 Autonomous Qwen ReAct Final Evaluation",
+        "# Batch 21.2 Product Surface + Semantic Evaluation",
         "",
         f"Deterministic acceptance: **{'PASS' if evaluation['passed'] else 'FAIL'}**",
         "",
-        "The deterministic result requires both the Fake-Qwen autonomous lane "
-        "and the fixed-workflow compatibility baseline. The optional real-Qwen "
+        "The deterministic result requires the Fake-Qwen autonomous lane, the "
+        "controlled compatibility path, and the fixed-workflow baseline. The optional real-Qwen "
         "smoke is reported separately and is not converted into a pass.",
         "",
         "## Verification lanes",
@@ -965,6 +1132,11 @@ def render_autonomous_qwen_report(evaluation: dict[str, Any]) -> str:
             f"{lanes['autonomous_fake']['status']} | "
             f"{lanes['autonomous_fake']['scenario_pass_count']}/"
             f"{lanes['autonomous_fake']['scenario_count']} scenarios |"
+        ),
+        (
+            "| Controlled ReAct | "
+            f"{lanes['controlled_react']['status']} | "
+            f"{'Scratch + Cu CMP compatibility path'} |"
         ),
         (
             "| Fixed workflow | "
@@ -1017,11 +1189,28 @@ def render_autonomous_qwen_report(evaluation: dict[str, Any]) -> str:
         "correctly adds analysis without inventing new Evidence, so it records "
         "`evidence_gain=false` and `redundant=false`.",
         "",
+        "## Semantic negative cases",
+        "",
+        "The semantic lane is a required acceptance boundary, not a sixth public metric.",
+        "",
+        "| Scenario | Status | Link count | Review result |",
+        "| --- | --- | ---: | --- |",
+    ]
+    for semantic in evaluation.get("semantic_evaluation", {}).get("scenarios", []):
+        lines.append(
+            f"| {semantic['scenario_id']} | "
+            f"{'PASS' if semantic['passed'] else 'FAIL'} | "
+            f"{semantic['link_count']} | `{semantic['review_reason_code']}` |"
+        )
+    lines.extend(
+        [
+            "",
         "## Autonomous scenarios",
         "",
         "| Scenario | Status | Intent | Action chain | Conclusion | Goal / Stop |",
         "| --- | --- | --- | --- | --- | --- |",
-    ]
+        ]
+    )
     for result in evaluation["autonomous_scenarios"]:
         chain = " -> ".join(result["action_chain"]) or "(no action)"
         lines.append(
