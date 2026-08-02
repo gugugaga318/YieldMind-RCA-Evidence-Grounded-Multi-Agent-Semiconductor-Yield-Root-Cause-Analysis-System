@@ -20,10 +20,12 @@ from yield_rca_core.investigation_models import (
     MAX_INITIAL_QUESTIONS,
     ActionKind,
     ActionRecord,
+    CapabilityNotice,
     ConclusionLevel,
     DecisionType,
     EvidenceGapStatus,
     GoalStatus,
+    InvestigationAction,
     InvestigationGoal,
     InvestigationIntent,
     InvestigationQuestion,
@@ -31,6 +33,8 @@ from yield_rca_core.investigation_models import (
     OrchestrationMode,
     PlannerDecision,
     PlannerDecisionOutcome,
+    QuestionEvidenceLink,
+    QuestionEvidenceRelation,
     QuestionUpdate,
     QuestionUpdateDisposition,
     QuestionUpdateReasonCode,
@@ -56,6 +60,7 @@ from yield_rca_core.models import (
 )
 from yield_rca_core.question_capability import (
     QUESTION_CAPABILITY_REGISTRY,
+    action_scope_matches_question,
     capability_for_question,
     validate_action_for_questions,
 )
@@ -259,6 +264,13 @@ def _validate_reviewed_stop_boundary(
             f"{open_question_ids}"
         )
     if decision.stop_reason == StopReason.DATA_UNAVAILABLE.value:
+        # A blocked stop may preserve open Questions when every model-supplied
+        # unavailable claim was rejected by the evidence gate. This keeps the
+        # stop auditable without converting an unsupported claim into terminal
+        # Question state; the run evaluator will mark stop_correct=False until
+        # typed DATA_MISSING Evidence or a capability notice is present.
+        if outcome.raw_question_update_count > 0 and not decision.question_updates:
+            return
         raise InvestigationValidationError(
             "a data_unavailable stop must terminally mark every unavailable "
             f"investigation question: {open_question_ids}"
@@ -310,6 +322,8 @@ class QwenNextActionPlanner:
         tool_call_count: int,
         evidence: list[Evidence] | None = None,
         evidence_ids: list[str] | None = None,
+        question_evidence_links: list[QuestionEvidenceLink] | None = None,
+        capability_notices: list[CapabilityNotice] | None = None,
         hypotheses: list[Hypothesis] | None = None,
         prior_decisions: list[PlannerDecision] | None = None,
         critical_contradictions: list[str] | None = None,
@@ -324,6 +338,8 @@ class QwenNextActionPlanner:
             tool_call_count=tool_call_count,
             evidence=evidence,
             evidence_ids=evidence_ids,
+            question_evidence_links=question_evidence_links,
+            capability_notices=capability_notices,
             hypotheses=hypotheses,
             prior_decisions=prior_decisions,
             critical_contradictions=critical_contradictions,
@@ -340,6 +356,8 @@ class QwenNextActionPlanner:
         tool_call_count: int,
         evidence: list[Evidence] | None = None,
         evidence_ids: list[str] | None = None,
+        question_evidence_links: list[QuestionEvidenceLink] | None = None,
+        capability_notices: list[CapabilityNotice] | None = None,
         hypotheses: list[Hypothesis] | None = None,
         prior_decisions: list[PlannerDecision] | None = None,
         critical_contradictions: list[str] | None = None,
@@ -354,6 +372,8 @@ class QwenNextActionPlanner:
             tool_call_count=tool_call_count,
             evidence=evidence,
             evidence_ids=evidence_ids,
+            question_evidence_links=question_evidence_links,
+            capability_notices=capability_notices,
             hypotheses=hypotheses,
             prior_decisions=prior_decisions,
             critical_contradictions=critical_contradictions,
@@ -370,6 +390,8 @@ class QwenNextActionPlanner:
         tool_call_count: int,
         evidence: list[Evidence] | None,
         evidence_ids: list[str] | None,
+        question_evidence_links: list[QuestionEvidenceLink] | None,
+        capability_notices: list[CapabilityNotice] | None,
         hypotheses: list[Hypothesis] | None,
         prior_decisions: list[PlannerDecision] | None,
         critical_contradictions: list[str] | None,
@@ -380,6 +402,9 @@ class QwenNextActionPlanner:
         normalized_evidence = list(evidence or [])
         explicit_evidence_ids = list(evidence_ids or [])
         normalized_hypotheses = list(hypotheses or [])
+        links_provided = question_evidence_links is not None
+        normalized_question_evidence_links = list(question_evidence_links or [])
+        normalized_capability_notices = list(capability_notices or [])
         normalized_prior_decisions = list(prior_decisions or [])
         contradictions = list(critical_contradictions or [])
         self._validate_runtime_inputs(
@@ -393,6 +418,8 @@ class QwenNextActionPlanner:
             hypotheses=normalized_hypotheses,
             prior_decisions=normalized_prior_decisions,
             critical_contradictions=contradictions,
+            question_evidence_links=normalized_question_evidence_links,
+            capability_notices=normalized_capability_notices,
         )
         available_evidence_ids = self._available_evidence_ids(
             evidence=normalized_evidence,
@@ -428,6 +455,7 @@ class QwenNextActionPlanner:
                         open_questions=open_questions,
                         findings=findings,
                         available_evidence_ids=available_evidence_ids,
+                        question_evidence_links=normalized_question_evidence_links,
                     ),
                 )
             )
@@ -438,6 +466,7 @@ class QwenNextActionPlanner:
             action_records=action_records,
             tool_call_count=tool_call_count,
             available_evidence_ids=available_evidence_ids,
+            question_evidence_links=normalized_question_evidence_links,
             prior_decisions=normalized_prior_decisions,
             critical_contradictions=contradictions,
         )
@@ -447,6 +476,21 @@ class QwenNextActionPlanner:
             if question.status == EvidenceGapStatus.OPEN.value
         ]
         advertised_actions = self._advertised_actions(open_questions)
+        question_context = self._question_context(
+            questions=open_questions,
+            links=normalized_question_evidence_links,
+            action_records=action_records,
+        )
+        relevant_evidence_ids = {
+            evidence_id
+            for packet in question_context
+            for evidence_id in (
+                packet["linked_evidence"]["supports"]
+                + packet["linked_evidence"]["contradicts"]
+                + packet["linked_evidence"]["context"]
+                + packet["linked_evidence"]["unavailable"]
+            )
+        }
         validation_errors: list[str] = []
         validation_error_categories: list[str] = []
         call_retry_count = 0
@@ -462,7 +506,13 @@ class QwenNextActionPlanner:
                     "questions": [question.to_dict() for question in questions],
                     "findings": [_compact_finding(finding) for finding in findings],
                     "evidence": [
-                        _compact_evidence(item) for item in normalized_evidence
+                        _compact_evidence(item)
+                        for item in normalized_evidence
+                        if item.evidence_id in relevant_evidence_ids
+                    ],
+                    "question_context": question_context,
+                    "capability_notices": [
+                        notice.to_dict() for notice in normalized_capability_notices
                     ],
                     "available_evidence_ids": sorted(available_evidence_ids),
                     "hypotheses": [
@@ -544,6 +594,16 @@ class QwenNextActionPlanner:
                         response.data,
                         questions=questions,
                         available_evidence_ids=available_evidence_ids,
+                        question_evidence_links=(
+                            normalized_question_evidence_links
+                            if links_provided
+                            else None
+                        ),
+                        capability_notices=(
+                            normalized_capability_notices
+                            if capability_notices is not None
+                            else None
+                        ),
                     )
                     if review_question_updates
                     else _strict_outcome(
@@ -562,6 +622,7 @@ class QwenNextActionPlanner:
                     action_records=action_records,
                     tool_call_count=tool_call_count,
                     available_evidence_ids=available_evidence_ids,
+                    question_evidence_links=normalized_question_evidence_links,
                     prior_decisions=normalized_prior_decisions,
                 )
                 if review_question_updates:
@@ -601,6 +662,7 @@ class QwenNextActionPlanner:
         action_records: list[ActionRecord],
         tool_call_count: int,
         available_evidence_ids: set[str],
+        question_evidence_links: list[QuestionEvidenceLink],
         prior_decisions: list[PlannerDecision],
         critical_contradictions: list[str],
     ) -> PlannerDecision:
@@ -654,6 +716,7 @@ class QwenNextActionPlanner:
                         open_questions=open_questions,
                         findings=findings,
                         available_evidence_ids=available_evidence_ids,
+                        question_evidence_links=question_evidence_links,
                     ),
                 )
             return PlannerDecision(
@@ -683,6 +746,7 @@ class QwenNextActionPlanner:
             open_questions=open_questions,
             findings=findings,
             available_evidence_ids=available_evidence_ids,
+            question_evidence_links=question_evidence_links,
         )
         return PlannerDecision(
             decision_id=decision_id,
@@ -704,7 +768,83 @@ class QwenNextActionPlanner:
         open_questions: list[InvestigationQuestion],
         findings: list[AgentFinding],
         available_evidence_ids: set[str],
+        question_evidence_links: list[QuestionEvidenceLink] | None = None,
     ) -> list[QuestionUpdate]:
+        if question_evidence_links is not None:
+            updates: list[QuestionUpdate] = []
+            for question in open_questions:
+                question_links = [
+                    link
+                    for link in question_evidence_links
+                    if link.question_id == question.question_id
+                ]
+                applicable_links = [
+                    link
+                    for link in question_links
+                    if link.relation
+                    in {
+                        QuestionEvidenceRelation.SUPPORTS.value,
+                        QuestionEvidenceRelation.CONTRADICTS.value,
+                        QuestionEvidenceRelation.CONTEXT.value,
+                    }
+                ]
+                capability = QUESTION_CAPABILITY_REGISTRY.get(
+                    question.question_kind
+                )
+                satisfied_groups = {
+                    link.matched_evidence_group
+                    for link in applicable_links
+                    if link.relation == QuestionEvidenceRelation.SUPPORTS.value
+                }
+                required_groups = (
+                    set(capability.closure_evidence_groups)
+                    if capability is not None
+                    else set()
+                )
+                if required_groups <= satisfied_groups and applicable_links:
+                    evidence_ids = sorted(
+                        {link.evidence_id for link in applicable_links}
+                    )
+                    answer = " ".join(
+                        finding.summary.strip()
+                        for finding in findings
+                        if finding.summary.strip()
+                    ) or (
+                        "The applicable Evidence supports this Question: "
+                        + ", ".join(evidence_ids)
+                    )
+                    updates.append(
+                        QuestionUpdate(
+                            question_id=question.question_id,
+                            status=EvidenceGapStatus.CLOSED.value,
+                            answer=answer,
+                            evidence_ids=evidence_ids,
+                            unavailable_reason=None,
+                        )
+                    )
+                else:
+                    unavailable = next(
+                        (
+                            link
+                            for link in question_links
+                            if link.relation
+                            == QuestionEvidenceRelation.UNAVAILABLE.value
+                        ),
+                        None,
+                    )
+                    if unavailable is not None:
+                        updates.append(
+                            QuestionUpdate(
+                                question_id=question.question_id,
+                                status=EvidenceGapStatus.UNAVAILABLE.value,
+                                answer=None,
+                                evidence_ids=[unavailable.evidence_id],
+                                unavailable_reason=(
+                                    "The required Evidence source is unavailable."
+                                ),
+                            )
+                        )
+            return updates
         if available_evidence_ids:
             answer = " ".join(
                 finding.summary.strip()
@@ -790,6 +930,8 @@ class QwenNextActionPlanner:
         hypotheses: list[Hypothesis],
         prior_decisions: list[PlannerDecision],
         critical_contradictions: list[str],
+        question_evidence_links: list[QuestionEvidenceLink],
+        capability_notices: list[CapabilityNotice],
     ) -> None:
         if not isinstance(goal, InvestigationGoal):
             raise ModelValidationError("goal must be an InvestigationGoal")
@@ -842,6 +984,19 @@ class QwenNextActionPlanner:
             critical_contradictions,
             "critical_contradictions",
         )
+        if not isinstance(question_evidence_links, list) or any(
+            not isinstance(link, QuestionEvidenceLink)
+            for link in question_evidence_links
+        ):
+            raise ModelValidationError(
+                "question_evidence_links must contain QuestionEvidenceLink instances"
+            )
+        if not isinstance(capability_notices, list) or any(
+            not isinstance(notice, CapabilityNotice) for notice in capability_notices
+        ):
+            raise ModelValidationError(
+                "capability_notices must contain CapabilityNotice instances"
+            )
 
     def _validate_candidate(
         self,
@@ -853,6 +1008,7 @@ class QwenNextActionPlanner:
         action_records: list[ActionRecord],
         tool_call_count: int,
         available_evidence_ids: set[str],
+        question_evidence_links: list[QuestionEvidenceLink],
         prior_decisions: list[PlannerDecision],
     ) -> None:
         if candidate.goal_id != goal.goal_id:
@@ -973,6 +1129,13 @@ class QwenNextActionPlanner:
         # This is deliberately atomic: one incompatible target rejects the
         # complete Decision instead of silently dropping that target.
         validate_action_for_questions(action, targeted_questions)
+        self._validate_no_gain_boundary(
+            action=action,
+            target_questions=targeted_questions,
+            action_records=action_records,
+            prior_decisions=prior_decisions,
+            links=question_evidence_links,
+        )
         definition = self.registry.get(action.kind)
         if definition is None:
             raise InvestigationValidationError(
@@ -1071,6 +1234,126 @@ class QwenNextActionPlanner:
                     if action_kind in self.registry
                 )
         return frozenset(advertised)
+
+    @staticmethod
+    def _question_context(
+        *,
+        questions: list[InvestigationQuestion],
+        links: list[QuestionEvidenceLink],
+        action_records: list[ActionRecord],
+    ) -> list[dict[str, Any]]:
+        """Build a bounded per-Question projection for Qwen."""
+
+        packets: list[dict[str, Any]] = []
+        for question in questions:
+            capability = QUESTION_CAPABILITY_REGISTRY[question.question_kind]
+            question_links = [
+                link for link in links if link.question_id == question.question_id
+            ]
+            linked_evidence = {
+                relation.value: sorted(
+                    {
+                        link.evidence_id
+                        for link in question_links
+                        if link.relation == relation.value
+                    }
+                )
+                for relation in QuestionEvidenceRelation
+            }
+            satisfied_groups = sorted(
+                {
+                    link.matched_evidence_group
+                    for link in question_links
+                    if link.relation == QuestionEvidenceRelation.SUPPORTS.value
+                }
+            )
+            missing_groups = sorted(
+                set(capability.closure_evidence_groups) - set(satisfied_groups)
+            )
+            attempted = [
+                {
+                    "action_id": record.action.action_id,
+                    "kind": record.action.kind,
+                    "scope": dict(record.action.scope),
+                    "status": record.status,
+                    "relevant_gain": any(
+                        link.action_id == record.action.action_id
+                        and link.question_id == question.question_id
+                        and link.relation
+                        in {
+                            QuestionEvidenceRelation.SUPPORTS.value,
+                            QuestionEvidenceRelation.CONTRADICTS.value,
+                        }
+                        for link in links
+                    ),
+                }
+                for record in action_records
+                if record.action.kind in capability.allowed_actions
+                and action_scope_matches_question(record.action, question)
+            ]
+            packets.append(
+                {
+                    "question_id": question.question_id,
+                    "question_kind": question.question_kind,
+                    "scope": dict(question.scope),
+                    "linked_evidence": linked_evidence,
+                    "satisfied_evidence_groups": satisfied_groups,
+                    "missing_evidence_groups": missing_groups,
+                    "compatible_actions": sorted(
+                        capability.allowed_actions
+                    ),
+                    "prior_attempted_actions": attempted,
+                }
+            )
+        return packets
+
+    @staticmethod
+    def _validate_no_gain_boundary(
+        *,
+        action: InvestigationAction,
+        target_questions: list[InvestigationQuestion],
+        action_records: list[ActionRecord],
+        prior_decisions: list[PlannerDecision],
+        links: list[QuestionEvidenceLink],
+    ) -> None:
+        if not target_questions or not action_records or not prior_decisions:
+            return
+        decisions_by_action_id = {
+            decision.next_action.action_id: decision
+            for decision in prior_decisions
+            if decision.decision_type == DecisionType.ACT.value
+            and decision.next_action is not None
+        }
+        gained_action_question_pairs = {
+            (link.action_id, link.question_id)
+            for link in links
+            if link.relation in {relation.value for relation in QuestionEvidenceRelation}
+        }
+        for question in target_questions:
+            prior_same_direction = [
+                record
+                for record in action_records
+                if record.status == "completed"
+                and record.action.kind == action.kind
+                and record.action.deduplication_key != action.deduplication_key
+                and record.action.action_id in decisions_by_action_id
+                and question.question_id
+                in decisions_by_action_id[record.action.action_id].target_question_ids
+                and action_scope_matches_question(record.action, question)
+            ]
+            if not prior_same_direction:
+                continue
+            latest = prior_same_direction[-1]
+            if (
+                latest.action.action_id,
+                question.question_id,
+            ) in gained_action_question_pairs:
+                continue
+            raise InvestigationValidationError(
+                "no_expected_evidence_gain: the same Question, Action family, "
+                "and compatible scope produced no relevant Evidence gain on the "
+                "previous attempt; Qwen must switch direction or stop"
+            )
 
 
 __all__ = [

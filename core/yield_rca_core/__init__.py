@@ -28,6 +28,8 @@ from yield_rca_core.investigation_models import (
     InvestigationValidationError,
     PlannerDecision,
     PlannerDecisionOutcome,
+    QuestionEvidenceLink,
+    QuestionEvidenceRelation,
     QuestionKind,
     QuestionUpdate,
     QuestionUpdateDisposition,
@@ -100,6 +102,11 @@ from yield_rca_core.question_capability import (
     compatible_actions_for_question,
     requested_capability_notices,
     validate_action_for_questions,
+)
+from yield_rca_core.question_evidence import (
+    QuestionEvidenceResolver,
+    evidence_scope_matches_question,
+    resolve_question_evidence_links,
 )
 from yield_rca_core.question_update_review import (
     review_question_updates,
@@ -216,6 +223,9 @@ __all__ = [
     "QuestionUpdateDisposition",
     "QuestionUpdateReasonCode",
     "QuestionUpdateReview",
+    "QuestionEvidenceLink",
+    "QuestionEvidenceRelation",
+    "QuestionEvidenceResolver",
     "QuestionKind",
     "QUESTION_CAPABILITY_REGISTRY",
     "QuestionCapabilityDefinition",
@@ -226,6 +236,8 @@ __all__ = [
     "compatible_actions_for_question",
     "requested_capability_notices",
     "validate_action_for_questions",
+    "evidence_scope_matches_question",
+    "resolve_question_evidence_links",
     "PerformBasicSpcAnalysisTool",
     "PostgresFabRepository",
     "PurePythonRCAWorkflow",

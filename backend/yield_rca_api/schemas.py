@@ -222,11 +222,26 @@ class QuestionUpdateReviewResponse(APIModel):
         "terminal_question",
         "target_overlap",
         "unknown_evidence",
+        "evidence_not_applicable",
+        "insufficient_evidence_coverage",
+        "unsupported_capability",
+        "missing_unavailability_evidence",
     ]
     reason: str
     update_index: int | None = None
     question_id: str | None = None
     claimed_status: str | None = None
+
+
+class QuestionEvidenceLinkResponse(APIModel):
+    """Typed relation connecting a Question to applicable Evidence."""
+
+    question_id: str
+    evidence_id: str
+    action_id: str
+    relation: Literal["supports", "contradicts", "context", "unavailable"]
+    matched_evidence_group: str
+    reason: str
 
 
 class DecisionEvaluationResponse(APIModel):
@@ -336,6 +351,9 @@ class RCAJobStateResponse(APIModel):
     investigation_goal: dict[str, Any] | None = None
     capability_notices: list[CapabilityNoticeResponse] = Field(default_factory=list)
     investigation_questions: list[InvestigationQuestionResponse] = Field(
+        default_factory=list
+    )
+    question_evidence_links: list[QuestionEvidenceLinkResponse] = Field(
         default_factory=list
     )
     action_history: list[dict[str, Any]] = Field(default_factory=list)

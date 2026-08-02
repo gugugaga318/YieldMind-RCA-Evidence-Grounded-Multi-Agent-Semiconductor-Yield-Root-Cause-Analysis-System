@@ -201,6 +201,17 @@ class QuestionUpdateReasonCode(StrEnum):
     TERMINAL_QUESTION = "terminal_question"
     TARGET_OVERLAP = "target_overlap"
     UNKNOWN_EVIDENCE = "unknown_evidence"
+    EVIDENCE_NOT_APPLICABLE = "evidence_not_applicable"
+    INSUFFICIENT_EVIDENCE_COVERAGE = "insufficient_evidence_coverage"
+    UNSUPPORTED_CAPABILITY = "unsupported_capability"
+    MISSING_UNAVAILABILITY_EVIDENCE = "missing_unavailability_evidence"
+
+
+class QuestionEvidenceRelation(StrEnum):
+    SUPPORTS = "supports"
+    CONTRADICTS = "contradicts"
+    CONTEXT = "context"
+    UNAVAILABLE = "unavailable"
 
 
 MAX_CROSS_DOMAIN_ACTIONS = 8
@@ -428,6 +439,63 @@ class ActionRecord:
             "produced_evidence_ids": list(self.produced_evidence_ids),
             "decision_summary": self.decision_summary,
         }
+
+
+@dataclass(frozen=True)
+class QuestionEvidenceLink:
+    """Deterministic relation between one Question and immutable Evidence."""
+
+    question_id: str
+    evidence_id: str
+    action_id: str
+    relation: str
+    matched_evidence_group: str
+    reason: str
+
+    def __post_init__(self) -> None:
+        _non_empty(self.question_id, "question_id")
+        _non_empty(self.evidence_id, "evidence_id")
+        _non_empty(self.action_id, "action_id")
+        try:
+            QuestionEvidenceRelation(self.relation)
+        except ValueError as exc:
+            raise InvestigationValidationError("evidence link relation is invalid") from exc
+        _non_empty(self.matched_evidence_group, "matched_evidence_group")
+        _non_empty(self.reason, "reason")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "question_id": self.question_id,
+            "evidence_id": self.evidence_id,
+            "action_id": self.action_id,
+            "relation": self.relation,
+            "matched_evidence_group": self.matched_evidence_group,
+            "reason": self.reason,
+        }
+
+    @classmethod
+    def from_dict(cls, data: object) -> Self:
+        payload = _strict_object(
+            data,
+            required={
+                "question_id",
+                "evidence_id",
+                "action_id",
+                "relation",
+                "matched_evidence_group",
+                "reason",
+            },
+            optional=set(),
+            name="QuestionEvidenceLink",
+        )
+        return cls(
+            question_id=payload["question_id"],
+            evidence_id=payload["evidence_id"],
+            action_id=payload["action_id"],
+            relation=payload["relation"],
+            matched_evidence_group=payload["matched_evidence_group"],
+            reason=payload["reason"],
+        )
 
 
 @dataclass(frozen=True)
@@ -1119,9 +1187,9 @@ class DecisionEvaluation:
         _boolean(self.redundant, "redundant")
         _non_empty(self.reason, "reason")
         _string_list(self.new_evidence_ids, "new_evidence_ids")
-        if self.evidence_gain != bool(self.new_evidence_ids):
+        if self.evidence_gain and not self.new_evidence_ids:
             raise InvestigationValidationError(
-                "evidence_gain must match whether new_evidence_ids are present"
+                "evidence_gain requires at least one new_evidence_id"
             )
         if self.evidence_gain and self.redundant:
             raise InvestigationValidationError(

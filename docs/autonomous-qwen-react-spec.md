@@ -5,7 +5,7 @@
 - Target branch: `feature/autonomous-qwen-react`
 - Model provider: DashScope
 - Model: `qwen-plus`
-- Current implementation stage: Batch 20.9.8 QuestionUpdate Review Reliability, stage 4 complete
+- Current implementation stage: Batch 21.1 Question-Evidence Gate + Bounded Replanning, complete
 - Proposed semantic successor: [Question-Action-Evidence Semantic Gating](question-action-evidence-gating-spec.md)
 
 ## Goal
@@ -193,7 +193,9 @@ Per decision:
 
 - `decision_valid`: the decision passed contract, registry, scope, and runtime
   checks.
-- `evidence_gain`: the executed action added new Evidence IDs.
+- `evidence_gain`: in a typed `llm_react` trace, the executed collecting Action
+  added a new applicable `QuestionEvidenceLink` for its target Question. Legacy
+  snapshots without links retain the original new-Evidence-ID interpretation.
 - `redundant`: the decision repeated an already covered action/scope or added
   no new investigative value because that scope was already covered.
 

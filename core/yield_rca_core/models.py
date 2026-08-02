@@ -42,6 +42,7 @@ from yield_rca_core.investigation_models import (
     InvestigationGoal,
     InvestigationQuestion,
     PlannerDecision,
+    QuestionEvidenceLink,
     QuestionUpdateDisposition,
     QuestionUpdateReview,
     RunEvaluation,
@@ -827,6 +828,7 @@ class RCAState:
     investigation_goal: InvestigationGoal | None = None
     capability_notices: list[CapabilityNotice] = field(default_factory=list)
     investigation_questions: list[InvestigationQuestion] = field(default_factory=list)
+    question_evidence_links: list[QuestionEvidenceLink] = field(default_factory=list)
     action_history: list[ActionRecord] = field(default_factory=list)
     planner_decisions: list[PlannerDecision] = field(default_factory=list)
     question_update_reviews: list[QuestionUpdateReview] = field(default_factory=list)
@@ -876,6 +878,13 @@ class RCAState:
                 raise ModelValidationError(
                     "investigation_questions must contain InvestigationQuestion instances"
                 )
+        if not isinstance(self.question_evidence_links, list) or any(
+            not isinstance(link, QuestionEvidenceLink)
+            for link in self.question_evidence_links
+        ):
+            raise ModelValidationError(
+                "question_evidence_links must contain QuestionEvidenceLink instances"
+            )
         for record in self.action_history:
             if not isinstance(record, ActionRecord):
                 raise ModelValidationError("action_history must contain ActionRecord instances")
@@ -1076,6 +1085,7 @@ class RCAState:
             self.investigation_goal is None
             and (
                 self.investigation_questions
+                or self.question_evidence_links
                 or self.planner_decisions
                 or self.question_update_reviews
                 or self.run_evaluation is not None
@@ -1100,6 +1110,33 @@ class RCAState:
             )
 
         known_question_ids = set(question_ids)
+        known_action_ids = {
+            record.action.action_id for record in self.action_history
+        }
+        known_evidence_ids = set(self.evidence_by_id)
+        seen_links: set[tuple[str, str, str, str]] = set()
+        for link in self.question_evidence_links:
+            if link.question_id not in known_question_ids:
+                raise ModelValidationError(
+                    "QuestionEvidenceLink references an unknown Question: "
+                    f"{link.question_id!r}"
+                )
+            if link.evidence_id not in known_evidence_ids:
+                raise ModelValidationError(
+                    "QuestionEvidenceLink references unknown Evidence: "
+                    f"{link.evidence_id!r}"
+                )
+            if link.action_id not in known_action_ids:
+                raise ModelValidationError(
+                    "QuestionEvidenceLink references an unknown ActionRecord: "
+                    f"{link.action_id!r}"
+                )
+            key = (link.question_id, link.evidence_id, link.action_id, link.relation)
+            if key in seen_links:
+                raise ModelValidationError(
+                    "duplicate QuestionEvidenceLink relationships are not allowed"
+                )
+            seen_links.add(key)
         decisions_by_id = {
             decision.decision_id: decision for decision in self.planner_decisions
         }
@@ -1178,7 +1215,6 @@ class RCAState:
                 "run_evaluation decision_evaluations must match "
                 "planner_decisions in number and order"
             )
-        known_evidence_ids = set(self.evidence_by_id)
         for evaluation in self.run_evaluation.decision_evaluations:
             self._validate_reference_set(
                 evaluation.new_evidence_ids,
@@ -1213,6 +1249,9 @@ class RCAState:
             ],
             "investigation_questions": [
                 item.to_dict() for item in self.investigation_questions
+            ],
+            "question_evidence_links": [
+                item.to_dict() for item in self.question_evidence_links
             ],
             "action_history": [item.to_dict() for item in self.action_history],
             "planner_decisions": [
@@ -1272,6 +1311,10 @@ class RCAState:
             investigation_questions=[
                 InvestigationQuestion.from_dict(item)
                 for item in raw_investigation_questions
+            ],
+            question_evidence_links=[
+                QuestionEvidenceLink.from_dict(item)
+                for item in data.get("question_evidence_links", [])
             ],
             action_history=[
                 ActionRecord(

@@ -50,6 +50,7 @@ from yield_rca_core.next_action_planner import (
     QwenNextActionPlanner,
     QwenNextActionPlannerError,
 )
+from yield_rca_core.question_evidence import QuestionEvidenceResolver
 from yield_rca_core.rca_reasoning_agent import RCAReasoningAgent
 from yield_rca_core.report_generator import ReportGenerator
 from yield_rca_core.specialist_agents import DefectWATAgent, FDCAgent, KnowledgeAgent, MESAgent
@@ -689,6 +690,8 @@ class Supervisor:
                     tool_call_count=len(observed_tool_latencies),
                     evidence=state.evidence,
                     evidence_ids=[item.evidence_id for item in state.evidence],
+                    question_evidence_links=state.question_evidence_links,
+                    capability_notices=state.capability_notices,
                     hypotheses=state.hypotheses,
                     prior_decisions=state.planner_decisions,
                 )
@@ -1221,6 +1224,11 @@ class Supervisor:
             produced_evidence_ids=list(finding.evidence_ids),
             decision_summary=finding.summary,
         )
+        links = QuestionEvidenceResolver().resolve(
+            questions=state.investigation_questions,
+            action_record=record,
+            evidence=evidence,
+        )
         return replace(
             state,
             job=updated_job,
@@ -1234,6 +1242,10 @@ class Supervisor:
             scope_level=scope_level,
             impact_criteria=impact_criteria,
             action_history=[*state.action_history, record],
+            question_evidence_links=[
+                *state.question_evidence_links,
+                *links,
+            ],
             warnings=_merge_warnings(state.warnings, finding.warnings),
         )
 

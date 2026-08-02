@@ -287,9 +287,9 @@ _AUTONOMOUS_SCENARIOS = (
         expected_goal_success=True,
         expected_stop_correct=True,
         expected_decision_metrics=(
-            (True, True, False),
-            (True, True, False),
-            (True, True, False),
+            (True, False, False),
+            (True, False, False),
+            (True, False, False),
             (True, True, False),
             (True, True, False),
             (True, False, False),
@@ -324,7 +324,7 @@ _AUTONOMOUS_SCENARIOS = (
         expected_goal_success=True,
         expected_stop_correct=True,
         expected_decision_metrics=(
-            (True, True, False),
+            (True, False, False),
             (True, True, False),
             (True, True, False),
             (True, True, False),

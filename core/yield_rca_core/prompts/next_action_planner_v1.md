@@ -60,6 +60,15 @@ For an act decision:
   the Question capability registry and will reject an Action/Question mismatch or
   scope mismatch before any Specialist or Tool executes.
 
+For every open Question, use the supplied `question_context` as the investigation
+ledger. It contains the Question scope, compatible Actions, linked Evidence grouped
+as `supports`, `contradicts`, `context`, or `unavailable`, satisfied Evidence groups,
+missing Evidence groups, and prior attempted Actions with their relevant-gain flag.
+Only Evidence linked to the target Question is relevant for closing it. Evidence
+listed elsewhere in the payload may support the overall Goal but must not be used to
+claim that this Question is answered. Capability notices are authoritative when a
+requested Question kind is unsupported; do not substitute unrelated Evidence.
+
 For a stop decision:
 
 - Set next_action to null and target_question_ids to [].
@@ -76,8 +85,14 @@ null instead of status closed.
 Question updates are terminal deltas: status must be closed or unavailable, never
 open. Do not copy or rewrite goal_id, question, rationale, or scope. When evidence
 only provides partial progress, return question_updates=[] and preserve that
-progress through Findings and Evidence. An act decision cannot update a question
-and target that same question in target_question_ids.
+  progress through Findings and Evidence. An act decision cannot update a question
+  and target that same question in target_question_ids.
+
+If an attempted Action produced no applicable QuestionEvidenceLink for its target
+Question, it is a no-gain attempt. You may re-plan once after the first no-gain
+observation. After a second no-gain attempt for the same Question, Action family,
+and compatible scope, you must choose a different Action direction or stop with an
+explicit boundary; never repeat the same investigative direction indefinitely.
 
 You may add a new open question only when it directly supports the same Goal.
 Never create more than five total questions. An impact Lot is a result inside the

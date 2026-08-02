@@ -8,16 +8,20 @@ from typing import Any
 
 from yield_rca_core.investigation_models import (
     MAX_INITIAL_QUESTIONS,
+    CapabilityNotice,
     EvidenceGapStatus,
     InvestigationQuestion,
     InvestigationValidationError,
     PlannerDecision,
     PlannerDecisionOutcome,
+    QuestionEvidenceLink,
+    QuestionEvidenceRelation,
     QuestionUpdate,
     QuestionUpdateDisposition,
     QuestionUpdateReasonCode,
     QuestionUpdateReview,
 )
+from yield_rca_core.question_capability import QUESTION_CAPABILITY_REGISTRY
 
 
 def _optional_string(value: object) -> str | None:
@@ -51,6 +55,8 @@ def review_question_updates(
     *,
     questions: list[InvestigationQuestion],
     available_evidence_ids: set[str],
+    question_evidence_links: list[QuestionEvidenceLink] | None = None,
+    capability_notices: list[CapabilityNotice] | None = None,
 ) -> PlannerDecisionOutcome:
     """Accept supported terminal deltas and reject unsafe claims independently."""
 
@@ -106,6 +112,8 @@ def review_question_updates(
         question.question_id for question in decision.new_questions
     }
     target_question_ids = set(decision.target_question_ids)
+    links = list(question_evidence_links or [])
+    notices = list(capability_notices or [])
     accepted_updates: list[QuestionUpdate] = []
     reviews: list[QuestionUpdateReview] = []
 
@@ -254,10 +262,7 @@ def review_question_updates(
                 )
             )
             continue
-        if (
-            update.status == EvidenceGapStatus.CLOSED.value
-            and not set(update.evidence_ids) <= available_evidence_ids
-        ):
+        if not set(update.evidence_ids) <= available_evidence_ids:
             reviews.append(
                 _review(
                     decision,
@@ -273,6 +278,125 @@ def review_question_updates(
                 )
             )
             continue
+
+        if update.status == EvidenceGapStatus.CLOSED.value:
+            unsupported_notice = next(
+                (
+                    notice
+                    for notice in notices
+                    if notice.capability == current.question_kind
+                    and not notice.supported
+                ),
+                None,
+            )
+            if unsupported_notice is not None:
+                reviews.append(
+                    _review(
+                        decision,
+                        disposition=QuestionUpdateDisposition.REJECTED,
+                        reason_code=QuestionUpdateReasonCode.UNSUPPORTED_CAPABILITY,
+                        reason=(
+                            f"QuestionUpdate {update.question_id} was rejected because "
+                            f"{current.question_kind} is unavailable and cannot be "
+                            "answered with substitute Evidence."
+                        ),
+                        update_index=index,
+                        question_id=update.question_id,
+                        claimed_status=update.status,
+                    )
+                )
+                continue
+            if question_evidence_links is not None:
+                applicable_links = [
+                    link
+                    for link in links
+                    if link.question_id == update.question_id
+                    and link.evidence_id in update.evidence_ids
+                    and link.relation
+                    in {
+                        QuestionEvidenceRelation.SUPPORTS.value,
+                        QuestionEvidenceRelation.CONTRADICTS.value,
+                        QuestionEvidenceRelation.CONTEXT.value,
+                    }
+                ]
+                linked_evidence_ids = {
+                    link.evidence_id for link in applicable_links
+                }
+                missing_applicable = set(update.evidence_ids) - linked_evidence_ids
+                if missing_applicable:
+                    reviews.append(
+                        _review(
+                            decision,
+                            disposition=QuestionUpdateDisposition.REJECTED,
+                            reason_code=QuestionUpdateReasonCode.EVIDENCE_NOT_APPLICABLE,
+                            reason=(
+                                f"QuestionUpdate {update.question_id} was rejected because "
+                                "one or more cited Evidence IDs have no applicable "
+                                f"QuestionEvidenceLink: {sorted(missing_applicable)}."
+                            ),
+                            update_index=index,
+                            question_id=update.question_id,
+                            claimed_status=update.status,
+                        )
+                    )
+                    continue
+                satisfied_groups = {
+                    link.matched_evidence_group
+                    for link in applicable_links
+                    if link.relation == QuestionEvidenceRelation.SUPPORTS.value
+                }
+                required_groups = set(
+                    QUESTION_CAPABILITY_REGISTRY[current.question_kind].closure_evidence_groups
+                )
+                missing_groups = required_groups - satisfied_groups
+                if missing_groups:
+                    reviews.append(
+                        _review(
+                            decision,
+                            disposition=QuestionUpdateDisposition.REJECTED,
+                            reason_code=QuestionUpdateReasonCode.INSUFFICIENT_EVIDENCE_COVERAGE,
+                            reason=(
+                                f"QuestionUpdate {update.question_id} was rejected because "
+                                f"required Evidence groups are missing: {sorted(missing_groups)}."
+                            ),
+                            update_index=index,
+                            question_id=update.question_id,
+                            claimed_status=update.status,
+                        )
+                    )
+                    continue
+        elif question_evidence_links is not None:
+            unsupported_notice = next(
+                (
+                    notice
+                    for notice in notices
+                    if notice.capability == current.question_kind
+                    and not notice.supported
+                ),
+                None,
+            )
+            has_unavailable_link = any(
+                link.question_id == update.question_id
+                and link.relation == QuestionEvidenceRelation.UNAVAILABLE.value
+                for link in links
+            )
+            if unsupported_notice is None and not has_unavailable_link:
+                reviews.append(
+                    _review(
+                        decision,
+                        disposition=QuestionUpdateDisposition.REJECTED,
+                        reason_code=QuestionUpdateReasonCode.MISSING_UNAVAILABILITY_EVIDENCE,
+                        reason=(
+                            f"QuestionUpdate {update.question_id} was rejected because "
+                            "unavailability requires typed DATA_MISSING Evidence or "
+                            "a user-requested unsupported-capability notice."
+                        ),
+                        update_index=index,
+                        question_id=update.question_id,
+                        claimed_status=update.status,
+                    )
+                )
+                continue
 
         accepted_updates.append(update)
         reviews.append(
@@ -302,6 +426,8 @@ def review_qwen_planner_output(
     *,
     questions: list[InvestigationQuestion],
     available_evidence_ids: set[str],
+    question_evidence_links: list[QuestionEvidenceLink] | None = None,
+    capability_notices: list[CapabilityNotice] | None = None,
 ) -> PlannerDecisionOutcome:
     """Strictly parse the core decision while reviewing update claims separately."""
 
@@ -319,6 +445,8 @@ def review_qwen_planner_output(
         raw_updates,
         questions=questions,
         available_evidence_ids=available_evidence_ids,
+        question_evidence_links=question_evidence_links,
+        capability_notices=capability_notices,
     )
 
 

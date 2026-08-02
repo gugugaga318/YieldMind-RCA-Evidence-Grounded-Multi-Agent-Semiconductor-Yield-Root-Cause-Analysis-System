@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from yield_rca_core.investigation_models import (
+    ActionKind,
     ConclusionLevel,
     DecisionEvaluation,
     DecisionType,
@@ -18,6 +19,7 @@ from yield_rca_core.investigation_models import (
     InvestigationIntent,
     OrchestrationMode,
     PlannerDecision,
+    QuestionEvidenceRelation,
     RunEvaluation,
     StopReason,
 )
@@ -268,27 +270,59 @@ def _evaluate_action_decision(
         if decision_valid
         else []
     )
+    target_question_ids = set(decision.target_question_ids)
+    applicable_links = [
+        link
+        for link in state.question_evidence_links
+        if link.action_id == record.action.action_id
+        and link.question_id in target_question_ids
+        and link.evidence_id in new_evidence_ids
+        and link.relation
+        in {
+            QuestionEvidenceRelation.SUPPORTS.value,
+            QuestionEvidenceRelation.CONTRADICTS.value,
+            QuestionEvidenceRelation.CONTEXT.value,
+            QuestionEvidenceRelation.UNAVAILABLE.value,
+        }
+    ]
+    collecting_action = action.kind != ActionKind.RUN_RCA_REASONING.value
+    if state.question_evidence_links:
+        relevant_evidence_gain = bool(applicable_links) if collecting_action else False
+    else:
+        # Legacy snapshots predate QuestionEvidenceLink. Preserve their original
+        # Evidence-ID metric while typed llm_react traces use the stricter gate.
+        relevant_evidence_gain = bool(new_evidence_ids)
 
     if issues:
         reason = f"The decision failed deterministic checks: {'; '.join(issues)}."
+    elif relevant_evidence_gain:
+        reason = (
+            f"The allowlisted {action.agent} action matched its completed "
+            f"ActionRecord and added {len(applicable_links)} new applicable "
+            "QuestionEvidenceLink"
+            f"{'s' if len(applicable_links) != 1 else ''} for its target "
+            "Question"
+            f"{'s' if len(target_question_ids) != 1 else ''}."
+        )
     elif new_evidence_ids:
         reason = (
             f"The allowlisted {action.agent} action matched its completed "
-            f"ActionRecord and added {len(new_evidence_ids)} new Evidence "
-            f"ID{'s' if len(new_evidence_ids) != 1 else ''}."
+            "ActionRecord and added new Evidence IDs, but none produced an "
+            "applicable QuestionEvidenceLink for its target Question."
         )
     else:
         reason = (
             f"The allowlisted {action.agent} action matched its completed "
-            "ActionRecord. It added no new Evidence IDs, but this Action and "
-            "Scope had not been investigated before, so it was not redundant."
+            "ActionRecord. It added no new Evidence IDs or applicable "
+            "QuestionEvidenceLinks, but this Action and Scope had not been "
+            "investigated before, so it was not redundant."
         )
 
     return (
         DecisionEvaluation(
             decision_id=decision.decision_id,
             decision_valid=decision_valid,
-            evidence_gain=bool(new_evidence_ids),
+            evidence_gain=relevant_evidence_gain,
             redundant=redundant,
             reason=reason,
             new_evidence_ids=new_evidence_ids,
