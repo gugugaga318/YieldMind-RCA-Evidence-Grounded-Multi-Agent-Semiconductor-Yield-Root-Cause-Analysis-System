@@ -151,7 +151,7 @@ describe("WorkflowTimeline orchestration routing", () => {
     expect(html).not.toContain("Controlled ReAct Investigation Path");
   });
 
-  it("uses ControlledTimeline for intent fallback before any Qwen decision", () => {
+  it("keeps intent fallback diagnostics in AgentDecisionTrace before any Qwen action", () => {
     const state = stateFixture();
     state.execution_metadata = {
       orchestration_requested_mode: "llm_react",
@@ -167,9 +167,10 @@ describe("WorkflowTimeline orchestration routing", () => {
       <WorkflowTimeline tasks={[]} state={state} />,
     );
 
-    expect(html).toContain("Controlled ReAct Investigation Path");
-    expect(html).toContain("Observe → Act → Re-plan");
-    expect(html).not.toContain('aria-label="Mock agent decision trace"');
+    expect(html).toContain('aria-label="Mock agent decision trace"');
+    expect(html).toContain("0 planner decisions");
+    expect(html).toContain("1 action records");
+    expect(html).not.toContain("Controlled ReAct Investigation Path");
   });
 
   it("keeps a native controlled_react action history on ControlledTimeline", () => {

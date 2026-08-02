@@ -592,6 +592,23 @@ describe("Agent trace selector", () => {
       "question_updates[0].status must be closed or unavailable",
       "question_updates[0].status must be closed or unavailable",
     ];
+    state.execution_metadata.intent_planner_attempt_diagnostics = [
+      {
+        stage: "intent_planning",
+        attempt: 1,
+        prompt_name: "intent_planner",
+        prompt_version: "v1",
+        outcome: "success",
+        failure_category: null,
+        reason_code: null,
+        field_path: null,
+        message: null,
+        repair_feedback_sent: false,
+        candidate_summary: { intent: "root_cause" },
+        baseline_diff: { intent_changed: false },
+        provider_request_id: null,
+      },
+    ];
     state.investigation_questions = [questionFixture("QUESTION_QWEN")];
     state.planner_decisions = [
       actDecisionFixture("DECISION_QWEN", qwenAction, "QUESTION_QWEN"),
@@ -626,6 +643,26 @@ describe("Agent trace selector", () => {
       "question_updates[0].status must be closed or unavailable",
       "question_updates[0].status must be closed or unavailable",
     ]);
+    expect(trace.intentPlannerAttempts).toHaveLength(1);
+    expect(trace.intentPlannerAttempts[0].outcome).toBe("success");
+  });
+
+  it("rejects malformed Intent Planner attempt metadata from the trace", () => {
+    const state = traceStateFixture();
+    state.execution_metadata.intent_planner_attempt_diagnostics = [
+      {
+        stage: "intent_planning",
+        attempt: 0,
+        outcome: "failure",
+      },
+    ] as never;
+
+    const trace = selectAgentTrace(state);
+
+    expect(trace.intentPlannerAttempts).toEqual([]);
+    expect(trace.integrityIssues).toContain(
+      "Intent Planner attempt diagnostics are malformed.",
+    );
   });
 
   it("degrades a legacy state with absent optional trace fields to TaskPlan nodes", () => {

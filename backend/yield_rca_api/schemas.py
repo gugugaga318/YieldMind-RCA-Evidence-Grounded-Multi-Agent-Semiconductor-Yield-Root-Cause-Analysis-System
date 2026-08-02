@@ -335,6 +335,82 @@ class LLMUsageEventResponse(APIModel):
     schema_version: str | None = None
 
 
+class PlannerAttemptDiagnosticResponse(APIModel):
+    """Bounded validation trace for one Qwen Planner output attempt."""
+
+    stage: Literal["intent_planning"]
+    attempt: int = Field(ge=1)
+    prompt_name: str
+    prompt_version: str
+    outcome: Literal["success", "failure"]
+    failure_category: Literal[
+        "transport_provider_failure",
+        "output_parse_error",
+        "contract_validation_error",
+        "semantic_validation_error",
+    ] | None = None
+    reason_code: Literal[
+        "goal_id_changed",
+        "intent_invalid",
+        "budget_changed",
+        "known_fact_removed",
+        "known_fact_changed",
+        "forbidden_known_fact_added",
+        "unsupported_question_kind",
+        "unrequested_material_trace",
+        "source_lot_scope_mismatch",
+        "malformed_output",
+    ] | None = None
+    field_path: str | None = None
+    message: str | None = None
+    repair_feedback_sent: bool
+    candidate_summary: dict[str, Any] = Field(default_factory=dict)
+    baseline_diff: dict[str, Any] = Field(default_factory=dict)
+    provider_request_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_outcome_details(self) -> PlannerAttemptDiagnosticResponse:
+        failure_details = (
+            self.failure_category,
+            self.reason_code,
+            self.field_path,
+            self.message,
+        )
+        if self.outcome == "success":
+            if any(value is not None for value in failure_details):
+                raise ValueError(
+                    "a successful Planner attempt cannot carry failure details"
+                )
+            if self.repair_feedback_sent:
+                raise ValueError(
+                    "a successful Planner attempt cannot send repair feedback"
+                )
+            return self
+        if (
+            self.failure_category is None
+            or self.reason_code is None
+            or self.message is None
+            or not self.message.strip()
+        ):
+            raise ValueError(
+                "a failed Planner attempt requires category, reason_code, and message"
+            )
+        return self
+
+
+class ExecutionMetadataResponse(APIModel):
+    """Extensible runtime metadata with typed Planner handoff diagnostics."""
+
+    # Runtime metadata predates the typed public trace and contains optional
+    # observability fields from multiple execution modes. Preserve those keys
+    # while making the new Planner diagnostic collection explicit in OpenAPI.
+    model_config = ConfigDict(extra="allow")
+
+    intent_planner_attempt_diagnostics: list[PlannerAttemptDiagnosticResponse] = Field(
+        default_factory=list
+    )
+
+
 class RCAJobStateResponse(APIModel):
     """Complete serialized domain state returned by the job endpoint."""
 
@@ -354,7 +430,9 @@ class RCAJobStateResponse(APIModel):
     warnings: list[WarningResponse] = Field(default_factory=list)
     report: ReportResponse | None = None
     llm_usage: list[LLMUsageEventResponse] = Field(default_factory=list)
-    execution_metadata: dict[str, Any] = Field(default_factory=dict)
+    execution_metadata: ExecutionMetadataResponse = Field(
+        default_factory=ExecutionMetadataResponse
+    )
     investigation_goal: dict[str, Any] | None = None
     capability_notices: list[CapabilityNoticeResponse] = Field(default_factory=list)
     investigation_questions: list[InvestigationQuestionResponse] = Field(

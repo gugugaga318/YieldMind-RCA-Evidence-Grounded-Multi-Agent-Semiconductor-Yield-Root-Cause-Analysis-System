@@ -13,6 +13,8 @@ from yield_rca_api.app import create_app  # noqa: E402
 from yield_rca_api.schemas import (  # noqa: E402
     CreateRCAJobRequest,
     DecisionEvaluationResponse,
+    ExecutionMetadataResponse,
+    PlannerAttemptDiagnosticResponse,
     QuestionUpdateReviewResponse,
     RCAJobStateResponse,
     RunEvaluationResponse,
@@ -66,6 +68,72 @@ class FastAPIContractTest(unittest.TestCase):
         self.assertIn("entities", evidence_schema)
         self.assertIn("confidence", evidence_schema)
         self.assertIn("evidence_schema_version", evidence_schema)
+
+    def test_execution_metadata_exposes_typed_intent_planner_diagnostics(self) -> None:
+        diagnostic = PlannerAttemptDiagnosticResponse(
+            stage="intent_planning",
+            attempt=1,
+            prompt_name="intent_planner",
+            prompt_version="v1",
+            outcome="failure",
+            failure_category="semantic_validation_error",
+            reason_code="known_fact_changed",
+            field_path="$.goal.known_facts.defect",
+            message="Qwen changed an explicit known fact.",
+            repair_feedback_sent=True,
+            candidate_summary={"intent": "root_cause"},
+            baseline_diff={"known_fact_keys_changed": ["defect"]},
+            provider_request_id=None,
+        )
+        metadata = ExecutionMetadataResponse.model_validate(
+            {
+                "agent_mode": "llm",
+                "intent_planner_attempt_diagnostics": [diagnostic.model_dump()],
+            }
+        )
+        state = RCAJobStateResponse(
+            job={"job_id": "JOB_INTENT_DIAGNOSTIC"},
+            execution_metadata=metadata,
+        )
+        payload = state.model_dump()["execution_metadata"]
+
+        self.assertEqual(payload["agent_mode"], "llm")
+        self.assertEqual(
+            payload["intent_planner_attempt_diagnostics"][0]["reason_code"],
+            "known_fact_changed",
+        )
+        components = create_app().openapi()["components"]["schemas"]
+        metadata_properties = components["ExecutionMetadataResponse"]["properties"]
+        diagnostic_properties = components["PlannerAttemptDiagnosticResponse"][
+            "properties"
+        ]
+        self.assertIn("intent_planner_attempt_diagnostics", metadata_properties)
+        self.assertEqual(
+            set(diagnostic_properties),
+            {
+                "stage",
+                "attempt",
+                "prompt_name",
+                "prompt_version",
+                "outcome",
+                "failure_category",
+                "reason_code",
+                "field_path",
+                "message",
+                "repair_feedback_sent",
+                "candidate_summary",
+                "baseline_diff",
+                "provider_request_id",
+            },
+        )
+        with self.assertRaises(ValueError):
+            PlannerAttemptDiagnosticResponse(
+                **{
+                    **diagnostic.model_dump(),
+                    "outcome": "success",
+                    "repair_feedback_sent": False,
+                }
+            )
 
     def test_job_state_accepts_typed_run_evaluation_and_legacy_omission(
         self,

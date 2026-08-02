@@ -1062,6 +1062,109 @@ p {
   margin: 7px 1px 0;
 }
 
+.intent-planner-trace {
+  margin-top: 14px;
+  padding: 12px;
+  background: #f7faff;
+  border: 1px solid #cfdcef;
+  border-left: 3px solid #4b75a8;
+  border-radius: 5px;
+}
+
+.intent-planner-trace-heading,
+.intent-planner-attempt-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.intent-planner-trace-heading h3 {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.intent-planner-attempt-list {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.intent-planner-attempt {
+  padding: 9px 10px;
+  background: #fff;
+  border: 1px solid #dce4ef;
+  border-radius: 4px;
+}
+
+.intent-planner-attempt-failure {
+  border-left: 3px solid #bd8123;
+}
+
+.intent-planner-attempt-success {
+  border-left: 3px solid #3e8b67;
+}
+
+.intent-planner-attempt-title strong,
+.intent-planner-attempt-title span {
+  font-size: 10px;
+}
+
+.intent-planner-attempt p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.intent-planner-attempt-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  margin: 8px 0 0;
+}
+
+.intent-planner-attempt-facts div,
+.intent-planner-safe-details div {
+  min-width: 0;
+}
+
+.intent-planner-attempt-facts dt,
+.intent-planner-safe-details span {
+  color: #667085;
+  font-size: 9px;
+}
+
+.intent-planner-attempt-facts dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+
+.intent-planner-safe-details {
+  margin-top: 8px;
+}
+
+.intent-planner-safe-details summary {
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.intent-planner-safe-details div {
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.intent-planner-safe-details code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 9px;
+}
+
 .agent-trace-handoff-outcome {
   color: #754f15;
   background: #fff8e8;

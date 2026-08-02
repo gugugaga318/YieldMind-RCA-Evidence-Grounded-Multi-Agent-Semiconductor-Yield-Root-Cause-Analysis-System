@@ -20,6 +20,7 @@ import type {
   InvestigationQuestion,
   CapabilityNotice,
   QuestionEvidenceLink,
+  PlannerAttemptDiagnostic,
   QuestionUpdate,
   QuestionUpdateReview,
   RCAState,
@@ -35,6 +36,82 @@ interface VerdictView {
   value: string;
   detail: string;
   tone: "positive" | "negative" | "neutral";
+}
+
+function IntentPlannerAttemptTrace({
+  attempts,
+}: {
+  attempts: PlannerAttemptDiagnostic[];
+}) {
+  if (attempts.length === 0) return null;
+  return (
+    <section
+      className="intent-planner-trace"
+      aria-labelledby="intent-planner-trace-heading"
+    >
+      <div className="intent-planner-trace-heading">
+        <div>
+          <span className="section-kicker">User request → Goal and Questions</span>
+          <h3 id="intent-planner-trace-heading">Intent Planner handoff trace</h3>
+        </div>
+        <span className="section-count">
+          {attempts.length} {attempts.length === 1 ? "attempt" : "attempts"}
+        </span>
+      </div>
+      <ol className="intent-planner-attempt-list">
+        {attempts.map((attempt) => (
+          <li
+            className={`intent-planner-attempt intent-planner-attempt-${attempt.outcome}`}
+            key={attempt.attempt}
+          >
+            <div className="intent-planner-attempt-title">
+              <strong>Attempt {attempt.attempt}</strong>
+              <span>{attempt.outcome === "success" ? "Accepted" : "Rejected"}</span>
+            </div>
+            {attempt.outcome === "success" ? (
+              <p>
+                Python accepted the Qwen Goal and Question contract and handed it
+                to Next Action Planning.
+              </p>
+            ) : (
+              <>
+                <dl className="intent-planner-attempt-facts">
+                  <div>
+                    <dt>Category</dt>
+                    <dd>{formatTraceLabel(attempt.failure_category ?? "unknown")}</dd>
+                  </div>
+                  <div>
+                    <dt>Reason code</dt>
+                    <dd><code>{attempt.reason_code ?? "unknown"}</code></dd>
+                  </div>
+                  <div>
+                    <dt>Field path</dt>
+                    <dd><code>{attempt.field_path ?? "not available"}</code></dd>
+                  </div>
+                  <div>
+                    <dt>Repair feedback</dt>
+                    <dd>{attempt.repair_feedback_sent ? "Sent for retry" : "Not sent"}</dd>
+                  </div>
+                </dl>
+                <p>{attempt.message ?? "No bounded validation message was recorded."}</p>
+              </>
+            )}
+            <details className="intent-planner-safe-details">
+              <summary>Safe candidate summary and baseline diff</summary>
+              <div>
+                <span>Candidate summary</span>
+                <code>{formatValue(attempt.candidate_summary)}</code>
+              </div>
+              <div>
+                <span>Baseline diff</span>
+                <code>{formatValue(attempt.baseline_diff)}</code>
+              </div>
+            </details>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
 }
 
 function formatValue(value: unknown): string {
@@ -1000,6 +1077,8 @@ export function AgentDecisionTrace({ state }: AgentDecisionTraceProps) {
           evaluationMessage(trace.evaluationStatus, trace.fallbackReason)}
       </p>
 
+      <IntentPlannerAttemptTrace attempts={trace.intentPlannerAttempts} />
+
       {hasControlledHandoff && (
         <div className="agent-trace-handoff" role="status">
           <GitBranch size={17} aria-hidden="true" />
@@ -1023,7 +1102,11 @@ export function AgentDecisionTrace({ state }: AgentDecisionTraceProps) {
                 {trace.fallbackAttemptCount === 1 ? " attempt" : " attempts"}.
               </p>
             )}
-            {trace.fallbackValidationErrors.length > 0 && (
+            {trace.fallbackValidationErrors.length > 0 &&
+              !(
+                trace.fallbackStage === "intent_planning" &&
+                trace.intentPlannerAttempts.length > 0
+              ) && (
               <details className="agent-trace-fallback-diagnostics">
                 <summary>
                   Planner validation diagnostics (

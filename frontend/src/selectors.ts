@@ -13,6 +13,7 @@ import type {
   FindingKind,
   InvestigationAction,
   InvestigationMode,
+  PlannerAttemptDiagnostic,
   QuestionEvidenceLink,
   OrchestrationMode,
   PlannerDecision,
@@ -267,6 +268,61 @@ function isToolLatencyRecord(value: unknown): value is ToolLatencyRecord {
     typeof value.agent === "string" &&
     (value.outcome === "success" || value.outcome === "failed") &&
     typeof value.duration_ms === "number"
+  );
+}
+
+const PLANNER_FAILURE_CATEGORIES = new Set([
+  "transport_provider_failure",
+  "output_parse_error",
+  "contract_validation_error",
+  "semantic_validation_error",
+]);
+
+const INTENT_PLANNER_REASON_CODES = new Set([
+  "goal_id_changed",
+  "intent_invalid",
+  "budget_changed",
+  "known_fact_removed",
+  "known_fact_changed",
+  "forbidden_known_fact_added",
+  "unsupported_question_kind",
+  "unrequested_material_trace",
+  "source_lot_scope_mismatch",
+  "malformed_output",
+]);
+
+function isPlannerAttemptDiagnostic(
+  value: unknown,
+): value is PlannerAttemptDiagnostic {
+  if (!isRecord(value)) return false;
+  const sharedFieldsAreValid =
+    value.stage === "intent_planning" &&
+    integerValue(value.attempt, 1) !== null &&
+    stringValue(value.prompt_name) !== null &&
+    stringValue(value.prompt_version) !== null &&
+    typeof value.repair_feedback_sent === "boolean" &&
+    isRecord(value.candidate_summary) &&
+    isRecord(value.baseline_diff) &&
+    (value.provider_request_id === null ||
+      stringValue(value.provider_request_id) !== null);
+  if (!sharedFieldsAreValid) return false;
+  if (value.outcome === "success") {
+    return (
+      value.failure_category === null &&
+      value.reason_code === null &&
+      value.field_path === null &&
+      value.message === null &&
+      value.repair_feedback_sent === false
+    );
+  }
+  if (value.outcome !== "failure") return false;
+  return (
+    typeof value.failure_category === "string" &&
+    PLANNER_FAILURE_CATEGORIES.has(value.failure_category) &&
+    typeof value.reason_code === "string" &&
+    INTENT_PLANNER_REASON_CODES.has(value.reason_code) &&
+    (value.field_path === null || stringValue(value.field_path) !== null) &&
+    stringValue(value.message) !== null
   );
 }
 
@@ -664,6 +720,36 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
       "Planner fallback attempt count does not match its validation diagnostics.",
     );
   }
+  const rawIntentPlannerAttempts =
+    state.execution_metadata.intent_planner_attempt_diagnostics;
+  const intentPlannerAttempts = Array.isArray(rawIntentPlannerAttempts)
+    ? rawIntentPlannerAttempts.filter(isPlannerAttemptDiagnostic)
+    : [];
+  if (
+    rawIntentPlannerAttempts !== undefined &&
+    (!Array.isArray(rawIntentPlannerAttempts) ||
+      intentPlannerAttempts.length !== rawIntentPlannerAttempts.length)
+  ) {
+    integrityIssues.push("Intent Planner attempt diagnostics are malformed.");
+  }
+  for (const [index, diagnostic] of intentPlannerAttempts.entries()) {
+    if (diagnostic.attempt !== index + 1) {
+      integrityIssues.push(
+        "Intent Planner attempts are not ordered with contiguous attempt numbers.",
+      );
+      break;
+    }
+  }
+  if (
+    fallbackStage === "intent_planning" &&
+    fallbackAttemptCount !== null &&
+    intentPlannerAttempts.length > 0 &&
+    fallbackAttemptCount !== intentPlannerAttempts.length
+  ) {
+    integrityIssues.push(
+      "Intent Planner handoff count does not match its typed attempt trace.",
+    );
+  }
   const isFallback =
     requestedMode === "llm_react" &&
     (fallbackReason !== null ||
@@ -957,6 +1043,7 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
     fallbackAfterActionCount,
     fallbackAttemptCount,
     fallbackValidationErrors,
+    intentPlannerAttempts,
     integrityIssues,
   };
 }

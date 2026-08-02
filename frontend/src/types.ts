@@ -262,6 +262,40 @@ export interface ToolLatencyRecord {
   duration_ms: number;
 }
 
+export type PlannerFailureCategory =
+  | "transport_provider_failure"
+  | "output_parse_error"
+  | "contract_validation_error"
+  | "semantic_validation_error";
+
+export type IntentPlannerReasonCode =
+  | "goal_id_changed"
+  | "intent_invalid"
+  | "budget_changed"
+  | "known_fact_removed"
+  | "known_fact_changed"
+  | "forbidden_known_fact_added"
+  | "unsupported_question_kind"
+  | "unrequested_material_trace"
+  | "source_lot_scope_mismatch"
+  | "malformed_output";
+
+export interface PlannerAttemptDiagnostic {
+  stage: "intent_planning";
+  attempt: number;
+  prompt_name: string;
+  prompt_version: string;
+  outcome: "success" | "failure";
+  failure_category: PlannerFailureCategory | null;
+  reason_code: IntentPlannerReasonCode | null;
+  field_path: string | null;
+  message: string | null;
+  repair_feedback_sent: boolean;
+  candidate_summary: Record<string, unknown>;
+  baseline_diff: Record<string, unknown>;
+  provider_request_id: string | null;
+}
+
 export interface ExecutionMetadata {
   agent_mode?: "deterministic" | "fake" | "llm";
   provider?: string | null;
@@ -280,6 +314,7 @@ export interface ExecutionMetadata {
   orchestration_fallback_after_action_count?: number;
   orchestration_fallback_attempt_count?: number;
   orchestration_fallback_validation_errors?: string[];
+  intent_planner_attempt_diagnostics?: PlannerAttemptDiagnostic[];
   tool_latencies?: ToolLatencyRecord[];
 }
 
@@ -421,6 +456,7 @@ export interface AgentTraceViewModel {
   fallbackAfterActionCount: number | null;
   fallbackAttemptCount: number | null;
   fallbackValidationErrors: string[];
+  intentPlannerAttempts: PlannerAttemptDiagnostic[];
   integrityIssues: string[];
 }
 

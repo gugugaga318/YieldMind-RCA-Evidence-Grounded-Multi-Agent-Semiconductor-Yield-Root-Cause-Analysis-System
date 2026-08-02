@@ -112,10 +112,11 @@ class PurePythonRCAWorkflow:
                 if self.intent_planner is None or self.next_action_planner is None:
                     raise ValueError("llm_react requires configured Qwen planners")
                 try:
-                    intent_plan = self.intent_planner.plan(
+                    intent_outcome = self.intent_planner.plan_with_diagnostics(
                         user_query,
                         lot_id=lot_id,
                     )
+                    intent_plan = intent_outcome.plan
                 except (QwenIntentPlannerError, LLMCallError) as exc:
                     goal = self.planner.plan_investigation_goal(
                         user_query,
@@ -145,6 +146,23 @@ class PurePythonRCAWorkflow:
                             ),
                             "orchestration_fallback_stage": "intent_planning",
                             "orchestration_fallback_after_action_count": 0,
+                            **(
+                                {
+                                    "orchestration_fallback_failure_category": (
+                                        "planner_output_invalid"
+                                    ),
+                                    "orchestration_fallback_attempt_count": exc.attempts,
+                                    "orchestration_fallback_validation_errors": list(
+                                        exc.validation_errors
+                                    ),
+                                    "intent_planner_attempt_diagnostics": [
+                                        diagnostic.to_dict()
+                                        for diagnostic in exc.attempt_diagnostics
+                                    ],
+                                }
+                                if isinstance(exc, QwenIntentPlannerError)
+                                else {}
+                            ),
                         },
                     )
                 else:
@@ -159,6 +177,16 @@ class PurePythonRCAWorkflow:
                         intent_plan,
                         self.next_action_planner,
                         tool_latencies=tool_latencies,
+                    )
+                    state = replace(
+                        state,
+                        execution_metadata={
+                            **state.execution_metadata,
+                            "intent_planner_attempt_diagnostics": [
+                                diagnostic.to_dict()
+                                for diagnostic in intent_outcome.attempt_diagnostics
+                            ],
+                        },
                     )
             else:
                 task_plan = self.planner.plan(

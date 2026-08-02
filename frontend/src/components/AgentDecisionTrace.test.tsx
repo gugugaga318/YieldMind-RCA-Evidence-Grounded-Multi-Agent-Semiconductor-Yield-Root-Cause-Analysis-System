@@ -412,6 +412,99 @@ describe("AgentDecisionTrace server rendering", () => {
     );
   });
 
+  it("renders typed Intent Planner attempts before an initial controlled handoff", () => {
+    const state = stateFixture();
+    state.run_evaluation = null;
+    state.execution_metadata = {
+      orchestration_requested_mode: "llm_react",
+      orchestration_mode: "controlled_react",
+      orchestration_fallback_reason: "qwen_intent_output_invalid",
+      orchestration_fallback_stage: "intent_planning",
+      orchestration_fallback_after_action_count: 0,
+      orchestration_fallback_attempt_count: 2,
+      orchestration_fallback_validation_errors: [
+        "IntentPlan is missing fields: goal",
+        "Qwen changed an explicit known fact.",
+      ],
+      intent_planner_attempt_diagnostics: [
+        {
+          stage: "intent_planning",
+          attempt: 1,
+          prompt_name: "intent_planner",
+          prompt_version: "v1",
+          outcome: "failure",
+          failure_category: "contract_validation_error",
+          reason_code: "malformed_output",
+          field_path: "$.goal",
+          message: "IntentPlan is missing fields: goal",
+          repair_feedback_sent: true,
+          candidate_summary: { top_level_fields: [] },
+          baseline_diff: { goal_object_missing: true },
+          provider_request_id: null,
+        },
+        {
+          stage: "intent_planning",
+          attempt: 2,
+          prompt_name: "intent_planner",
+          prompt_version: "v1",
+          outcome: "failure",
+          failure_category: "semantic_validation_error",
+          reason_code: "known_fact_changed",
+          field_path: "$.goal.known_facts.defect",
+          message: "Qwen changed an explicit known fact.",
+          repair_feedback_sent: false,
+          candidate_summary: { intent: "root_cause" },
+          baseline_diff: { known_fact_keys_changed: ["defect"] },
+          provider_request_id: null,
+        },
+      ],
+    };
+
+    const html = renderToStaticMarkup(<AgentDecisionTrace state={state} />);
+
+    expect(html).toContain("Planner Trace + Controlled Handoff");
+    expect(html).toContain("Intent Planner handoff trace");
+    expect(html).toContain("Attempt 1");
+    expect(html).toContain("Attempt 2");
+    expect(html).toContain("Contract Validation Error");
+    expect(html).toContain("Semantic Validation Error");
+    expect(html).toContain("malformed_output");
+    expect(html).toContain("known_fact_changed");
+    expect(html).toContain("$.goal.known_facts.defect");
+    expect(html).toContain("Sent for retry");
+    expect(html).toContain("Safe candidate summary and baseline diff");
+    expect(html).not.toContain("Planner validation diagnostics (2)");
+  });
+
+  it("shows a successful Intent Planner handoff on an autonomous trace", () => {
+    const state = populatedTraceState();
+    state.execution_metadata.intent_planner_attempt_diagnostics = [
+      {
+        stage: "intent_planning",
+        attempt: 1,
+        prompt_name: "intent_planner",
+        prompt_version: "v1",
+        outcome: "success",
+        failure_category: null,
+        reason_code: null,
+        field_path: null,
+        message: null,
+        repair_feedback_sent: false,
+        candidate_summary: { intent: "root_cause", question_count: 2 },
+        baseline_diff: { intent_changed: false },
+        provider_request_id: null,
+      },
+    ];
+
+    const html = renderToStaticMarkup(<AgentDecisionTrace state={state} />);
+
+    expect(html).toContain("Intent Planner handoff trace");
+    expect(html).toContain("Accepted");
+    expect(html).toContain(
+      "Python accepted the Qwen Goal and Question contract",
+    );
+  });
+
   it("renders compact question updates on the decision that committed them", () => {
     const state = populatedTraceState();
     const terminalDecision = state.planner_decisions?.at(-1);

@@ -330,6 +330,14 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
         assert root_evaluation is not None
         self.assertTrue(root_evaluation.goal_success)
         self.assertTrue(root_evaluation.stop_correct)
+        for state in (impact, root_cause):
+            diagnostics = state.execution_metadata[
+                "intent_planner_attempt_diagnostics"
+            ]
+            self.assertEqual(len(diagnostics), 1)
+            self.assertEqual(diagnostics[0]["stage"], "intent_planning")
+            self.assertEqual(diagnostics[0]["outcome"], "success")
+            self.assertIsNone(diagnostics[0]["failure_category"])
 
     def test_scratch_cu_cmp_replans_after_observation_and_keeps_auditable_links(
         self,
@@ -620,6 +628,32 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
             0,
         )
         self.assertEqual(
+            state.execution_metadata["orchestration_fallback_attempt_count"],
+            2,
+        )
+        self.assertEqual(
+            len(
+                state.execution_metadata[
+                    "orchestration_fallback_validation_errors"
+                ]
+            ),
+            2,
+        )
+        diagnostics = state.execution_metadata[
+            "intent_planner_attempt_diagnostics"
+        ]
+        self.assertEqual(len(diagnostics), 2)
+        self.assertTrue(all(item["outcome"] == "failure" for item in diagnostics))
+        self.assertTrue(
+            all(
+                item["failure_category"] == "contract_validation_error"
+                for item in diagnostics
+            )
+        )
+        self.assertTrue(all(item["reason_code"] == "malformed_output" for item in diagnostics))
+        self.assertTrue(diagnostics[0]["repair_feedback_sent"])
+        self.assertFalse(diagnostics[1]["repair_feedback_sent"])
+        self.assertEqual(
             state.action_history[0].action.kind,
             "inspect_defect_pattern",
         )
@@ -760,6 +794,40 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         self.assertEqual(len(state["planner_decisions"]), 1)
         self.assertTrue(state["evidence"])
         self.assertIsNone(state["run_evaluation"])
+
+    def test_api_exposes_typed_intent_planner_handoff_trace(self) -> None:
+        app = create_app(
+            workflow=fake_llm_workflow(InvalidIntentClient()),
+            runtime_dataset="golden_case",
+        )
+
+        with TestClient(app) as client:
+            created = client.post(
+                "/rca/jobs",
+                json={
+                    "investigation_mode": "lot",
+                    "lot_id": "LOT_A_001",
+                    "user_query": ROOT_CAUSE_QUERY,
+                },
+            )
+            self.assertEqual(created.status_code, 201)
+            state = client.get(created.json()["state_url"]).json()["state"]
+
+        metadata = state["execution_metadata"]
+        self.assertEqual(metadata["orchestration_fallback_stage"], "intent_planning")
+        self.assertEqual(metadata["orchestration_fallback_attempt_count"], 2)
+        diagnostics = metadata["intent_planner_attempt_diagnostics"]
+        self.assertEqual(len(diagnostics), 2)
+        self.assertEqual(diagnostics[0]["stage"], "intent_planning")
+        self.assertEqual(diagnostics[0]["outcome"], "failure")
+        self.assertEqual(
+            diagnostics[0]["failure_category"],
+            "contract_validation_error",
+        )
+        self.assertEqual(diagnostics[0]["reason_code"], "malformed_output")
+        self.assertIn("candidate_summary", diagnostics[0])
+        self.assertIn("baseline_diff", diagnostics[0])
+        self.assertNotIn("user_query", str(diagnostics))
 
     def test_api_exposes_rejected_question_update_without_fallback(self) -> None:
         app = create_app(

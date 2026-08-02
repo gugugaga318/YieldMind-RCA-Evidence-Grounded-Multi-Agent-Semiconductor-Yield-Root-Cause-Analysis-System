@@ -178,10 +178,13 @@ export function WorkflowTimeline({ tasks, state }: WorkflowTimelineProps) {
       metadata.orchestration_requested_mode ?? metadata.orchestration_mode;
     const actualMode = metadata.orchestration_mode;
     const hasPlannerDecisions = (state.planner_decisions?.length ?? 0) > 0;
+    const hasIntentPlannerTrace =
+      (metadata.intent_planner_attempt_diagnostics?.length ?? 0) > 0 ||
+      metadata.orchestration_fallback_stage === "intent_planning";
 
     if (
       requestedMode === "llm_react" &&
-      (hasPlannerDecisions || actualMode === "llm_react")
+      (hasPlannerDecisions || actualMode === "llm_react" || hasIntentPlannerTrace)
     ) {
       return <AgentDecisionTrace state={state} />;
     }
