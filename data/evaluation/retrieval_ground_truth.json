@@ -1,0 +1,2943 @@
+{
+  "corpus_version": "synthetic-semiconductor-knowledge-v1",
+  "generation_contract": {
+    "qrels_generated_by_python": true,
+    "query_generator_saw_document_text": false,
+    "query_generator_saw_root_cause": false,
+    "query_generator_saw_solution": false
+  },
+  "qrels": {
+    "Q_NOANSWER_001": [
+      {
+        "asset_id": "SOP_SYN_LITHO_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_002": [
+      {
+        "asset_id": "RCA_SYN_007",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_003": [
+      {
+        "asset_id": "NOTE_SYN_PVD_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_004": [
+      {
+        "asset_id": "RCA_SYN_028",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_005": [
+      {
+        "asset_id": "SOP_SYN_ETCH_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_006": [
+      {
+        "asset_id": "NOTE_SYN_LITHO_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_007": [
+      {
+        "asset_id": "RCA_SYN_026",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_008": [
+      {
+        "asset_id": "SOP_SYN_LITHO_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_009": [
+      {
+        "asset_id": "NOTE_SYN_CVD_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_010": [
+      {
+        "asset_id": "RCA_SYN_009",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_011": [
+      {
+        "asset_id": "SOP_SYN_ETCH_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_012": [
+      {
+        "asset_id": "NOTE_SYN_METROLOGY_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_013": [
+      {
+        "asset_id": "RCA_SYN_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_014": [
+      {
+        "asset_id": "SOP_SYN_LITHO_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_015": [
+      {
+        "asset_id": "NOTE_SYN_PVD_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_016": [
+      {
+        "asset_id": "RCA_SYN_008",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_017": [
+      {
+        "asset_id": "SOP_SYN_CROSS_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOANSWER_018": [
+      {
+        "asset_id": "NOTE_SYN_KNOWLEDGE_001",
+        "relevance": 0
+      }
+    ],
+    "Q_NOTE_001_EN": [
+      {
+        "asset_id": "NOTE_SYN_CMP_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_002_MIXED": [
+      {
+        "asset_id": "NOTE_SYN_CMP_002",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_003_EN": [
+      {
+        "asset_id": "NOTE_SYN_CVD_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_004_MIXED": [
+      {
+        "asset_id": "NOTE_SYN_LITHO_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_005_EN": [
+      {
+        "asset_id": "NOTE_SYN_ETCH_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_006_MIXED": [
+      {
+        "asset_id": "NOTE_SYN_IMPLANT_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_007_EN": [
+      {
+        "asset_id": "NOTE_SYN_DIFF_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_008_MIXED": [
+      {
+        "asset_id": "NOTE_SYN_PVD_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_009_EN": [
+      {
+        "asset_id": "NOTE_SYN_WET_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_010_MIXED": [
+      {
+        "asset_id": "NOTE_SYN_CROSS_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_011_EN": [
+      {
+        "asset_id": "NOTE_SYN_METROLOGY_001",
+        "relevance": 3
+      }
+    ],
+    "Q_NOTE_012_MIXED": [
+      {
+        "asset_id": "NOTE_SYN_KNOWLEDGE_001",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_001_EN": [
+      {
+        "asset_id": "NOTE_SYN_CMP_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_001",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_002",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_SYN_005",
+        "relevance": 0
+      }
+    ],
+    "Q_RCA_001_ZH": [
+      {
+        "asset_id": "NOTE_SYN_CMP_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_001",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_002",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_SYN_005",
+        "relevance": 0
+      }
+    ],
+    "Q_RCA_002_EN": [
+      {
+        "asset_id": "RCA_SYN_001",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_SYN_002",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_005",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_CMP_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_002_ZH": [
+      {
+        "asset_id": "RCA_SYN_001",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_SYN_002",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_005",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_CMP_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_003_EN": [
+      {
+        "asset_id": "RCA_SYN_003",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_004",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_CMP_002",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_003_ZH": [
+      {
+        "asset_id": "RCA_SYN_003",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_004",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_CMP_002",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_004_EN": [
+      {
+        "asset_id": "NOTE_SYN_CROSS_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_003",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_004",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_004_ZH": [
+      {
+        "asset_id": "NOTE_SYN_CROSS_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_003",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_004",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_005_EN": [
+      {
+        "asset_id": "NOTE_SYN_CMP_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_001",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_005",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_006",
+        "relevance": 2
+      }
+    ],
+    "Q_RCA_005_ZH": [
+      {
+        "asset_id": "NOTE_SYN_CMP_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_001",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_005",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_006",
+        "relevance": 2
+      }
+    ],
+    "Q_RCA_006_EN": [
+      {
+        "asset_id": "RCA_SYN_005",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_006",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_CMP_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_006_ZH": [
+      {
+        "asset_id": "RCA_SYN_005",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_006",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_CMP_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_007_EN": [
+      {
+        "asset_id": "NOTE_SYN_CVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_007",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_010",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_SYN_011",
+        "relevance": 0
+      }
+    ],
+    "Q_RCA_007_ZH": [
+      {
+        "asset_id": "NOTE_SYN_CVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_007",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_010",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_SYN_011",
+        "relevance": 0
+      }
+    ],
+    "Q_RCA_008_EN": [
+      {
+        "asset_id": "RCA_SYN_008",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_009",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_CVD_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_008_ZH": [
+      {
+        "asset_id": "RCA_SYN_008",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_009",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_CVD_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_009_EN": [
+      {
+        "asset_id": "NOTE_SYN_CVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_008",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_009",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_009_ZH": [
+      {
+        "asset_id": "NOTE_SYN_CVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_008",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_009",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_010_EN": [
+      {
+        "asset_id": "NOTE_SYN_CVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_007",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_010",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_010_ZH": [
+      {
+        "asset_id": "NOTE_SYN_CVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_007",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_010",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_011_EN": [
+      {
+        "asset_id": "RCA_SYN_007",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_011",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_CVD_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_011_ZH": [
+      {
+        "asset_id": "RCA_SYN_007",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_011",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_CVD_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_012_EN": [
+      {
+        "asset_id": "RCA_SYN_012",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_015",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_016",
+        "relevance": 2
+      },
+      {
+        "asset_id": "SOP_SYN_LITHO_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_012_ZH": [
+      {
+        "asset_id": "RCA_SYN_012",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_015",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_016",
+        "relevance": 2
+      },
+      {
+        "asset_id": "SOP_SYN_LITHO_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_013_EN": [
+      {
+        "asset_id": "NOTE_SYN_LITHO_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_012",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_013",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_013_ZH": [
+      {
+        "asset_id": "NOTE_SYN_LITHO_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_012",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_013",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_014_EN": [
+      {
+        "asset_id": "RCA_SYN_014",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_015",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_LITHO_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_014_ZH": [
+      {
+        "asset_id": "RCA_SYN_014",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_015",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_LITHO_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_015_EN": [
+      {
+        "asset_id": "NOTE_SYN_LITHO_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_014",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_015",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_015_ZH": [
+      {
+        "asset_id": "NOTE_SYN_LITHO_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_014",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_015",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_016_EN": [
+      {
+        "asset_id": "NOTE_SYN_LITHO_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_012",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_SYN_014",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_016",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_016_ZH": [
+      {
+        "asset_id": "NOTE_SYN_LITHO_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_012",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_SYN_014",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_016",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_017_EN": [
+      {
+        "asset_id": "RCA_SYN_017",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_020",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_021",
+        "relevance": 2
+      },
+      {
+        "asset_id": "SOP_SYN_ETCH_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_017_ZH": [
+      {
+        "asset_id": "RCA_SYN_017",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_020",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_021",
+        "relevance": 2
+      },
+      {
+        "asset_id": "SOP_SYN_ETCH_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_018_EN": [
+      {
+        "asset_id": "NOTE_SYN_ETCH_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_018",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_020",
+        "relevance": 0
+      }
+    ],
+    "Q_RCA_018_ZH": [
+      {
+        "asset_id": "NOTE_SYN_ETCH_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_018",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_020",
+        "relevance": 0
+      }
+    ],
+    "Q_RCA_019_EN": [
+      {
+        "asset_id": "RCA_SYN_017",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_019",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_ETCH_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_019_ZH": [
+      {
+        "asset_id": "RCA_SYN_017",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_019",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_ETCH_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_020_EN": [
+      {
+        "asset_id": "NOTE_SYN_ETCH_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_018",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_020",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_020_ZH": [
+      {
+        "asset_id": "NOTE_SYN_ETCH_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_018",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_020",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_021_EN": [
+      {
+        "asset_id": "NOTE_SYN_ETCH_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_017",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_021",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_021_ZH": [
+      {
+        "asset_id": "NOTE_SYN_ETCH_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_017",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_021",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_022_EN": [
+      {
+        "asset_id": "RCA_SYN_022",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_023",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_IMPLANT_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_022_ZH": [
+      {
+        "asset_id": "RCA_SYN_022",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_023",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_IMPLANT_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_023_EN": [
+      {
+        "asset_id": "NOTE_SYN_IMPLANT_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_022",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_023",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_023_ZH": [
+      {
+        "asset_id": "NOTE_SYN_IMPLANT_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_022",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_023",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_024_EN": [
+      {
+        "asset_id": "NOTE_SYN_IMPLANT_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_022",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_024",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_024_ZH": [
+      {
+        "asset_id": "NOTE_SYN_IMPLANT_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_022",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_024",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_025_EN": [
+      {
+        "asset_id": "RCA_SYN_024",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_025",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_IMPLANT_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_025_ZH": [
+      {
+        "asset_id": "RCA_SYN_024",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_025",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_IMPLANT_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_026_EN": [
+      {
+        "asset_id": "RCA_SYN_026",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_027",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_028",
+        "relevance": 2
+      },
+      {
+        "asset_id": "SOP_SYN_DIFF_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_026_ZH": [
+      {
+        "asset_id": "RCA_SYN_026",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_027",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_028",
+        "relevance": 2
+      },
+      {
+        "asset_id": "SOP_SYN_DIFF_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_027_EN": [
+      {
+        "asset_id": "NOTE_SYN_DIFF_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_026",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_027",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_027_ZH": [
+      {
+        "asset_id": "NOTE_SYN_DIFF_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_026",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_027",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_028_EN": [
+      {
+        "asset_id": "NOTE_SYN_DIFF_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_026",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_028",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_028_ZH": [
+      {
+        "asset_id": "NOTE_SYN_DIFF_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_026",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_028",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_029_EN": [
+      {
+        "asset_id": "NOTE_SYN_DIFF_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_027",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_029",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_029_ZH": [
+      {
+        "asset_id": "NOTE_SYN_DIFF_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_027",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_029",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_030_EN": [
+      {
+        "asset_id": "RCA_SYN_030",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_031",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_033",
+        "relevance": 2
+      },
+      {
+        "asset_id": "SOP_SYN_PVD_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_030_ZH": [
+      {
+        "asset_id": "RCA_SYN_030",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_031",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_033",
+        "relevance": 2
+      },
+      {
+        "asset_id": "SOP_SYN_PVD_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_031_EN": [
+      {
+        "asset_id": "NOTE_SYN_PVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_030",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_031",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_031_ZH": [
+      {
+        "asset_id": "NOTE_SYN_PVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_030",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_031",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_032_EN": [
+      {
+        "asset_id": "RCA_SYN_031",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_032",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_PVD_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_032_ZH": [
+      {
+        "asset_id": "RCA_SYN_031",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_032",
+        "relevance": 3
+      },
+      {
+        "asset_id": "SOP_SYN_PVD_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_033_EN": [
+      {
+        "asset_id": "NOTE_SYN_PVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_030",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_033",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_033_ZH": [
+      {
+        "asset_id": "NOTE_SYN_PVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_030",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_033",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_034_EN": [
+      {
+        "asset_id": "RCA_SYN_034",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_036",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_WET_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_034_ZH": [
+      {
+        "asset_id": "RCA_SYN_034",
+        "relevance": 3
+      },
+      {
+        "asset_id": "RCA_SYN_036",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_SYN_WET_001",
+        "relevance": 1
+      }
+    ],
+    "Q_RCA_035_EN": [
+      {
+        "asset_id": "NOTE_SYN_WET_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_034",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_035",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_035_ZH": [
+      {
+        "asset_id": "NOTE_SYN_WET_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_034",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_035",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_036_EN": [
+      {
+        "asset_id": "NOTE_SYN_WET_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_034",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_036",
+        "relevance": 3
+      }
+    ],
+    "Q_RCA_036_ZH": [
+      {
+        "asset_id": "NOTE_SYN_WET_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_SYN_034",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_SYN_036",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_001_EN": [
+      {
+        "asset_id": "NOTE_SYN_CMP_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_CMP_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_002_ZH": [
+      {
+        "asset_id": "NOTE_SYN_CROSS_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_CMP_002",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_003_EN": [
+      {
+        "asset_id": "NOTE_SYN_CVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_CVD_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_004_ZH": [
+      {
+        "asset_id": "NOTE_SYN_LITHO_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_LITHO_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_005_EN": [
+      {
+        "asset_id": "NOTE_SYN_ETCH_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_ETCH_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_006_ZH": [
+      {
+        "asset_id": "NOTE_SYN_IMPLANT_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_IMPLANT_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_007_EN": [
+      {
+        "asset_id": "NOTE_SYN_DIFF_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_DIFF_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_008_ZH": [
+      {
+        "asset_id": "NOTE_SYN_PVD_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_PVD_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_009_EN": [
+      {
+        "asset_id": "NOTE_SYN_WET_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_WET_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_010_ZH": [
+      {
+        "asset_id": "NOTE_SYN_CROSS_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_CROSS_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_011_EN": [
+      {
+        "asset_id": "NOTE_SYN_METROLOGY_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_METROLOGY_001",
+        "relevance": 3
+      }
+    ],
+    "Q_SOP_012_ZH": [
+      {
+        "asset_id": "NOTE_SYN_METROLOGY_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "SOP_SYN_FDC_001",
+        "relevance": 3
+      }
+    ]
+  },
+  "queries": [
+    {
+      "cross_language": false,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_005"
+      ],
+      "language": "en",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_001_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: slurry flow trends down, endpoint time extends, and Cu residue rises across several wafers. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_005"
+      ],
+      "language": "zh",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_001_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: slurry流量持续下降、endpoint时间延长，并且多片wafer的Cu residue增加，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_005"
+      ],
+      "language": "en",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_002_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: intermittent slurry-flow dips align with removal-rate loss and endpoint extension. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_005"
+      ],
+      "language": "zh",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_002_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: 间歇性slurry流量跌落与removal rate下降及endpoint延长同步出现，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_004"
+      ],
+      "language": "en",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_003_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: radial scratches repeat at the same wafer radius while normal slurry and endpoint signals are observed. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_004"
+      ],
+      "language": "zh",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_003_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: radial scratch在相同wafer半径重复出现，但slurry与endpoint信号正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_003"
+      ],
+      "language": "en",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_004_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: random-direction scratches appear on a short wafer sequence after a carrier change with normal process traces. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_003"
+      ],
+      "language": "zh",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_004_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: carrier更换后短wafer序列出现随机方向scratch，process trace保持正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_001"
+      ],
+      "language": "en",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_005_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: post-polish thickness shows a center-fast profile while slurry flow remains stable. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_001"
+      ],
+      "language": "zh",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_005_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: post-polish thickness呈center-fast分布，而slurry流量保持稳定，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_005"
+      ],
+      "language": "en",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_006_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: edge thickness loss increases after carrier maintenance while center removal remains nominal. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_005"
+      ],
+      "language": "zh",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_RCA_006_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Cu CMP: carrier维护后edge thickness loss增加，但中心removal保持正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_011"
+      ],
+      "language": "en",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_007_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: pre-CMP ILD thickness drifts low on one chamber while downstream CMP traces remain normal. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_011"
+      ],
+      "language": "zh",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_007_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: 单一chamber的pre-CMP ILD thickness持续偏低，而下游CMP trace正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_009"
+      ],
+      "language": "en",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_008_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: particle counts rise abruptly after long chamber runtime and show chamber-specific clustering. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_009"
+      ],
+      "language": "zh",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_008_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: 长时间chamber运行后particle count突然升高，并呈现chamber-specific cluster，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_008"
+      ],
+      "language": "en",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_009_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: film stress shifts tensile while thickness and gas flow remain inside their normal bands. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_008"
+      ],
+      "language": "zh",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_009_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: film stress向tensile方向偏移，但thickness与gas flow仍在正常范围，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_007"
+      ],
+      "language": "en",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_010_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: deposition rate decays over the first wafers after preventive maintenance and then stabilizes. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_007"
+      ],
+      "language": "zh",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_010_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: PM后最初数片wafer的deposition rate逐片下降，随后趋于稳定，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_007"
+      ],
+      "language": "en",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_011_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: center-edge thickness range increases with a stable wafer-average deposition rate. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_007"
+      ],
+      "language": "zh",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_RCA_011_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Thin Film: center-edge thickness range增大，但wafer-average deposition rate稳定，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Scanner",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_015"
+      ],
+      "language": "en",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_012_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: critical dimension shifts large together with focus-monitor drift but stable dose monitors. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Scanner",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_015"
+      ],
+      "language": "zh",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_012_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: CD向large方向偏移，同时focus monitor漂移，但dose monitor稳定，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Scanner",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_012"
+      ],
+      "language": "en",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_013_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: overlay shows a consistent X-direction translation on one scanner with normal wafer expansion terms. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Scanner",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_012"
+      ],
+      "language": "zh",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_013_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: 单台scanner的overlay呈稳定X方向平移，而wafer expansion term正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Track",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_015"
+      ],
+      "language": "en",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_014_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: missing-pattern defects form a narrow strip aligned with the developer dispense path. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Track",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_015"
+      ],
+      "language": "zh",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_014_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: missing-pattern defect沿developer dispense path形成窄条带，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Track",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_014"
+      ],
+      "language": "en",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_015_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: bridge defects rise while exposure dose is stable and bake-plate temperature trends low. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Track",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_014"
+      ],
+      "language": "zh",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_015_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: exposure dose稳定时bridge defect增加，同时bake plate temperature偏低，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Track",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_014"
+      ],
+      "language": "en",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_016_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: resist peel is concentrated at the wafer edge after an edge-bead-removal maintenance event. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Track",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_014"
+      ],
+      "language": "zh",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_RCA_016_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Lithography: edge-bead-removal维护后，resist peel集中在wafer edge，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_020"
+      ],
+      "language": "en",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_017_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: etch rate trends low with rising source-RF reflected power and stable gas flow. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_020"
+      ],
+      "language": "zh",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_017_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: etch rate持续偏低，同时source-RF reflected power升高而gas flow稳定，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_020"
+      ],
+      "language": "en",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_018_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: post-etch CD bias shifts while chamber pressure oscillates and RF signals remain stable. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_020"
+      ],
+      "language": "zh",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_018_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: post-etch CD bias偏移，同时chamber pressure振荡而RF signal稳定，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_017"
+      ],
+      "language": "en",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_019_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: residue rises when optical endpoint terminates early despite normal RF and pressure. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_017"
+      ],
+      "language": "zh",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_019_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: RF与pressure正常时optical endpoint提前结束，并伴随residue增加，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_018"
+      ],
+      "language": "en",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_020_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: selectivity drops while one chemistry-ratio trace drifts and chamber pressure is normal. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_018"
+      ],
+      "language": "zh",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_020_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: selectivity下降，同时一条chemistry ratio trace漂移而chamber pressure正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_017"
+      ],
+      "language": "en",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_021_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: microtrenching rises with elevated bias-RF power while average etch rate stays near target. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_017"
+      ],
+      "language": "zh",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_RCA_021_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Etch: bias-RF power升高时microtrenching增加，但average etch rate接近目标，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_023"
+      ],
+      "language": "en",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_RCA_022_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Implant: sheet resistance shifts high while beam-current dose integration trends low. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_023"
+      ],
+      "language": "zh",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_RCA_022_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Implant: sheet resistance偏高，同时beam-current dose integration偏低，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_022"
+      ],
+      "language": "en",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_RCA_023_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Implant: junction-depth monitors shift with high-voltage ripple while integrated dose remains normal. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_022"
+      ],
+      "language": "zh",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_RCA_023_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Implant: integrated dose正常时junction-depth monitor偏移，并出现high-voltage ripple，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_022"
+      ],
+      "language": "en",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_RCA_024_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Implant: left-right device asymmetry appears with normal dose and energy monitors. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_022"
+      ],
+      "language": "zh",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_RCA_024_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Implant: dose与energy monitor正常时出现left-right device asymmetry，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_024"
+      ],
+      "language": "en",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_RCA_025_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Implant: backside and edge particles rise on one endstation with normal beam parameters. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_024"
+      ],
+      "language": "zh",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_RCA_025_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Implant: beam parameter正常时单一endstation的backside与edge particle增加，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_027"
+      ],
+      "language": "en",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_RCA_026_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Diffusion: sheet resistance trends high by furnace run while implant dose monitors remain normal. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_027"
+      ],
+      "language": "zh",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_RCA_026_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Diffusion: implant dose monitor正常时sheet resistance按furnace run持续偏高，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_026"
+      ],
+      "language": "en",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_RCA_027_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Diffusion: oxygen-related defect monitors rise after a furnace idle period with normal temperature traces. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_026"
+      ],
+      "language": "zh",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_RCA_027_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Diffusion: furnace idle后oxygen-related defect monitor增加，但temperature trace正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_026"
+      ],
+      "language": "en",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_RCA_028_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Diffusion: oxide thickness is edge-high across boat positions while average gas flow remains normal. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_026"
+      ],
+      "language": "zh",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_RCA_028_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Diffusion: 各boat position的oxide thickness呈edge-high，但average gas flow正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_027"
+      ],
+      "language": "en",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_RCA_029_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Diffusion: defect counts repeat at fixed boat-slot intervals with stable temperature and atmosphere signals. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_027"
+      ],
+      "language": "zh",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_RCA_029_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Diffusion: temperature与atmosphere signal稳定时，defect count按固定boat-slot间隔重复，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_031"
+      ],
+      "language": "en",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_RCA_030_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Metal: sheet resistance rises gradually with target age while preclean monitors remain normal. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_031"
+      ],
+      "language": "zh",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_RCA_030_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Metal: target age增加时sheet resistance逐渐升高，而preclean monitor正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_030"
+      ],
+      "language": "en",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_RCA_031_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Metal: interface voids increase while deposition thickness is normal and preclean RF trends low. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_030"
+      ],
+      "language": "zh",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_RCA_031_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Metal: deposition thickness正常时interface void增加，同时preclean RF偏低，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_031"
+      ],
+      "language": "en",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_RCA_032_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Metal: particle counts rise after extended shield life and cluster on one deposition chamber. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_031"
+      ],
+      "language": "zh",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_RCA_032_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Metal: shield life延长后单一deposition chamber的particle count增加并聚集，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_030"
+      ],
+      "language": "en",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_RCA_033_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Metal: left-right thickness asymmetry increases while average deposition rate remains stable. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_030"
+      ],
+      "language": "zh",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_RCA_033_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Metal: average deposition rate稳定时left-right thickness asymmetry增加，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Wet Bench",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_036"
+      ],
+      "language": "en",
+      "module": "Wet Clean",
+      "no_answer": false,
+      "query_id": "Q_RCA_034_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Wet Clean: watermarks rise after spin drying while incoming surface inspection is normal. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Wet Bench",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_036"
+      ],
+      "language": "zh",
+      "module": "Wet Clean",
+      "no_answer": false,
+      "query_id": "Q_RCA_034_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Wet Clean: incoming surface inspection正常时，spin dry后watermark增加，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Wet Bench",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_034"
+      ],
+      "language": "en",
+      "module": "Wet Clean",
+      "no_answer": false,
+      "query_id": "Q_RCA_035_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Wet Clean: surface-metal monitors trend high late in bath life with normal incoming wafers. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Wet Bench",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_034"
+      ],
+      "language": "zh",
+      "module": "Wet Clean",
+      "no_answer": false,
+      "query_id": "Q_RCA_035_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Wet Clean: bath life后期surface-metal monitor偏高，而incoming wafer正常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Wet Bench",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_034"
+      ],
+      "language": "en",
+      "module": "Wet Clean",
+      "no_answer": false,
+      "query_id": "Q_RCA_036_EN",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Wet Clean: oxide loss increases with stable process time but abnormal bath-concentration checks. Find similar historical RCA cases."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Wet Bench",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_034"
+      ],
+      "language": "zh",
+      "module": "Wet Clean",
+      "no_answer": false,
+      "query_id": "Q_RCA_036_ZH",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Wet Clean: process time稳定时oxide loss增加，并伴随bath concentration异常，请检索可以参考的相似历史RCA案例。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_SOP_001_EN",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Cu CMP: slurry, endpoint, or removal-rate signals indicate a multi-wafer Cu CMP excursion. Which SOP should be followed for verification and containment?"
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [],
+      "language": "zh",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_SOP_002_ZH",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Cu CMP: scratch defect需要区分repeatable geometry与isolated random event，应该按照什么SOP进行确认和处置？"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_SOP_003_EN",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Thin Film: a chamber-specific thickness, rate, stress, or particle shift is detected. Which SOP should be followed for verification and containment?"
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Scanner/Track",
+      "hard_negative_asset_ids": [],
+      "language": "zh",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_SOP_004_ZH",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Lithography: CD、overlay、missing-pattern、bridge或resist-edge defect超出control limit，应该按照什么SOP进行确认和处置？"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_SOP_005_EN",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Etch: etch rate, CD, profile, selectivity, endpoint, or residue indicates an excursion. Which SOP should be followed for verification and containment?"
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [],
+      "language": "zh",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_SOP_006_ZH",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Implant: electrical或monitor data提示implant dose、energy、angle或particle问题，应该按照什么SOP进行确认和处置？"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_SOP_007_EN",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Diffusion: thermal, atmosphere, uniformity, or boat-slot monitors indicate a furnace excursion. Which SOP should be followed for verification and containment?"
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [],
+      "language": "zh",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_SOP_008_ZH",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Metal: PVD thickness、resistance、void、uniformity或particle monitor偏移，应该按照什么SOP进行确认和处置？"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Wet Bench",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Wet Clean",
+      "no_answer": false,
+      "query_id": "Q_SOP_009_EN",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Wet Clean: watermark, metallic contamination, or oxide-loss monitors exceed limits. Which SOP should be followed for verification and containment?"
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "MES",
+      "hard_negative_asset_ids": [],
+      "language": "zh",
+      "module": "Cross Module",
+      "no_answer": false,
+      "query_id": "Q_SOP_010_ZH",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Cross Module: equipment、chamber、recipe或material excursion需要确定有边界的impact lot，应该按照什么SOP进行确认和处置？"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Metrology",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Metrology",
+      "no_answer": false,
+      "query_id": "Q_SOP_011_EN",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Metrology: a measurement shift may reflect process change or measurement-system error. Which SOP should be followed for verification and containment?"
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "FDC",
+      "hard_negative_asset_ids": [],
+      "language": "zh",
+      "module": "Cross Module",
+      "no_answer": false,
+      "query_id": "Q_SOP_012_ZH",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Cross Module: FDC feature异常，但sensor quality或context存在不确定性，应该按照什么SOP进行确认和处置？"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_NOTE_001_EN",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Cu CMP: pad and retaining-ring aging can create distinct spatial removal and scratch patterns. Retrieve the relevant engineering note and its boundary."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "CMP",
+      "hard_negative_asset_ids": [],
+      "language": "mixed",
+      "module": "Cu CMP",
+      "no_answer": false,
+      "query_id": "Q_NOTE_002_MIXED",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Cu CMP: endpoint extension可能来自真实removal loss或optical-signal degradation，查找相关工程笔记和适用边界。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "CVD",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Thin Film",
+      "no_answer": false,
+      "query_id": "Q_NOTE_003_EN",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Thin Film: post-clean chambers may exhibit transient rate and particle behavior before stabilization. Retrieve the relevant engineering note and its boundary."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Scanner/Track",
+      "hard_negative_asset_ids": [],
+      "language": "mixed",
+      "module": "Lithography",
+      "no_answer": false,
+      "query_id": "Q_NOTE_004_MIXED",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Lithography: focus、dose、bake、develop与edge-bead failure具有不同map和profile signature，查找相关工程笔记和适用边界。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Etch",
+      "no_answer": false,
+      "query_id": "Q_NOTE_005_EN",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Etch: etch rate, profile, selectivity, residue, and endpoint respond to different process dimensions. Retrieve the relevant engineering note and its boundary."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Ion Implanter",
+      "hard_negative_asset_ids": [],
+      "language": "mixed",
+      "module": "Implant",
+      "no_answer": false,
+      "query_id": "Q_NOTE_006_MIXED",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Implant: dose、energy、angle与endstation contamination需要不同monitor evidence，查找相关工程笔记和适用边界。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Furnace",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Diffusion",
+      "no_answer": false,
+      "query_id": "Q_NOTE_007_EN",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Diffusion: zone, radial, and boat-slot patterns provide different clues for thermal and atmosphere mechanisms. Retrieve the relevant engineering note and its boundary."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [],
+      "language": "mixed",
+      "module": "Metal",
+      "no_answer": false,
+      "query_id": "Q_NOTE_008_MIXED",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Metal: target、shield、magnet与preclean老化影响不同electrical、spatial及particle output，查找相关工程笔记和适用边界。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Wet Bench",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Wet Clean",
+      "no_answer": false,
+      "query_id": "Q_NOTE_009_EN",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Wet Clean: metal contamination, oxide loss, and watermarks localize to different bath or dry dimensions. Retrieve the relevant engineering note and its boundary."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Inspection",
+      "hard_negative_asset_ids": [],
+      "language": "mixed",
+      "module": "Cross Module",
+      "no_answer": false,
+      "query_id": "Q_NOTE_010_MIXED",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Cross Module: scratch orientation、repeatability与first-detection operation有助于定位process或handling source，查找相关工程笔记和适用边界。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Metrology",
+      "hard_negative_asset_ids": [],
+      "language": "en",
+      "module": "Metrology",
+      "no_answer": false,
+      "query_id": "Q_NOTE_011_EN",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Metrology: apparent process shifts can originate from calibration, repeatability, sampling, or real process change. Retrieve the relevant engineering note and its boundary."
+    },
+    {
+      "cross_language": true,
+      "equipment_type": "Knowledge System",
+      "hard_negative_asset_ids": [],
+      "language": "mixed",
+      "module": "Cross Module",
+      "no_answer": false,
+      "query_id": "Q_NOTE_012_MIXED",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Cross Module: historical similarity可以提出hypothesis，但不能确认当前incident，查找相关工程笔记和适用边界。"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "EUV Scanner",
+      "hard_negative_asset_ids": [
+        "SOP_SYN_LITHO_001"
+      ],
+      "language": "en",
+      "module": "EUV Lithography",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_001",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "EUV source collector reflectivity dropped after tin debris accumulation; find our maintenance SOP"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "EPI",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_007"
+      ],
+      "language": "zh",
+      "module": "Epitaxy",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_002",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "查找3nm nanosheet gate-all-around epitaxy缺陷的历史RCA案例"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Backgrinder",
+      "hard_negative_asset_ids": [
+        "NOTE_SYN_PVD_001"
+      ],
+      "language": "en",
+      "module": "Advanced Packaging",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_003",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Backside power-delivery network copper reveal voids at wafer thinning; retrieve an engineering note"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Oxidation Furnace",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_028"
+      ],
+      "language": "mixed",
+      "module": "SiC",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_004",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "SiC trench MOSFET gate oxide reliability异常有没有相似case"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Plasma Etcher",
+      "hard_negative_asset_ids": [
+        "SOP_SYN_ETCH_001"
+      ],
+      "language": "en",
+      "module": "Cryogenic Etch",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_005",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Retrieve the qualified SOP for cryogenic silicon etch at minus 100 Celsius"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "EUV Scanner",
+      "hard_negative_asset_ids": [
+        "NOTE_SYN_LITHO_001"
+      ],
+      "language": "zh",
+      "module": "High-NA EUV",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_006",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "查找High-NA EUV anamorphic overlay correction的工程笔记"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "RTA",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_026"
+      ],
+      "language": "en",
+      "module": "GaN",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_007",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "GaN HEMT ohmic contact anneal resistance drift historical case"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Bonder",
+      "hard_negative_asset_ids": [
+        "SOP_SYN_LITHO_001"
+      ],
+      "language": "mixed",
+      "module": "Hybrid Bonding",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_008",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Hybrid bonding overlay after plasma activation需要什么SOP"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "ALD",
+      "hard_negative_asset_ids": [
+        "NOTE_SYN_CVD_001"
+      ],
+      "language": "en",
+      "module": "ALD",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_009",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Retrieve notes for molybdenum atomic-layer-deposition nucleation delay"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "ALD",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_009"
+      ],
+      "language": "zh",
+      "module": "Ferroelectric",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_010",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "查找ferroelectric HfZrO wake-up效应导致Vt漂移的历史案例"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "ESC",
+      "hard_negative_asset_ids": [
+        "SOP_SYN_ETCH_001"
+      ],
+      "language": "en",
+      "module": "Dry Etch",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_011",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "What is the approved SOP for backside helium leak on a 300 mm electrostatic chuck?"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Metrology",
+      "hard_negative_asset_ids": [
+        "NOTE_SYN_METROLOGY_001"
+      ],
+      "language": "mixed",
+      "module": "Buried Power Rail",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_012",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "2nm buried power rail resistance异常，查engineering note"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Bonding",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_001"
+      ],
+      "language": "en",
+      "module": "Advanced Packaging",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_013",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "Retrieve a case for wafer-level liquid cooling microchannel blockage"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Scanner",
+      "hard_negative_asset_ids": [
+        "SOP_SYN_LITHO_001"
+      ],
+      "language": "zh",
+      "module": "Immersion Lithography",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_014",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "查找ArF immersion topcoat leaching的处置SOP"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "PVD",
+      "hard_negative_asset_ids": [
+        "NOTE_SYN_PVD_001"
+      ],
+      "language": "en",
+      "module": "Cobalt Interconnect",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_015",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "Engineering guidance for cobalt liner corrosion during air break"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Deposition",
+      "hard_negative_asset_ids": [
+        "RCA_SYN_008"
+      ],
+      "language": "mixed",
+      "module": "Quantum Device",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_016",
+      "question_kind": "historical_match",
+      "split": "test",
+      "text": "查找quantum-dot spin qubit gate stack particle历史case"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Laser Drill",
+      "hard_negative_asset_ids": [
+        "SOP_SYN_CROSS_001"
+      ],
+      "language": "en",
+      "module": "Glass Core Packaging",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_017",
+      "question_kind": "procedure_guidance",
+      "split": "test",
+      "text": "Retrieve the SOP for glass-core substrate through-glass-via laser cracking"
+    },
+    {
+      "cross_language": false,
+      "equipment_type": "Electrical Test",
+      "hard_negative_asset_ids": [
+        "NOTE_SYN_KNOWLEDGE_001"
+      ],
+      "language": "zh",
+      "module": "Cryogenic Interconnect",
+      "no_answer": true,
+      "query_id": "Q_NOANSWER_018",
+      "question_kind": "engineering_note_lookup",
+      "split": "test",
+      "text": "查找低温superconducting interconnect electromigration的工程笔记"
+    }
+  ],
+  "relevance_threshold": 2,
+  "schema_version": "1.0"
+}
