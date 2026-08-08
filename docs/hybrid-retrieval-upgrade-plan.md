@@ -45,12 +45,16 @@ Status: implemented in Long Task 2. See `docs/knowledge-ingestion-lookup.md`.
 
 ### 3. BM25, Vector, RRF, and Ablation Evaluation
 
+Status: implemented in Long Task 3. See `docs/hybrid-retrieval.md`.
+
 - PostgreSQL full-text BM25-style candidate retrieval.
 - Multilingual Embedding backend with `device=auto` (CUDA first, CPU fallback).
 - Exact vector search while the corpus is small.
 - Reciprocal Rank Fusion with separate lexical, vector, and fusion scores.
 - Keyword, BM25-only, Vector-only, and Hybrid ablation reports using the same
   ground truth.
+- The online Knowledge API remains on its existing Chunk Keyword Retriever;
+  production cutover is intentionally deferred to Long Task 4.
 
 ### 4. pgvector, Reranker, Agent Cutover, and Final Evaluation
 

@@ -581,6 +581,8 @@ class KnowledgeLookupHitResponse(APIModel):
     excerpt: str
     evidence_id: str
     relevance_reason: str
+    retrieval_strategy: str
+    score_components: dict[str, float]
 
 
 class KnowledgeAgentTraceResponse(APIModel):

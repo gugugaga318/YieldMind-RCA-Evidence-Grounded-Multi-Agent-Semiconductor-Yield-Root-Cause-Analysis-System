@@ -67,7 +67,7 @@ def run_retrieval_evaluation(
     backend = KeywordRetrieverEvaluationBackend(
         KeywordRetriever(KnowledgeAssetRepository(repository))
     )
-    evaluation = evaluate_retrieval(
+    evaluation: dict[str, Any] = evaluate_retrieval(
         ground_truth,
         backend,
         asset_statuses=_asset_statuses(manifest),

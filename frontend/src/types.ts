@@ -643,6 +643,10 @@ export interface KnowledgeLookupHit {
   excerpt: string;
   evidence_id: string;
   relevance_reason: string;
+  retrieval_strategy: string;
+  score_components: Partial<
+    Record<"keyword" | "lexical" | "vector" | "fusion" | "reranker", number>
+  >;
 }
 
 export interface KnowledgeAgentTrace {

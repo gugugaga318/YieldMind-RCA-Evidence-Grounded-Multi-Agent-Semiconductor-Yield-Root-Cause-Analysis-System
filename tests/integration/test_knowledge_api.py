@@ -68,6 +68,8 @@ class KnowledgeAPIIntegrationTest(unittest.TestCase):
         self.assertEqual(payload["intent"], "knowledge_lookup")
         self.assertEqual(payload["plan"]["action"], "retrieve_historical_case")
         self.assertEqual([item["agent"] for item in payload["agent_trace"]], ["knowledge"])
+        self.assertEqual(payload["hits"][0]["retrieval_strategy"], "chunk_keyword")
+        self.assertIn("keyword", payload["hits"][0]["score_components"])
         self.assertIsNone(payload["root_cause_conclusion"])
         self.assertNotIn("hypotheses", payload)
         self.assertNotIn("impact_lots", payload)

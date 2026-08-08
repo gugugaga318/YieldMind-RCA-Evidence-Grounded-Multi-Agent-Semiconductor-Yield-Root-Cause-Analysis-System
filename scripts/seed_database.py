@@ -27,8 +27,10 @@ UP_MIGRATIONS = [
     ROOT / "db" / "migrations" / "005_runtime_resilience.up.sql",
     ROOT / "db" / "migrations" / "006_memory_snapshot_index_update.up.sql",
     ROOT / "db" / "migrations" / "007_knowledge_ingestion.up.sql",
+    ROOT / "db" / "migrations" / "008_hybrid_retrieval.up.sql",
 ]
 DOWN_MIGRATIONS = [
+    ROOT / "db" / "migrations" / "008_hybrid_retrieval.down.sql",
     ROOT / "db" / "migrations" / "007_knowledge_ingestion.down.sql",
     ROOT / "db" / "migrations" / "006_memory_snapshot_index_update.down.sql",
     ROOT / "db" / "migrations" / "005_runtime_resilience.down.sql",

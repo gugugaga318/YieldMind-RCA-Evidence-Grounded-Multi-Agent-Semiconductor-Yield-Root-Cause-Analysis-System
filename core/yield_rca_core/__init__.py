@@ -10,6 +10,18 @@ from yield_rca_core.evidence_models import (
     EvidenceEntity,
     EvidenceType,
 )
+from yield_rca_core.hybrid_retrieval import (
+    BM25DocumentChunkRetriever,
+    DeterministicHashEmbeddingBackend,
+    ExactVectorCandidateSource,
+    HybridDocumentChunkRetriever,
+    HybridRetrievalConfigurationError,
+    PostgresBM25CandidateSource,
+    PythonBM25CandidateSource,
+    SentenceTransformerEmbeddingBackend,
+    VectorDocumentChunkRetriever,
+    reciprocal_rank_fusion,
+)
 from yield_rca_core.hypothesis_engine import HypothesisEngine
 from yield_rca_core.improvement_agent import ImprovementAgent
 from yield_rca_core.intent_planner import QwenIntentPlanner, QwenIntentPlannerError
@@ -193,6 +205,8 @@ __all__ = [
     "Hypothesis",
     "HypothesisEngine",
     "HypothesisStatus",
+    "HybridDocumentChunkRetriever",
+    "HybridRetrievalConfigurationError",
     "ImprovementAgent",
     "IntentPlannerReasonCode",
     "IntentPlan",
@@ -209,6 +223,9 @@ __all__ = [
     "KnowledgeAssetRepository",
     "KnowledgeIndexStatus",
     "KeywordRetriever",
+    "BM25DocumentChunkRetriever",
+    "DeterministicHashEmbeddingBackend",
+    "ExactVectorCandidateSource",
     "GetLotContextTool",
     "LotDrivenRCAError",
     "LotNotFoundError",
@@ -252,6 +269,8 @@ __all__ = [
     "resolve_question_evidence_links",
     "PerformBasicSpcAnalysisTool",
     "PostgresFabRepository",
+    "PostgresBM25CandidateSource",
+    "PythonBM25CandidateSource",
     "PurePythonRCAWorkflow",
     "QwenIntentPlanner",
     "QwenIntentPlannerError",
@@ -271,6 +290,7 @@ __all__ = [
     "RunEvaluation",
     "SCHEMA_VERSION",
     "Severity",
+    "SentenceTransformerEmbeddingBackend",
     "SPECIALIST_AGENTS",
     "SUPERVISOR_EXECUTABLE_AGENTS",
     "Supervisor",
@@ -286,6 +306,7 @@ __all__ = [
     "ToolInput",
     "ToolOutput",
     "Warning",
+    "VectorDocumentChunkRetriever",
     "build_csv_workflow",
     "build_postgres_workflow",
     "build_workflow",
@@ -295,6 +316,7 @@ __all__ = [
     "evaluate_nelson_rules",
     "review_question_updates",
     "review_qwen_planner_output",
+    "reciprocal_rank_fusion",
     "__version__",
 ]
 

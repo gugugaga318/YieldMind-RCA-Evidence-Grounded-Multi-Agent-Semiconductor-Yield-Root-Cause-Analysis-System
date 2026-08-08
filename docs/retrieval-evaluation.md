@@ -182,3 +182,29 @@ These results expose the current architecture honestly:
 Long Task 1 does not change the online Retriever, Tool Layer, Evidence score, or
 RCA Workflow. Later tasks can compare BM25, Vector, RRF, and Reranker variants
 against this exact baseline before any production cutover.
+
+## Run the Long Task 3 Ablation
+
+Long Task 3 reuses this exact Ground Truth for the Legacy Case Keyword baseline,
+the current online Chunk Keyword baseline, BM25-only, Vector-only, and
+Hybrid-RRF. The dependency-free command is intended for CI architecture
+verification, not for claiming semantic-model quality:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_hybrid_retrieval_evaluation.py `
+  --embedding-backend deterministic-hash `
+  --device cpu
+```
+
+After installing the optional retrieval dependencies, run the real multilingual
+model with CUDA-first automatic device selection:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_hybrid_retrieval_evaluation.py `
+  --embedding-backend sentence-transformers `
+  --embedding-model BAAI/bge-m3 `
+  --embedding-revision 5617a9f61b028005a4858fdac845db406aefb181 `
+  --device auto
+```
+
+See `docs/hybrid-retrieval.md` for the architecture and interpretation boundary.

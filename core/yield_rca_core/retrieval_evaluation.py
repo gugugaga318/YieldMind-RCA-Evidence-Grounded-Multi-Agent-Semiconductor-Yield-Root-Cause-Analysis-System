@@ -13,6 +13,12 @@ from math import log2
 from pathlib import Path
 from typing import Any, Protocol
 
+from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
+from yield_rca_core.knowledge_models import (
+    KnowledgeLookupIntent,
+    KnowledgeLookupPlan,
+    KnowledgeQuestionKind,
+)
 from yield_rca_core.knowledge_retrieval import KeywordRetriever, RetrievalQuery
 
 RETRIEVAL_EVALUATION_SCHEMA_VERSION = "1.0"
@@ -265,9 +271,11 @@ class KeywordRetrieverEvaluationBackend:
         self,
         retriever: KeywordRetriever,
         *,
+        name: str = "KeywordRetriever",
         candidate_k: int = 20,
         final_k: int = 10,
     ) -> None:
+        self.name = name
         self.retriever = retriever
         self.candidate_k = candidate_k
         self.final_k = final_k
@@ -291,6 +299,51 @@ class KeywordRetrieverEvaluationBackend:
         )
         # The current Retriever has no calibrated abstention contract.  Its
         # final result is therefore the same ranking, truncated to final_k.
+        return RetrievalRanking(
+            candidates=candidates,
+            final_hits=candidates[: self.final_k],
+        )
+
+
+class KnowledgeLookupRetrieverEvaluationBackend:
+    """Evaluate a governed Chunk Retriever after logical-asset aggregation."""
+
+    def __init__(
+        self,
+        name: str,
+        retriever: KnowledgeLookupRetriever,
+        *,
+        candidate_k: int = 20,
+        final_k: int = 10,
+    ) -> None:
+        if not 1 <= final_k <= candidate_k <= 20:
+            raise ValueError("evaluation requires 1 <= final_k <= candidate_k <= 20")
+        self.name = name
+        self.retriever = retriever
+        self.candidate_k = candidate_k
+        self.final_k = final_k
+
+    def rank(self, query: RetrievalEvaluationQuery) -> RetrievalRanking:
+        kind = KnowledgeQuestionKind(query.question_kind)
+        plan = KnowledgeLookupPlan(
+            intent=KnowledgeLookupIntent.KNOWLEDGE_LOOKUP.value,
+            question_kind=kind.value,
+            query=query.text,
+            allowed_document_types=(kind.document_type,),
+            reason="Offline retrieval evaluation under Python-owned scope rules.",
+            module=query.module,
+            equipment_type=query.equipment_type,
+            top_k=self.candidate_k,
+        )
+        hits = self.retriever.retrieve(plan, lookup_id=f"KLOOK_EVAL_{query.query_id}")
+        candidates = tuple(
+            RankedRetrievalAsset(
+                asset_id=item.document.evaluation_asset_id,
+                score=item.score,
+                validation_status=item.document.validation_status,
+            )
+            for item in hits
+        )
         return RetrievalRanking(
             candidates=candidates,
             final_hits=candidates[: self.final_k],
@@ -633,6 +686,70 @@ def render_retrieval_evaluation_report(evaluation: dict[str, Any]) -> str:
             "The current KeywordRetriever has no calibrated abstention output, so every "
             "returned final hit counts as an answer. Its score mixes token matches and case "
             "confidence and is intentionally not reused as a hidden no-answer threshold.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def render_retrieval_ablation_report(ablation: dict[str, Any]) -> str:
+    """Render a compact comparison without inventing a quality target."""
+
+    runtime = ablation["embedding"]["runtime"]
+    runtime_summary = (
+        f"`sentence-transformers {runtime['sentence_transformers_version']}` / "
+        f"`torch {runtime['torch_version']}` / `CUDA {runtime['cuda_runtime']}`"
+        if runtime["backend"] == "sentence-transformers"
+        else "`builtin deterministic backend`"
+    )
+    lines = [
+        "# Hybrid Retrieval Ablation",
+        "",
+        f"- Corpus: `{ablation['corpus_version']}`",
+        f"- Embedding backend: `{ablation['embedding']['model_name']}`",
+        f"- Embedding revision: `{ablation['embedding']['model_revision']}`",
+        f"- Requested device: `{ablation['embedding']['requested_device']}`",
+        f"- Resolved device: `{ablation['embedding']['resolved_device']}`",
+        f"- Runtime: {runtime_summary}",
+        "- Quality metrics are measured comparisons, not predeclared release targets.",
+        "- Unapproved knowledge leakage must remain zero for every Retriever.",
+        "",
+        "## Comparison",
+        "",
+        "| Retriever | Recall@5 | Candidate Recall@20 | MRR@10 | nDCG@10 | "
+        "Cross-language Recall@5 | Hard-negative accuracy | No-answer accuracy | "
+        "Unapproved hits |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for name in ablation["order"]:
+        metrics = ablation["evaluations"][name]["metrics"]
+        lines.append(
+            f"| `{name}` | {metrics['recall_at_5']:.2%} | "
+            f"{metrics['candidate_recall_at_20']:.2%} | {metrics['mrr_at_10']:.4f} | "
+            f"{metrics['ndcg_at_10']:.4f} | "
+            f"{metrics['cross_language_recall_at_5']:.2%} | "
+            f"{metrics['hard_negative_accuracy']:.2%} | "
+            f"{metrics['no_answer_accuracy']:.2%} | "
+            f"{metrics['unapproved_hit_count']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Architecture Boundary",
+            "",
+            "BM25 and Vector independently generate candidates. Hybrid combines their "
+            "ranks with Reciprocal Rank Fusion; it does not ask an LLM to decide relevance. "
+            "Document type, approval visibility, metadata scope, and qrels remain Python-owned.",
+            "",
+            "The exact-vector implementation is intentional for this small corpus. pgvector "
+            "storage, Cross-Encoder reranking, online Agent cutover, and calibrated relevance "
+            "remain Long Task 4 work.",
+            "",
+            "The Legacy Case Keyword row is a compatibility baseline, not a fair algorithm-only "
+            "comparison because it cannot retrieve independent SOP or Engineering Note assets. "
+            "Use Chunk Keyword as the current-online baseline when measuring BM25/Vector/Hybrid "
+            "ranking gains. All values come from a Synthetic benchmark and do not claim "
+            "production-fab accuracy.",
             "",
         ]
     )

@@ -8,6 +8,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from uuid import uuid4
 
+from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
 from yield_rca_core.knowledge_ingestion import KnowledgeIngestionError, KnowledgeStore
 from yield_rca_core.knowledge_models import (
     KnowledgeAgentTrace,
@@ -195,6 +196,8 @@ class DocumentChunkKeywordRetriever:
                         "Python keyword and metadata rules matched: "
                         + ", ".join(matched_tokens[:12])
                     ),
+                    retrieval_strategy="chunk_keyword",
+                    score_components={"keyword": best.score},
                 )
             )
         return tuple(hits)
@@ -235,7 +238,7 @@ class KnowledgeLookupService:
     def __init__(
         self,
         store: KnowledgeStore,
-        retriever: DocumentChunkKeywordRetriever | None = None,
+        retriever: KnowledgeLookupRetriever | None = None,
     ) -> None:
         self.store = store
         self.retriever = retriever or DocumentChunkKeywordRetriever(store)

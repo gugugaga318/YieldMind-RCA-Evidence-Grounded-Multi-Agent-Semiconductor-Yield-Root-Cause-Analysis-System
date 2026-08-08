@@ -513,6 +513,8 @@ class KnowledgeLookupHit:
     excerpt: str
     evidence_id: str
     relevance_reason: str
+    retrieval_strategy: str = "keyword"
+    score_components: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.rank < 1:
@@ -523,6 +525,12 @@ class KnowledgeLookupHit:
             raise ModelValidationError("lookup hit requires a matched chunk")
         for name in ("excerpt", "evidence_id", "relevance_reason"):
             _required(str(getattr(self, name)), name)
+        _required(self.retrieval_strategy, "retrieval_strategy")
+        allowed_components = {"keyword", "lexical", "vector", "fusion", "reranker"}
+        if not set(self.score_components) <= allowed_components:
+            raise ModelValidationError("lookup hit contains an unknown score component")
+        if any(not 0 <= value <= 1 for value in self.score_components.values()):
+            raise ModelValidationError("lookup hit score components must be between 0 and 1")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -533,6 +541,8 @@ class KnowledgeLookupHit:
             "excerpt": self.excerpt,
             "evidence_id": self.evidence_id,
             "relevance_reason": self.relevance_reason,
+            "retrieval_strategy": self.retrieval_strategy,
+            "score_components": dict(self.score_components),
         }
 
 
