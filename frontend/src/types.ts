@@ -1,5 +1,11 @@
 export type TaskStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 export type InvestigationMode = "product_window" | "lot";
+export type WorkspaceMode = InvestigationMode | "knowledge";
+export type KnowledgeQuestionKind =
+  | "historical_match"
+  | "procedure_guidance"
+  | "engineering_note_lookup";
+export type KnowledgeDocumentType = "RCA_CASE" | "SOP" | "ENGINEERING_NOTE";
 export type OrchestrationMode = "fixed" | "controlled_react" | "llm_react";
 export type EvidenceGapStatus = "open" | "closed" | "unavailable";
 export type GoalStatus = "in_progress" | "satisfied" | "blocked" | "budget_exhausted";
@@ -590,6 +596,155 @@ export interface MemoryCandidateResponse {
 }
 
 export interface MemoryApprovalRequest {
+  engineer_id: string;
+  engineer_role: EngineerRole;
+  decision: "approve" | "reject";
+  comment: string;
+}
+
+export interface KnowledgeLookupRequest {
+  query: string;
+  question_kind: KnowledgeQuestionKind;
+  document_type?: KnowledgeDocumentType;
+  module?: string;
+  equipment_type?: string;
+  operation?: string;
+  defect_type?: string;
+  tags?: string[];
+  top_k?: number;
+}
+
+export interface KnowledgeDocument {
+  document_id: string;
+  case_id: string | null;
+  evaluation_asset_id: string;
+  document_type: KnowledgeDocumentType;
+  title: string;
+  content: string;
+  module: string;
+  equipment_type: string;
+  operation: string;
+  defect_type: string;
+  tags: string[];
+  source_format: string;
+  content_sha256: string;
+  validation_status: "CONFIRMED";
+  publication_policy: string;
+  source_candidate_id: string | null;
+  created_at: string;
+  schema_version: string;
+}
+
+export interface KnowledgeLookupHit {
+  rank: number;
+  document: KnowledgeDocument;
+  score: number;
+  matched_chunk_ids: string[];
+  excerpt: string;
+  evidence_id: string;
+  relevance_reason: string;
+}
+
+export interface KnowledgeAgentTrace {
+  agent: "knowledge";
+  action: string;
+  execution_reason: string;
+  inputs: Record<string, unknown>;
+  output_evidence_ids: string[];
+  stop_reason: string;
+}
+
+export interface KnowledgeLookupResult {
+  lookup_id: string;
+  intent: "knowledge_lookup";
+  question_kind: KnowledgeQuestionKind;
+  status: "completed" | "no_match";
+  plan: {
+    intent: "knowledge_lookup";
+    question_kind: KnowledgeQuestionKind;
+    action: string;
+    query: string;
+    allowed_document_types: KnowledgeDocumentType[];
+    reason: string;
+    module: string;
+    equipment_type: string;
+    operation: string;
+    defect_type: string;
+    tags: string[];
+    top_k: number;
+  };
+  hits: KnowledgeLookupHit[];
+  agent_trace: KnowledgeAgentTrace[];
+  answer_boundary: string;
+  warnings: string[];
+  root_cause_conclusion: null;
+  created_at: string;
+}
+
+export interface KnowledgeChunk {
+  chunk_id: string;
+  document_id: string | null;
+  candidate_id: string | null;
+  chunk_index: number;
+  section_type: string;
+  heading: string;
+  content?: string;
+  content_preview?: string;
+  token_count: number;
+  metadata: Record<string, unknown>;
+  validation_status: "STAGED" | "CONFIRMED";
+  embedding_status: string;
+  schema_version: string;
+}
+
+export interface KnowledgeIngestionApproval {
+  approval_id: string;
+  candidate_id: string;
+  engineer_id: string;
+  engineer_role: EngineerRole;
+  decision: "approve" | "reject";
+  comment: string;
+  decided_at: string;
+  schema_version: string;
+}
+
+export interface KnowledgeIngestionCandidate {
+  candidate_id: string;
+  filename: string;
+  source_format: string;
+  document_type: KnowledgeDocumentType;
+  case_id: string | null;
+  title: string;
+  parsed_content?: string;
+  content_preview?: string;
+  content_sha256: string;
+  module: string;
+  equipment_type: string;
+  operation: string;
+  defect_type: string;
+  tags: string[];
+  status: "pending_approval" | "published" | "rejected";
+  chunks: KnowledgeChunk[];
+  chunk_count: number;
+  approvals: KnowledgeIngestionApproval[];
+  approval_count: number;
+  required_approval_count: number;
+  published_document_id: string | null;
+  publication_policy: string;
+  created_at: string;
+  updated_at: string;
+  schema_version: string;
+}
+
+export interface KnowledgeIngestionResponse {
+  candidate: KnowledgeIngestionCandidate;
+}
+
+export interface KnowledgeIngestionListResponse {
+  candidates: KnowledgeIngestionCandidate[];
+}
+
+export interface KnowledgeApprovalRequest {
   engineer_id: string;
   engineer_role: EngineerRole;
   decision: "approve" | "reject";

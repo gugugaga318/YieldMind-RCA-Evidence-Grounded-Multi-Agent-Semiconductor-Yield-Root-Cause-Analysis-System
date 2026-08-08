@@ -32,6 +32,8 @@ it cannot publish unapproved knowledge or override relevance rules.
 
 ### 2. Knowledge Asset and Chunk Contracts, Ingestion, and Lookup
 
+Status: implemented in Long Task 2. See `docs/knowledge-ingestion-lookup.md`.
+
 - Introduce `KnowledgeChunk` and document-to-case aggregation contracts.
 - Support text PDF, Markdown, and TXT; scanned PDF/OCR remains out of V1.
 - Structure-aware chunking for RCA, SOP, and Engineering Note documents.

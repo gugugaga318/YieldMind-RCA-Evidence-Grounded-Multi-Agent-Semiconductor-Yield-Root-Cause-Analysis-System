@@ -5,10 +5,18 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import replace
+from hashlib import sha256
 from threading import RLock
 from typing import Any, Protocol
 from uuid import uuid4
 
+from yield_rca_core.knowledge_ingestion import KnowledgeChunker
+from yield_rca_core.knowledge_models import (
+    KnowledgeChunk,
+    KnowledgeDocument,
+    KnowledgeSourceFormat,
+)
+from yield_rca_core.knowledge_store import InMemoryKnowledgeStore
 from yield_rca_core.memory_models import (
     ApprovalDecision,
     EngineerRole,
@@ -146,9 +154,7 @@ def build_memory_candidate(state: RCAState) -> MemoryCandidate:
         confidence=hypothesis.confidence,
         recommendations=recommendations,
         evidence_ids=evidence_ids,
-        requires_process_engineer_approval=bool(
-            recommendations.get("recipe_optimization")
-        ),
+        requires_process_engineer_approval=bool(recommendations.get("recipe_optimization")),
         evidence_snapshot=_evidence_snapshot(state, evidence_ids),
         knowledge_provenance={
             "job_id": state.job.job_id,
@@ -225,6 +231,26 @@ def _publication_payloads(
     return case, document
 
 
+def _memory_knowledge_asset(
+    case: dict[str, Any], document: dict[str, Any]
+) -> tuple[KnowledgeDocument, tuple[KnowledgeChunk, ...]]:
+    content = str(document["content"])
+    asset = KnowledgeDocument(
+        document_id=str(document["document_id"]),
+        case_id=str(document["case_id"]),
+        document_type=str(document["document_type"]),
+        title=str(document["title"]),
+        content=content,
+        module=str(case["module"]),
+        equipment_type=str(case["equipment_type"] or ""),
+        tags=tuple(str(item) for item in document["tags"]),
+        source_format=KnowledgeSourceFormat.TEXT.value,
+        content_sha256=sha256(content.encode("utf-8")).hexdigest(),
+        publication_policy="DUAL_ENGINEER_APPROVAL",
+    )
+    return asset, KnowledgeChunker().chunk_document(asset)
+
+
 def _apply_decision(
     candidate: MemoryCandidate,
     approval: MemoryApproval,
@@ -246,13 +272,10 @@ def _apply_decision(
     if approval.decision == ApprovalDecision.REJECT.value:
         next_status = MemoryCandidateStatus.REJECTED.value
     else:
-        approved = [
-            item for item in approvals if item.decision == ApprovalDecision.APPROVE.value
-        ]
+        approved = [item for item in approvals if item.decision == ApprovalDecision.APPROVE.value]
         if len(approved) >= 2:
             has_process_approval = any(
-                item.engineer_role == EngineerRole.PROCESS_ENGINEER.value
-                for item in approved
+                item.engineer_role == EngineerRole.PROCESS_ENGINEER.value for item in approved
             )
             if candidate.requires_process_engineer_approval and not has_process_approval:
                 raise MemoryApprovalValidationError(
@@ -324,12 +347,13 @@ def _apply_decision(
 class InMemoryMemoryStore:
     """Process-local Step 19 store used by CSV mode and API tests."""
 
-    def __init__(self) -> None:
+    def __init__(self, knowledge_store: InMemoryKnowledgeStore | None = None) -> None:
         self._candidates: dict[str, MemoryCandidate] = {}
         self._job_candidates: dict[str, str] = {}
         self.published_cases: dict[str, dict[str, Any]] = {}
         self.published_documents: dict[str, dict[str, Any]] = {}
         self.audit_events: list[AuditEvent] = []
+        self.knowledge_store = knowledge_store
         self._lock = RLock()
 
     def create(self, candidate: MemoryCandidate) -> MemoryCandidate:
@@ -381,6 +405,9 @@ class InMemoryMemoryStore:
             if published_case and published_document:
                 self.published_cases[published_case["case_id"]] = published_case
                 self.published_documents[published_document["document_id"]] = published_document
+                if self.knowledge_store is not None:
+                    asset, chunks = _memory_knowledge_asset(published_case, published_document)
+                    self.knowledge_store.register_confirmed_document(asset, chunks)
             self.audit_events.extend(audit_events)
             return updated
 
@@ -560,10 +587,45 @@ class PostgresMemoryStore:
                         """
                         INSERT INTO knowledge_document (
                             document_id, case_id, document_type, title, content, tags,
-                            validation_status
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            validation_status, module, equipment_type, source_format,
+                            content_sha256, publication_policy
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
-                        tuple(published_document.values()),
+                        (
+                            *tuple(published_document.values()),
+                            published_case["module"],
+                            published_case["equipment_type"],
+                            "text",
+                            sha256(str(published_document["content"]).encode("utf-8")).hexdigest(),
+                            "DUAL_ENGINEER_APPROVAL",
+                        ),
+                    )
+                    memory_asset, memory_chunks = _memory_knowledge_asset(
+                        published_case, published_document
+                    )
+                    cursor.executemany(
+                        """
+                        INSERT INTO knowledge_chunk (
+                            chunk_id, document_id, chunk_index, section_type, heading,
+                            content, token_count, metadata, validation_status,
+                            embedding_status
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+                        """,
+                        [
+                            (
+                                item.chunk_id,
+                                memory_asset.document_id,
+                                item.chunk_index,
+                                item.section_type,
+                                item.heading,
+                                item.content,
+                                item.token_count,
+                                json.dumps(item.metadata),
+                                item.validation_status,
+                                item.embedding_status,
+                            )
+                            for item in memory_chunks
+                        ],
                     )
                     cursor.execute(
                         """
@@ -654,9 +716,7 @@ def _candidate_from_database(
         confidence=float(row["confidence"]),
         recommendations={str(key): list(value) for key, value in recommendations.items()},
         evidence_ids=list(row["evidence_ids"]),
-        requires_process_engineer_approval=bool(
-            row["requires_process_engineer_approval"]
-        ),
+        requires_process_engineer_approval=bool(row["requires_process_engineer_approval"]),
         evidence_snapshot=(
             json.loads(row["evidence_snapshot"])
             if isinstance(row.get("evidence_snapshot"), str)
@@ -672,9 +732,7 @@ def _candidate_from_database(
         index_attempts=int(row.get("index_attempts") or 0),
         index_error=str(row["index_error"]) if row.get("index_error") else None,
         approvals=approvals,
-        published_case_id=(
-            str(row["published_case_id"]) if row["published_case_id"] else None
-        ),
+        published_case_id=(str(row["published_case_id"]) if row["published_case_id"] else None),
         created_at=row["created_at"].isoformat(),
         updated_at=row["updated_at"].isoformat(),
     )

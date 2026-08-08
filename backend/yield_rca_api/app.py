@@ -8,10 +8,24 @@ from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
 from time import perf_counter
+from typing import Annotated
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from yield_rca_core.knowledge_ingestion import (
+    KnowledgeCandidateNotFoundError,
+    KnowledgeIngestionConflictError,
+    KnowledgeIngestionError,
+    KnowledgeIngestionService,
+    KnowledgeStore,
+)
+from yield_rca_core.knowledge_lookup import KnowledgeLookupService
+from yield_rca_core.knowledge_store import (
+    InMemoryKnowledgeStore,
+    PostgresKnowledgeStore,
+    load_builtin_knowledge_store,
+)
 from yield_rca_core.llm_gateway import LLMCallError, LLMOutputValidationError
 from yield_rca_core.models import RCAJob, RCAState, TaskStatus
 from yield_rca_core.question_capability import QUESTION_CAPABILITY_REGISTRY
@@ -42,6 +56,11 @@ from yield_rca_api.observability import RCAMetrics, configure_logging
 from yield_rca_api.schemas import (
     CreateRCAJobRequest,
     CreateRCAJobResponse,
+    KnowledgeApprovalRequest,
+    KnowledgeIngestionListResponse,
+    KnowledgeIngestionResponse,
+    KnowledgeLookupRequest,
+    KnowledgeLookupResponse,
     MemoryApprovalRequest,
     MemoryCandidateResponse,
     RCAJobResponse,
@@ -58,6 +77,7 @@ from yield_rca_api.store import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SEED_DIR = PROJECT_ROOT / "data" / "seeds" / "golden_case"
+DEFAULT_KNOWLEDGE_CORPUS = PROJECT_ROOT / "data" / "knowledge" / "synthetic_v1" / "corpus.json"
 LOGGER = logging.getLogger("yield_rca_api")
 
 
@@ -69,9 +89,13 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
     Planner or mutate them through this projection.
     """
 
-    payload = state.to_dict()
+    payload: dict[str, object] = dict(state.to_dict())
     raw_links = payload.get("question_evidence_links", [])
-    links = [item for item in raw_links if isinstance(item, dict)]
+    links = (
+        [dict(item) for item in raw_links if isinstance(item, dict)]
+        if isinstance(raw_links, list)
+        else []
+    )
     links_by_question: dict[str, list[dict[str, object]]] = {}
     for link in links:
         question_id = link.get("question_id")
@@ -84,21 +108,18 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
             if not isinstance(question, dict):
                 continue
             question_id = question.get("question_id")
-            kind = question.get("question_kind")
-            definition = (
-                QUESTION_CAPABILITY_REGISTRY.get(kind)
-                if isinstance(kind, str)
-                else None
+            kind: object = question.get("question_kind")
+            definition = QUESTION_CAPABILITY_REGISTRY.get(kind) if isinstance(kind, str) else None
+            question_links = (
+                links_by_question.get(question_id, []) if isinstance(question_id, str) else []
             )
-            question_links = links_by_question.get(question_id, [])
             satisfied = {
                 str(link["matched_evidence_group"])
                 for link in question_links
                 if link.get("relation") != "unavailable"
                 and isinstance(link.get("matched_evidence_group"), str)
                 and definition is not None
-                and str(link["matched_evidence_group"])
-                in definition.closure_evidence_groups
+                and str(link["matched_evidence_group"]) in definition.closure_evidence_groups
             }
             required = set(definition.closure_evidence_groups) if definition else set()
             question["satisfied_evidence_groups"] = sorted(satisfied)
@@ -107,7 +128,7 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
                 definition.allowed_actions if definition is not None else ()
             )
             question["evidence_links"] = question_links
-    return payload
+    return dict(payload)
 
 
 def _find_nested_error(
@@ -159,9 +180,7 @@ def _classify_workflow_error(error: BaseException) -> tuple[str, str, int]:
             if llm_call_error.request_id:
                 diagnostic_parts.append(f"request_id={llm_call_error.request_id}")
             diagnostic = (
-                f" Provider diagnostic: {'; '.join(diagnostic_parts)}."
-                if diagnostic_parts
-                else ""
+                f" Provider diagnostic: {'; '.join(diagnostic_parts)}." if diagnostic_parts else ""
             )
             return (
                 "LLM_PROVIDER_ERROR",
@@ -217,9 +236,34 @@ def _default_audit_sink() -> AuditSink:
     return PostgresAuditSink(database_url) if database_url else InMemoryAuditSink()
 
 
-def _default_memory_store() -> MemoryStore:
+def _default_memory_store(knowledge_store: KnowledgeStore | None = None) -> MemoryStore:
     database_url = os.getenv("YIELD_RCA_DATABASE_URL", "").strip()
-    return PostgresMemoryStore(database_url) if database_url else InMemoryMemoryStore()
+    if database_url:
+        return PostgresMemoryStore(database_url)
+    return InMemoryMemoryStore(
+        knowledge_store if isinstance(knowledge_store, InMemoryKnowledgeStore) else None
+    )
+
+
+def _default_knowledge_store() -> KnowledgeStore:
+    database_url = os.getenv("YIELD_RCA_DATABASE_URL", "").strip()
+    if database_url:
+        return PostgresKnowledgeStore(database_url)
+    configured_seed_dir = os.getenv("YIELD_RCA_SEED_DIR", "").strip()
+    seed_dir = Path(configured_seed_dir) if configured_seed_dir else DEFAULT_SEED_DIR
+    if not seed_dir.is_absolute():
+        seed_dir = PROJECT_ROOT / seed_dir
+    case_ids: set[str] = set()
+    case_path = seed_dir / "rca_case.csv"
+    if case_path.exists():
+        import csv
+
+        with case_path.open(newline="", encoding="utf-8") as handle:
+            case_ids = {str(row["case_id"]) for row in csv.DictReader(handle) if row.get("case_id")}
+    return load_builtin_knowledge_store(
+        DEFAULT_KNOWLEDGE_CORPUS,
+        additional_case_ids=case_ids,
+    )
 
 
 def _default_job_store() -> RCAJobStore:
@@ -252,6 +296,7 @@ def create_app(
     store: RCAJobStore | None = None,
     audit_sink: AuditSink | None = None,
     memory_store: MemoryStore | None = None,
+    knowledge_store: KnowledgeStore | None = None,
     metrics: RCAMetrics | None = None,
     runtime_dataset: str | None = None,
 ) -> FastAPI:
@@ -260,7 +305,12 @@ def create_app(
     rca_workflow = workflow or _default_workflow()
     job_store = store or _default_job_store()
     event_sink = audit_sink or _default_audit_sink()
-    memory_service = MemoryApprovalService(memory_store or _default_memory_store())
+    governed_knowledge_store = knowledge_store or _default_knowledge_store()
+    memory_service = MemoryApprovalService(
+        memory_store or _default_memory_store(governed_knowledge_store)
+    )
+    knowledge_ingestion_service = KnowledgeIngestionService(governed_knowledge_store)
+    knowledge_lookup_service = KnowledgeLookupService(governed_knowledge_store)
     app_metrics = metrics or RCAMetrics()
     dataset_name = runtime_dataset or _default_runtime_dataset()
     configure_logging()
@@ -273,6 +323,9 @@ def create_app(
     application.state.job_store = job_store
     application.state.audit_sink = event_sink
     application.state.memory_service = memory_service
+    application.state.knowledge_store = governed_knowledge_store
+    application.state.knowledge_ingestion_service = knowledge_ingestion_service
+    application.state.knowledge_lookup_service = knowledge_lookup_service
     application.state.metrics = app_metrics
     application.state.runtime_dataset = dataset_name
 
@@ -346,6 +399,7 @@ def create_app(
     def ready() -> dict[str, str]:
         try:
             job_store.check_ready()
+            governed_knowledge_store.check_ready()
         except Exception as exc:
             LOGGER.warning("readiness check failed", exc_info=True)
             raise HTTPException(
@@ -542,9 +596,10 @@ def create_app(
 
         job_store.save(completed_state)
         memory_candidate = None
-        controlled_fast_path = completed_state.execution_metadata.get(
-            "orchestration_mode"
-        ) in {"controlled_react", "llm_react"}
+        controlled_fast_path = completed_state.execution_metadata.get("orchestration_mode") in {
+            "controlled_react",
+            "llm_react",
+        }
         try:
             if not controlled_fast_path:
                 memory_candidate = memory_service.create_from_state(completed_state)
@@ -748,6 +803,131 @@ def create_app(
             ) from exc
 
         return MemoryCandidateResponse(candidate=candidate.to_dict())
+
+    def knowledge_error(error: KnowledgeIngestionError) -> HTTPException:
+        if isinstance(error, KnowledgeCandidateNotFoundError):
+            http_status = status.HTTP_404_NOT_FOUND
+        elif isinstance(error, KnowledgeIngestionConflictError):
+            http_status = status.HTTP_409_CONFLICT
+        else:
+            http_status = status.HTTP_422_UNPROCESSABLE_CONTENT
+        return HTTPException(
+            status_code=http_status,
+            detail={"error_code": error.code, "message": str(error)},
+        )
+
+    @application.post(
+        "/knowledge/lookups",
+        response_model=KnowledgeLookupResponse,
+    )
+    def lookup_knowledge(request: KnowledgeLookupRequest) -> KnowledgeLookupResponse:
+        try:
+            result = knowledge_lookup_service.lookup(
+                query=request.query,
+                question_kind=request.question_kind,
+                document_type=request.document_type,
+                module=request.module,
+                equipment_type=request.equipment_type,
+                operation=request.operation,
+                defect_type=request.defect_type,
+                tags=request.tags,
+                top_k=request.top_k,
+            )
+        except KnowledgeIngestionError as exc:
+            raise knowledge_error(exc) from exc
+        return KnowledgeLookupResponse.model_validate(result.to_dict())
+
+    @application.post(
+        "/knowledge/ingestions",
+        response_model=KnowledgeIngestionResponse,
+        status_code=status.HTTP_201_CREATED,
+    )
+    def create_knowledge_ingestion(
+        file: Annotated[UploadFile, File()],
+        document_type: Annotated[str, Form()],
+        title: Annotated[str, Form(min_length=1, max_length=500)],
+        module: Annotated[str, Form(min_length=1, max_length=200)],
+        equipment_type: Annotated[str, Form(max_length=200)] = "",
+        operation: Annotated[str, Form(max_length=200)] = "",
+        defect_type: Annotated[str, Form(max_length=200)] = "",
+        tags: Annotated[str, Form(max_length=2000)] = "",
+        case_id: Annotated[str | None, Form(max_length=200)] = None,
+    ) -> KnowledgeIngestionResponse:
+        payload = file.file.read(knowledge_ingestion_service.parser.limits.max_file_bytes + 1)
+        normalized_tags = tuple(
+            dict.fromkeys(
+                item.strip() for item in tags.replace(";", ",").split(",") if item.strip()
+            )
+        )
+        try:
+            candidate = knowledge_ingestion_service.ingest(
+                filename=file.filename or "",
+                content_type=file.content_type,
+                payload=payload,
+                document_type=document_type,
+                title=title,
+                module=module,
+                equipment_type=equipment_type,
+                operation=operation,
+                defect_type=defect_type,
+                tags=normalized_tags,
+                case_id=case_id.strip() if case_id else None,
+            )
+        except KnowledgeIngestionError as exc:
+            raise knowledge_error(exc) from exc
+        return KnowledgeIngestionResponse.model_validate(
+            {"candidate": candidate.to_dict(include_content=True)}
+        )
+
+    @application.get(
+        "/knowledge/ingestions",
+        response_model=KnowledgeIngestionListResponse,
+    )
+    def list_knowledge_ingestions(
+        candidate_status: str | None = Query(default=None, alias="status"),
+    ) -> KnowledgeIngestionListResponse:
+        try:
+            candidates = knowledge_ingestion_service.list(candidate_status)
+        except KnowledgeIngestionError as exc:
+            raise knowledge_error(exc) from exc
+        return KnowledgeIngestionListResponse.model_validate(
+            {"candidates": [item.to_dict(include_content=False) for item in candidates]}
+        )
+
+    @application.get(
+        "/knowledge/ingestions/{candidate_id}",
+        response_model=KnowledgeIngestionResponse,
+    )
+    def get_knowledge_ingestion(candidate_id: str) -> KnowledgeIngestionResponse:
+        try:
+            candidate = knowledge_ingestion_service.get(candidate_id)
+        except KnowledgeIngestionError as exc:
+            raise knowledge_error(exc) from exc
+        return KnowledgeIngestionResponse.model_validate(
+            {"candidate": candidate.to_dict(include_content=True)}
+        )
+
+    @application.post(
+        "/knowledge/ingestions/{candidate_id}/approvals",
+        response_model=KnowledgeIngestionResponse,
+    )
+    def decide_knowledge_ingestion(
+        candidate_id: str,
+        approval_request: KnowledgeApprovalRequest,
+    ) -> KnowledgeIngestionResponse:
+        try:
+            candidate = knowledge_ingestion_service.decide(
+                candidate_id=candidate_id,
+                engineer_id=approval_request.engineer_id,
+                engineer_role=approval_request.engineer_role,
+                decision=approval_request.decision,
+                comment=approval_request.comment,
+            )
+        except KnowledgeIngestionError as exc:
+            raise knowledge_error(exc) from exc
+        return KnowledgeIngestionResponse.model_validate(
+            {"candidate": candidate.to_dict(include_content=True)}
+        )
 
     return application
 

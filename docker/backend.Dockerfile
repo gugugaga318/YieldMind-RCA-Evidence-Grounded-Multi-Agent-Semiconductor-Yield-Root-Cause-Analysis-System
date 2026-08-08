@@ -29,6 +29,6 @@ FROM base AS seed
 COPY --chown=app:app scripts/seed_database.py ./scripts/seed_database.py
 COPY --chown=app:app db ./db
 COPY --chown=app:app data/seeds ./data/seeds
+COPY --chown=app:app data/knowledge ./data/knowledge
 
 ENTRYPOINT ["python", "scripts/seed_database.py"]
-

@@ -33,7 +33,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
   letter-spacing: 0;
 }
@@ -197,7 +198,8 @@ p {
 }
 
 .job-form textarea,
-.job-form input {
+.job-form input,
+.job-form select {
   width: 100%;
   margin: 8px 0 12px;
   padding: 11px 12px;
@@ -220,8 +222,13 @@ p {
   font-family: "Cascadia Code", Consolas, monospace;
 }
 
+.job-form select {
+  height: 42px;
+}
+
 .job-form textarea:focus,
-.job-form input:focus {
+.job-form input:focus,
+.job-form select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(8, 127, 115, 0.1);
 }
@@ -236,7 +243,7 @@ p {
 
 .mode-control {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 3px;
   margin: 8px 0 16px;
   padding: 3px;
@@ -2924,7 +2931,355 @@ p {
   font-size: 12px;
 }
 
+.knowledge-workspace {
+  display: grid;
+  gap: 18px;
+}
+
+.knowledge-results,
+.knowledge-governance {
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.knowledge-results .section-heading-row,
+.knowledge-governance .section-heading-row {
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.knowledge-results h2,
+.knowledge-governance h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.knowledge-boundary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  color: #245b50;
+  background: #edf8f5;
+  border: 1px solid #c6e4dc;
+  border-left: 4px solid var(--accent);
+  border-radius: 5px;
+}
+
+.knowledge-boundary svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.knowledge-boundary strong,
+.knowledge-boundary span {
+  display: block;
+}
+
+.knowledge-boundary strong {
+  margin-bottom: 3px;
+  font-size: 12px;
+}
+
+.knowledge-boundary span {
+  color: #486a62;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.knowledge-trace-card {
+  margin-bottom: 14px;
+  padding: 13px 14px;
+  background: #f6f8f7;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+}
+
+.knowledge-trace-card strong,
+.knowledge-trace-card span {
+  display: block;
+  font-size: 11px;
+}
+
+.knowledge-trace-card p {
+  margin: 5px 0;
+  color: #394841;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.knowledge-trace-card span {
+  color: var(--muted);
+}
+
+.knowledge-hit-list {
+  display: grid;
+  gap: 10px;
+}
+
+.knowledge-hit-card {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+}
+
+.knowledge-hit-rank {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-dark);
+  background: #e7f3f0;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.knowledge-hit-heading,
+.knowledge-hit-metadata {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.knowledge-hit-heading span,
+.knowledge-hit-metadata span {
+  padding: 3px 7px;
+  color: #526159;
+  background: #eef2f0;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.knowledge-hit-heading code,
+.knowledge-hit-metadata code {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.knowledge-hit-card h3 {
+  margin: 7px 0 5px;
+  font-size: 14px;
+}
+
+.knowledge-hit-card p {
+  margin-bottom: 10px;
+  color: #43514b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.knowledge-hit-card small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.knowledge-no-match {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  color: var(--muted);
+  background: var(--surface-subtle);
+  border: 1px dashed #cbd5d0;
+  border-radius: 6px;
+}
+
+.knowledge-no-match strong,
+.knowledge-no-match span {
+  display: block;
+  font-size: 11px;
+}
+
+.knowledge-governance-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(360px, 1.2fr);
+  gap: 18px;
+}
+
+.knowledge-ingestion-form,
+.knowledge-approval-queue {
+  padding: 16px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+}
+
+.knowledge-ingestion-form h3,
+.knowledge-approval-queue h3 {
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.knowledge-ingestion-form label,
+.knowledge-approval-queue label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.knowledge-ingestion-form input,
+.knowledge-ingestion-form select,
+.knowledge-approval-queue input,
+.knowledge-approval-queue select {
+  width: 100%;
+  height: 39px;
+  margin-bottom: 11px;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid #cdd5d1;
+  border-radius: 4px;
+}
+
+.knowledge-ingestion-form input[type="file"] {
+  height: auto;
+  padding: 8px;
+  font-size: 11px;
+}
+
+.knowledge-ingestion-form small {
+  display: block;
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.approval-identity-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.knowledge-candidate-card {
+  margin-top: 9px;
+  padding: 13px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.candidate-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.candidate-card-heading > div > span,
+.candidate-card-heading strong {
+  display: block;
+}
+
+.candidate-card-heading > div > span {
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.candidate-card-heading strong {
+  font-size: 12px;
+}
+
+.candidate-status {
+  padding: 3px 7px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.candidate-pending_approval {
+  color: #8a5a13;
+  background: #fff3dc;
+}
+
+.candidate-published {
+  color: #0b6b58;
+  background: #e5f5f0;
+}
+
+.candidate-rejected {
+  color: #9e3f30;
+  background: #faeae7;
+}
+
+.knowledge-candidate-card > p {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.approval-progress {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: #48564f;
+  font-size: 10px;
+}
+
+.approval-progress code {
+  padding: 2px 5px;
+  background: #edf1ef;
+  border-radius: 3px;
+  font-size: 9px;
+}
+
+.candidate-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.candidate-actions .secondary-button,
+.danger-button {
+  width: auto;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #9e3f30;
+  background: #ffffff;
+  border: 1px solid #dfb5ad;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.muted-copy {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.knowledge-empty-state {
+  margin-bottom: 18px;
+}
+
 @media (max-width: 1120px) {
+  .knowledge-governance-grid {
+    grid-template-columns: 1fr;
+  }
   .runtime-strip {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -2992,6 +3347,20 @@ p {
 
   .workspace {
     padding: 18px 12px 30px;
+  }
+
+  .knowledge-results,
+  .knowledge-governance {
+    padding: 15px;
+  }
+
+  .approval-identity-row {
+    grid-template-columns: 1fr;
+  }
+
+  .knowledge-hit-card {
+    grid-template-columns: 28px minmax(0, 1fr);
+    padding: 12px;
   }
 
   .workspace-toolbar {

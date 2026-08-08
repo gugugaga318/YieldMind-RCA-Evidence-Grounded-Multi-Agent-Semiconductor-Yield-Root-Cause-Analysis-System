@@ -26,11 +26,13 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 "004_advanced_spc_analytics.up.sql",
                 "005_runtime_resilience.up.sql",
                 "006_memory_snapshot_index_update.up.sql",
+                "007_knowledge_ingestion.up.sql",
             )
         ]
         down_sql = [
             (ROOT / "db" / "migrations" / name).read_text(encoding="utf-8")
             for name in (
+                "007_knowledge_ingestion.down.sql",
                 "006_memory_snapshot_index_update.down.sql",
                 "005_runtime_resilience.down.sql",
                 "004_advanced_spc_analytics.down.sql",
@@ -58,6 +60,12 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 self.assertEqual(cursor.fetchone()[0], "rca_job_state")
                 cursor.execute("SELECT to_regclass('public.knowledge_index_update')")
                 self.assertEqual(cursor.fetchone()[0], "knowledge_index_update")
+                cursor.execute("SELECT to_regclass('public.knowledge_ingestion_candidate')")
+                self.assertEqual(cursor.fetchone()[0], "knowledge_ingestion_candidate")
+                cursor.execute("SELECT to_regclass('public.knowledge_chunk')")
+                self.assertEqual(cursor.fetchone()[0], "knowledge_chunk")
+                cursor.execute("SELECT to_regclass('public.active_knowledge_chunk')")
+                self.assertEqual(cursor.fetchone()[0], "active_knowledge_chunk")
                 cursor.execute(
                     """
                     INSERT INTO audit_event (
@@ -86,6 +94,10 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 self.assertIsNone(cursor.fetchone()[0])
                 cursor.execute("SELECT to_regclass('public.knowledge_index_update')")
                 self.assertIsNone(cursor.fetchone()[0])
+                cursor.execute("SELECT to_regclass('public.knowledge_ingestion_candidate')")
+                self.assertIsNone(cursor.fetchone()[0])
+                cursor.execute("SELECT to_regclass('public.knowledge_chunk')")
+                self.assertIsNone(cursor.fetchone()[0])
                 for statement in up_sql:
                     cursor.execute(statement)
                 cursor.execute("SELECT to_regclass('public.equipment_capability')")
@@ -100,6 +112,8 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 self.assertEqual(cursor.fetchone()[0], "rca_job_state")
                 cursor.execute("SELECT to_regclass('public.knowledge_index_update')")
                 self.assertEqual(cursor.fetchone()[0], "knowledge_index_update")
+                cursor.execute("SELECT to_regclass('public.active_knowledge_chunk')")
+                self.assertEqual(cursor.fetchone()[0], "active_knowledge_chunk")
                 for statement in down_sql:
                     cursor.execute(statement)
             connection.commit()

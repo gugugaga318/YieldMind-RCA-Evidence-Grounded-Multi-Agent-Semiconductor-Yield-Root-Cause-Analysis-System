@@ -17,10 +17,12 @@ import {
   getRCAJob,
   getRCAReport,
   getRuntimeInfo,
+  lookupKnowledge,
 } from "./api";
 import { EvidenceChain } from "./components/EvidenceChain";
 import { JobComposer } from "./components/JobComposer";
 import { LotImpactPanel } from "./components/LotImpactPanel";
+import { KnowledgeWorkspace } from "./components/KnowledgeWorkspace";
 import { MemoryApprovalPanel } from "./components/MemoryApprovalPanel";
 import { ReportView } from "./components/ReportView";
 import { RootCausePanel } from "./components/RootCausePanel";
@@ -38,36 +40,51 @@ import {
   getYieldTrend,
 } from "./selectors";
 import type {
-  InvestigationMode,
+  KnowledgeLookupResult,
+  KnowledgeQuestionKind,
   MemoryCandidate,
   RCAJobCreated,
   RCAReport,
   RCAState,
   RuntimeInfo,
+  WorkspaceMode,
 } from "./types";
 
 const DEFAULT_QUERY =
   "Analyze the 40N_SOC yield drop from 2026-07-01 to 2026-07-31.";
 const DEFAULT_LOT_QUERY =
   "Investigate the scratch found in Cu CMP and identify root cause and impact lots.";
+const DEFAULT_KNOWLEDGE_QUERY =
+  "Which approved Cu CMP cases describe radial scratch patterns and retaining-ring wear?";
 
 type WorkspaceTab = "investigation" | "report";
 
 function App() {
   const [productQuery, setProductQuery] = useState(DEFAULT_QUERY);
   const [lotQuery, setLotQuery] = useState(DEFAULT_LOT_QUERY);
-  const [investigationMode, setInvestigationMode] =
-    useState<InvestigationMode>("product_window");
+  const [knowledgeQuery, setKnowledgeQuery] = useState(DEFAULT_KNOWLEDGE_QUERY);
+  const [workspaceMode, setWorkspaceMode] =
+    useState<WorkspaceMode>("product_window");
+  const [knowledgeQuestionKind, setKnowledgeQuestionKind] =
+    useState<KnowledgeQuestionKind>("historical_match");
+  const [knowledgeModule, setKnowledgeModule] = useState("Cu CMP");
   const [lotId, setLotId] = useState("LOT_A_001");
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
   const [job, setJob] = useState<RCAJobCreated | null>(null);
   const [state, setState] = useState<RCAState | null>(null);
   const [report, setReport] = useState<RCAReport | null>(null);
   const [memoryCandidate, setMemoryCandidate] = useState<MemoryCandidate | null>(null);
+  const [knowledgeResult, setKnowledgeResult] =
+    useState<KnowledgeLookupResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("investigation");
-  const query = investigationMode === "lot" ? lotQuery : productQuery;
+  const query =
+    workspaceMode === "lot"
+      ? lotQuery
+      : workspaceMode === "knowledge"
+        ? knowledgeQuery
+        : productQuery;
 
   useEffect(() => {
     let active = true;
@@ -94,8 +111,19 @@ function App() {
     setActiveTab("investigation");
 
     try {
+      if (workspaceMode === "knowledge") {
+        const result = await lookupKnowledge({
+          query: knowledgeQuery,
+          question_kind: knowledgeQuestionKind,
+          module: knowledgeModule,
+          top_k: 5,
+        });
+        setKnowledgeResult(result);
+        return;
+      }
+      setKnowledgeResult(null);
       const created = await createRCAJob(
-        buildRCAJobRequest(investigationMode, query, lotId),
+        buildRCAJobRequest(workspaceMode, query, lotId),
       );
       setJob(created);
       const [jobResponse, reportResponse] = await Promise.all([
@@ -138,17 +166,25 @@ function App() {
 
       <div className="app-body">
         <JobComposer
-          investigationMode={investigationMode}
-          onInvestigationModeChange={setInvestigationMode}
+          workspaceMode={workspaceMode}
+          onWorkspaceModeChange={setWorkspaceMode}
           query={query}
           onQueryChange={
-            investigationMode === "lot" ? setLotQuery : setProductQuery
+            workspaceMode === "lot"
+              ? setLotQuery
+              : workspaceMode === "knowledge"
+                ? setKnowledgeQuery
+                : setProductQuery
           }
           lotId={lotId}
           onLotIdChange={setLotId}
+          knowledgeQuestionKind={knowledgeQuestionKind}
+          onKnowledgeQuestionKindChange={setKnowledgeQuestionKind}
+          knowledgeModule={knowledgeModule}
+          onKnowledgeModuleChange={setKnowledgeModule}
           onSubmit={runInvestigation}
           loading={loading}
-          currentJob={job}
+          currentJob={workspaceMode === "knowledge" ? null : job}
           runtimeInfo={runtimeInfo}
         />
 
@@ -156,15 +192,22 @@ function App() {
           <div className="workspace-toolbar">
             <div>
               <span className="workspace-eyebrow">
-                {state?.job.investigation_mode === "lot"
+                {workspaceMode === "knowledge"
+                  ? "Independent knowledge lookup"
+                  : state?.job.investigation_mode === "lot"
                   ? "Lot-driven investigation"
                   : "Yield excursion investigation"}
               </span>
               <h1>
-                {state?.job.source_lot_id ?? state?.job.product_id ?? "RCA Job Workspace"}
+                {workspaceMode === "knowledge"
+                  ? "Approved Knowledge Assets"
+                  : state?.job.source_lot_id ??
+                    state?.job.product_id ??
+                    "RCA Job Workspace"}
               </h1>
             </div>
-            <div className="tab-control" role="tablist" aria-label="RCA workspace views">
+            {workspaceMode !== "knowledge" && (
+              <div className="tab-control" role="tablist" aria-label="RCA workspace views">
               <button
                 type="button"
                 role="tab"
@@ -186,7 +229,8 @@ function App() {
                 <FileText size={16} aria-hidden="true" />
                 Report
               </button>
-            </div>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -196,9 +240,12 @@ function App() {
             </div>
           )}
 
-          {loading && <LoadingState />}
-          {!loading && !state && !error && <EmptyState />}
-          {!loading && state && activeTab === "investigation" && (
+          {loading && <LoadingState knowledge={workspaceMode === "knowledge"} />}
+          {!loading && workspaceMode === "knowledge" && !error && (
+            <KnowledgeWorkspace result={knowledgeResult} />
+          )}
+          {!loading && workspaceMode !== "knowledge" && !state && !error && <EmptyState />}
+          {!loading && workspaceMode !== "knowledge" && state && activeTab === "investigation" && (
             <InvestigationView
               state={state}
               memoryCandidate={memoryCandidate}
@@ -355,15 +402,17 @@ function InvestigationView({
   );
 }
 
-function LoadingState() {
+function LoadingState({ knowledge = false }: { knowledge?: boolean }) {
   return (
     <div className="loading-state" aria-live="polite">
       <div className="loading-icon">
         <Activity size={24} aria-hidden="true" />
       </div>
       <div>
-        <strong>RCA workflow running</strong>
-        <span>Collecting specialist findings</span>
+        <strong>{knowledge ? "Knowledge Agent searching" : "RCA workflow running"}</strong>
+        <span>
+          {knowledge ? "Filtering the approved Active Index" : "Collecting specialist findings"}
+        </span>
       </div>
       <div className="loading-track">
         <span />

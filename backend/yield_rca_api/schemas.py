@@ -214,13 +214,16 @@ class PlannerDecisionResponse(APIModel):
     target_question_ids: list[str] = Field(default_factory=list)
     new_questions: list[InvestigationQuestionResponse] = Field(default_factory=list)
     question_updates: list[QuestionUpdateResponse] = Field(default_factory=list)
-    stop_reason: Literal[
-        "goal_satisfied",
-        "critical_contradiction",
-        "no_allowed_action",
-        "budget_exhausted",
-        "data_unavailable",
-    ] | None = None
+    stop_reason: (
+        Literal[
+            "goal_satisfied",
+            "critical_contradiction",
+            "no_allowed_action",
+            "budget_exhausted",
+            "data_unavailable",
+        ]
+        | None
+    ) = None
 
 
 class QuestionUpdateReviewResponse(APIModel):
@@ -343,24 +346,30 @@ class PlannerAttemptDiagnosticResponse(APIModel):
     prompt_name: str
     prompt_version: str
     outcome: Literal["success", "failure"]
-    failure_category: Literal[
-        "transport_provider_failure",
-        "output_parse_error",
-        "contract_validation_error",
-        "semantic_validation_error",
-    ] | None = None
-    reason_code: Literal[
-        "goal_id_changed",
-        "intent_invalid",
-        "budget_changed",
-        "known_fact_removed",
-        "known_fact_changed",
-        "forbidden_known_fact_added",
-        "unsupported_question_kind",
-        "unrequested_material_trace",
-        "source_lot_scope_mismatch",
-        "malformed_output",
-    ] | None = None
+    failure_category: (
+        Literal[
+            "transport_provider_failure",
+            "output_parse_error",
+            "contract_validation_error",
+            "semantic_validation_error",
+        ]
+        | None
+    ) = None
+    reason_code: (
+        Literal[
+            "goal_id_changed",
+            "intent_invalid",
+            "budget_changed",
+            "known_fact_removed",
+            "known_fact_changed",
+            "forbidden_known_fact_added",
+            "unsupported_question_kind",
+            "unrequested_material_trace",
+            "source_lot_scope_mismatch",
+            "malformed_output",
+        ]
+        | None
+    ) = None
     field_path: str | None = None
     message: str | None = None
     repair_feedback_sent: bool
@@ -378,13 +387,9 @@ class PlannerAttemptDiagnosticResponse(APIModel):
         )
         if self.outcome == "success":
             if any(value is not None for value in failure_details):
-                raise ValueError(
-                    "a successful Planner attempt cannot carry failure details"
-                )
+                raise ValueError("a successful Planner attempt cannot carry failure details")
             if self.repair_feedback_sent:
-                raise ValueError(
-                    "a successful Planner attempt cannot send repair feedback"
-                )
+                raise ValueError("a successful Planner attempt cannot send repair feedback")
             return self
         if (
             self.failure_category is None
@@ -392,9 +397,7 @@ class PlannerAttemptDiagnosticResponse(APIModel):
             or self.message is None
             or not self.message.strip()
         ):
-            raise ValueError(
-                "a failed Planner attempt requires category, reason_code, and message"
-            )
+            raise ValueError("a failed Planner attempt requires category, reason_code, and message")
         return self
 
 
@@ -430,22 +433,14 @@ class RCAJobStateResponse(APIModel):
     warnings: list[WarningResponse] = Field(default_factory=list)
     report: ReportResponse | None = None
     llm_usage: list[LLMUsageEventResponse] = Field(default_factory=list)
-    execution_metadata: ExecutionMetadataResponse = Field(
-        default_factory=ExecutionMetadataResponse
-    )
+    execution_metadata: ExecutionMetadataResponse = Field(default_factory=ExecutionMetadataResponse)
     investigation_goal: dict[str, Any] | None = None
     capability_notices: list[CapabilityNoticeResponse] = Field(default_factory=list)
-    investigation_questions: list[InvestigationQuestionResponse] = Field(
-        default_factory=list
-    )
-    question_evidence_links: list[QuestionEvidenceLinkResponse] = Field(
-        default_factory=list
-    )
+    investigation_questions: list[InvestigationQuestionResponse] = Field(default_factory=list)
+    question_evidence_links: list[QuestionEvidenceLinkResponse] = Field(default_factory=list)
     action_history: list[dict[str, Any]] = Field(default_factory=list)
     planner_decisions: list[PlannerDecisionResponse] = Field(default_factory=list)
-    question_update_reviews: list[QuestionUpdateReviewResponse] = Field(
-        default_factory=list
-    )
+    question_update_reviews: list[QuestionUpdateReviewResponse] = Field(default_factory=list)
     run_evaluation: RunEvaluationResponse | None = None
     goal_status: str | None = None
     conclusion_level: str | None = None
@@ -501,3 +496,199 @@ class MemoryCandidateResponse(APIModel):
     """Candidate content, approval state, and publication identity."""
 
     candidate: dict[str, Any]
+
+
+class KnowledgeLookupRequest(APIModel):
+    """One independent, hard-scoped Knowledge Agent query."""
+
+    query: str = Field(min_length=1, max_length=4000)
+    question_kind: Literal[
+        "historical_match",
+        "procedure_guidance",
+        "engineering_note_lookup",
+    ]
+    document_type: Literal["RCA_CASE", "SOP", "ENGINEERING_NOTE"] | None = None
+    module: str = Field(default="", max_length=200)
+    equipment_type: str = Field(default="", max_length=200)
+    operation: str = Field(default="", max_length=200)
+    defect_type: str = Field(default="", max_length=200)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    top_k: int = Field(default=5, ge=1, le=20)
+
+    @field_validator("query")
+    @classmethod
+    def normalize_lookup_query(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("lookup query must not be blank")
+        return stripped
+
+    @field_validator("module", "equipment_type", "operation", "defect_type")
+    @classmethod
+    def strip_lookup_filter(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_lookup_tags(cls, value: list[str]) -> list[str]:
+        normalized = list(dict.fromkeys(item.strip() for item in value if item.strip()))
+        if any(len(item) > 100 for item in normalized):
+            raise ValueError("knowledge tags must not exceed 100 characters")
+        return normalized
+
+
+class KnowledgeDocumentResponse(APIModel):
+    document_id: str
+    case_id: str | None
+    evaluation_asset_id: str
+    document_type: str
+    title: str
+    content: str
+    module: str
+    equipment_type: str
+    operation: str
+    defect_type: str
+    tags: list[str]
+    source_format: str
+    content_sha256: str
+    validation_status: str
+    publication_policy: str
+    source_candidate_id: str | None
+    created_at: str
+    schema_version: str
+
+
+class KnowledgeLookupPlanResponse(APIModel):
+    intent: Literal["knowledge_lookup"]
+    question_kind: str
+    action: str
+    query: str
+    allowed_document_types: list[str]
+    reason: str
+    module: str
+    equipment_type: str
+    operation: str
+    defect_type: str
+    tags: list[str]
+    top_k: int
+
+
+class KnowledgeLookupHitResponse(APIModel):
+    rank: int
+    document: KnowledgeDocumentResponse
+    score: float
+    matched_chunk_ids: list[str]
+    excerpt: str
+    evidence_id: str
+    relevance_reason: str
+
+
+class KnowledgeAgentTraceResponse(APIModel):
+    agent: Literal["knowledge"]
+    action: str
+    execution_reason: str
+    inputs: dict[str, Any]
+    output_evidence_ids: list[str]
+    stop_reason: str
+
+
+class KnowledgeLookupResponse(APIModel):
+    lookup_id: str
+    intent: Literal["knowledge_lookup"]
+    question_kind: str
+    status: Literal["completed", "no_match"]
+    plan: KnowledgeLookupPlanResponse
+    hits: list[KnowledgeLookupHitResponse]
+    agent_trace: list[KnowledgeAgentTraceResponse]
+    answer_boundary: str
+    warnings: list[str]
+    root_cause_conclusion: None
+    created_at: str
+
+
+class KnowledgeChunkResponse(APIModel):
+    chunk_id: str
+    document_id: str | None
+    candidate_id: str | None
+    chunk_index: int
+    section_type: str
+    heading: str
+    content: str | None = None
+    content_preview: str | None = None
+    token_count: int
+    metadata: dict[str, Any]
+    validation_status: str
+    embedding_status: str
+    schema_version: str
+
+
+class KnowledgeIngestionApprovalResponse(APIModel):
+    approval_id: str
+    candidate_id: str
+    engineer_id: str
+    engineer_role: str
+    decision: str
+    comment: str
+    decided_at: str
+    schema_version: str
+
+
+class KnowledgeIngestionCandidateResponse(APIModel):
+    candidate_id: str
+    filename: str
+    source_format: str
+    document_type: str
+    case_id: str | None
+    title: str
+    parsed_content: str | None = None
+    content_preview: str | None = None
+    content_sha256: str
+    module: str
+    equipment_type: str
+    operation: str
+    defect_type: str
+    tags: list[str]
+    status: str
+    chunks: list[KnowledgeChunkResponse]
+    chunk_count: int
+    approvals: list[KnowledgeIngestionApprovalResponse]
+    approval_count: int
+    required_approval_count: int
+    published_document_id: str | None
+    publication_policy: str
+    created_at: str
+    updated_at: str
+    schema_version: str
+
+
+class KnowledgeIngestionResponse(APIModel):
+    candidate: KnowledgeIngestionCandidateResponse
+
+
+class KnowledgeIngestionListResponse(APIModel):
+    candidates: list[KnowledgeIngestionCandidateResponse]
+
+
+class KnowledgeApprovalRequest(APIModel):
+    engineer_id: str = Field(min_length=1, max_length=100)
+    engineer_role: Literal[
+        "yield_engineer",
+        "process_engineer",
+        "equipment_engineer",
+        "quality_engineer",
+    ]
+    decision: Literal["approve", "reject"]
+    comment: str = Field(default="", max_length=2000)
+
+    @field_validator("engineer_id")
+    @classmethod
+    def normalize_knowledge_engineer_id(cls, value: str) -> str:
+        stripped = value.strip().upper()
+        if not stripped:
+            raise ValueError("engineer_id must not be blank")
+        return stripped
+
+    @field_validator("comment")
+    @classmethod
+    def normalize_knowledge_comment(cls, value: str) -> str:
+        return value.strip()

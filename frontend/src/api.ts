@@ -1,5 +1,10 @@
 import type {
   CreateRCAJobRequest,
+  KnowledgeApprovalRequest,
+  KnowledgeIngestionListResponse,
+  KnowledgeIngestionResponse,
+  KnowledgeLookupRequest,
+  KnowledgeLookupResult,
   MemoryApprovalRequest,
   MemoryCandidateResponse,
   RCAJobCreated,
@@ -11,12 +16,13 @@ import type {
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers);
+  if (!(options?.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -63,6 +69,42 @@ export function decideMemoryCandidate(
 ): Promise<MemoryCandidateResponse> {
   return request<MemoryCandidateResponse>(
     `/memory/candidates/${candidateId}/approvals`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function lookupKnowledge(
+  payload: KnowledgeLookupRequest,
+): Promise<KnowledgeLookupResult> {
+  return request<KnowledgeLookupResult>("/knowledge/lookups", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function ingestKnowledge(formData: FormData): Promise<KnowledgeIngestionResponse> {
+  return request<KnowledgeIngestionResponse>("/knowledge/ingestions", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function listKnowledgeIngestions(
+  status?: KnowledgeIngestionResponse["candidate"]["status"],
+): Promise<KnowledgeIngestionListResponse> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request<KnowledgeIngestionListResponse>(`/knowledge/ingestions${query}`);
+}
+
+export function decideKnowledgeIngestion(
+  candidateId: string,
+  payload: KnowledgeApprovalRequest,
+): Promise<KnowledgeIngestionResponse> {
+  return request<KnowledgeIngestionResponse>(
+    `/knowledge/ingestions/${candidateId}/approvals`,
     {
       method: "POST",
       body: JSON.stringify(payload),
