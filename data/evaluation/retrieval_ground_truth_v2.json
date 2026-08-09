@@ -18,10 +18,6 @@
         "relevance": 3
       },
       {
-        "asset_id": "RCA_V2_001",
-        "relevance": 1
-      },
-      {
         "asset_id": "SOP_V2_003",
         "relevance": 0
       },
@@ -40,30 +36,22 @@
         "relevance": 3
       },
       {
-        "asset_id": "SOP_V2_001",
+        "asset_id": "RCA_V2_002",
         "relevance": 1
       },
       {
-        "asset_id": "RCA_V2_002",
-        "relevance": 0
-      },
-      {
         "asset_id": "RCA_V2_003",
-        "relevance": 0
+        "relevance": 1
       },
       {
         "asset_id": "RCA_V2_005",
-        "relevance": 0
+        "relevance": 1
       }
     ],
     "Q_V2_IF_V2_002_GUIDE": [
       {
         "asset_id": "NOTE_V2_002",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_002",
-        "relevance": 1
       },
       {
         "asset_id": "NOTE_V2_008",
@@ -84,30 +72,26 @@
         "relevance": 3
       },
       {
-        "asset_id": "NOTE_V2_002",
-        "relevance": 1
+        "asset_id": "RCA_V2_003",
+        "relevance": 2
       },
       {
         "asset_id": "RCA_V2_001",
-        "relevance": 0
-      },
-      {
-        "asset_id": "RCA_V2_003",
-        "relevance": 0
+        "relevance": 1
       },
       {
         "asset_id": "RCA_V2_005",
-        "relevance": 0
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_V2_009",
+        "relevance": 1
       }
     ],
     "Q_V2_IF_V2_003_GUIDE": [
       {
         "asset_id": "SOP_V2_003",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_003",
-        "relevance": 1
       },
       {
         "asset_id": "SOP_V2_001",
@@ -128,20 +112,20 @@
         "relevance": 3
       },
       {
-        "asset_id": "SOP_V2_003",
-        "relevance": 1
+        "asset_id": "RCA_V2_002",
+        "relevance": 2
       },
       {
         "asset_id": "RCA_V2_001",
-        "relevance": 0
-      },
-      {
-        "asset_id": "RCA_V2_002",
-        "relevance": 0
+        "relevance": 1
       },
       {
         "asset_id": "RCA_V2_005",
-        "relevance": 0
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_V2_009",
+        "relevance": 1
       }
     ],
     "Q_V2_IF_V2_004_GUIDE": [
@@ -150,8 +134,8 @@
         "relevance": 3
       },
       {
-        "asset_id": "RCA_V2_004",
-        "relevance": 1
+        "asset_id": "NOTE_V2_012",
+        "relevance": 0
       },
       {
         "asset_id": "NOTE_V2_006",
@@ -159,10 +143,6 @@
       },
       {
         "asset_id": "NOTE_V2_010",
-        "relevance": 0
-      },
-      {
-        "asset_id": "NOTE_V2_012",
         "relevance": 0
       }
     ],
@@ -172,19 +152,23 @@
         "relevance": 3
       },
       {
-        "asset_id": "NOTE_V2_004",
-        "relevance": 1
+        "asset_id": "RCA_V2_007",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_V2_003",
+        "relevance": 2
       },
       {
         "asset_id": "RCA_V2_006",
         "relevance": 0
       },
       {
-        "asset_id": "RCA_V2_007",
+        "asset_id": "RCA_V2_010",
         "relevance": 0
       },
       {
-        "asset_id": "RCA_V2_010",
+        "asset_id": "RCA_V2_011",
         "relevance": 0
       }
     ],
@@ -192,10 +176,6 @@
       {
         "asset_id": "SOP_V2_005",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_005",
-        "relevance": 1
       },
       {
         "asset_id": "SOP_V2_001",
@@ -216,16 +196,12 @@
         "relevance": 3
       },
       {
-        "asset_id": "SOP_V2_005",
+        "asset_id": "RCA_V2_001",
         "relevance": 1
       },
       {
-        "asset_id": "RCA_V2_001",
-        "relevance": 0
-      },
-      {
         "asset_id": "RCA_V2_002",
-        "relevance": 0
+        "relevance": 1
       },
       {
         "asset_id": "RCA_V2_003",
@@ -236,10 +212,6 @@
       {
         "asset_id": "NOTE_V2_006",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_006",
-        "relevance": 1
       },
       {
         "asset_id": "NOTE_V2_004",
@@ -260,12 +232,8 @@
         "relevance": 3
       },
       {
-        "asset_id": "NOTE_V2_006",
-        "relevance": 1
-      },
-      {
         "asset_id": "RCA_V2_004",
-        "relevance": 0
+        "relevance": 1
       },
       {
         "asset_id": "RCA_V2_007",
@@ -280,10 +248,6 @@
       {
         "asset_id": "SOP_V2_007",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_007",
-        "relevance": 1
       },
       {
         "asset_id": "SOP_V2_011",
@@ -304,12 +268,8 @@
         "relevance": 3
       },
       {
-        "asset_id": "SOP_V2_007",
-        "relevance": 1
-      },
-      {
         "asset_id": "RCA_V2_004",
-        "relevance": 0
+        "relevance": 2
       },
       {
         "asset_id": "RCA_V2_006",
@@ -317,6 +277,10 @@
       },
       {
         "asset_id": "RCA_V2_010",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_V2_011",
         "relevance": 0
       }
     ],
@@ -324,10 +288,6 @@
       {
         "asset_id": "NOTE_V2_008",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_008",
-        "relevance": 1
       },
       {
         "asset_id": "NOTE_V2_002",
@@ -348,19 +308,23 @@
         "relevance": 3
       },
       {
-        "asset_id": "NOTE_V2_008",
-        "relevance": 1
-      },
-      {
-        "asset_id": "RCA_V2_001",
-        "relevance": 0
-      },
-      {
         "asset_id": "RCA_V2_002",
-        "relevance": 0
+        "relevance": 2
       },
       {
         "asset_id": "RCA_V2_003",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_V2_001",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_V2_005",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_V2_009",
         "relevance": 0
       }
     ],
@@ -368,10 +332,6 @@
       {
         "asset_id": "SOP_V2_009",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_009",
-        "relevance": 1
       },
       {
         "asset_id": "SOP_V2_001",
@@ -392,19 +352,23 @@
         "relevance": 3
       },
       {
-        "asset_id": "SOP_V2_009",
-        "relevance": 1
-      },
-      {
         "asset_id": "RCA_V2_001",
-        "relevance": 0
-      },
-      {
-        "asset_id": "RCA_V2_002",
-        "relevance": 0
+        "relevance": 2
       },
       {
         "asset_id": "RCA_V2_003",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_V2_002",
+        "relevance": 1
+      },
+      {
+        "asset_id": "RCA_V2_005",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_V2_008",
         "relevance": 0
       }
     ],
@@ -414,8 +378,8 @@
         "relevance": 3
       },
       {
-        "asset_id": "RCA_V2_010",
-        "relevance": 1
+        "asset_id": "NOTE_V2_014",
+        "relevance": 0
       },
       {
         "asset_id": "NOTE_V2_004",
@@ -423,10 +387,6 @@
       },
       {
         "asset_id": "NOTE_V2_006",
-        "relevance": 0
-      },
-      {
-        "asset_id": "NOTE_V2_012",
         "relevance": 0
       }
     ],
@@ -436,7 +396,11 @@
         "relevance": 3
       },
       {
-        "asset_id": "NOTE_V2_010",
+        "asset_id": "RCA_V2_011",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_V2_014",
         "relevance": 1
       },
       {
@@ -446,20 +410,12 @@
       {
         "asset_id": "RCA_V2_006",
         "relevance": 0
-      },
-      {
-        "asset_id": "RCA_V2_007",
-        "relevance": 0
       }
     ],
     "Q_V2_IF_V2_011_GUIDE": [
       {
         "asset_id": "SOP_V2_011",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_011",
-        "relevance": 1
       },
       {
         "asset_id": "SOP_V2_007",
@@ -480,7 +436,11 @@
         "relevance": 3
       },
       {
-        "asset_id": "SOP_V2_011",
+        "asset_id": "RCA_V2_014",
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_V2_010",
         "relevance": 1
       },
       {
@@ -490,20 +450,12 @@
       {
         "asset_id": "RCA_V2_006",
         "relevance": 0
-      },
-      {
-        "asset_id": "RCA_V2_007",
-        "relevance": 0
       }
     ],
     "Q_V2_IF_V2_012_GUIDE": [
       {
         "asset_id": "NOTE_V2_012",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_012",
-        "relevance": 1
       },
       {
         "asset_id": "NOTE_V2_004",
@@ -524,19 +476,23 @@
         "relevance": 3
       },
       {
-        "asset_id": "NOTE_V2_012",
-        "relevance": 1
+        "asset_id": "RCA_V2_007",
+        "relevance": 2
       },
       {
         "asset_id": "RCA_V2_004",
-        "relevance": 0
+        "relevance": 2
       },
       {
         "asset_id": "RCA_V2_006",
         "relevance": 0
       },
       {
-        "asset_id": "RCA_V2_007",
+        "asset_id": "RCA_V2_010",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_V2_011",
         "relevance": 0
       }
     ],
@@ -544,10 +500,6 @@
       {
         "asset_id": "SOP_V2_013",
         "relevance": 3
-      },
-      {
-        "asset_id": "RCA_V2_013",
-        "relevance": 1
       },
       {
         "asset_id": "SOP_V2_007",
@@ -568,19 +520,27 @@
         "relevance": 3
       },
       {
-        "asset_id": "SOP_V2_013",
-        "relevance": 1
+        "asset_id": "RCA_V2_001",
+        "relevance": 2
       },
       {
-        "asset_id": "RCA_V2_004",
-        "relevance": 0
+        "asset_id": "RCA_V2_005",
+        "relevance": 2
       },
       {
         "asset_id": "RCA_V2_006",
-        "relevance": 0
+        "relevance": 2
+      },
+      {
+        "asset_id": "RCA_V2_004",
+        "relevance": 1
       },
       {
         "asset_id": "RCA_V2_007",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_V2_010",
         "relevance": 0
       }
     ],
@@ -590,8 +550,8 @@
         "relevance": 3
       },
       {
-        "asset_id": "RCA_V2_014",
-        "relevance": 1
+        "asset_id": "NOTE_V2_010",
+        "relevance": 0
       },
       {
         "asset_id": "NOTE_V2_004",
@@ -599,10 +559,6 @@
       },
       {
         "asset_id": "NOTE_V2_006",
-        "relevance": 0
-      },
-      {
-        "asset_id": "NOTE_V2_010",
         "relevance": 0
       }
     ],
@@ -612,37 +568,33 @@
         "relevance": 3
       },
       {
-        "asset_id": "NOTE_V2_014",
-        "relevance": 1
+        "asset_id": "RCA_V2_010",
+        "relevance": 0
+      },
+      {
+        "asset_id": "RCA_V2_011",
+        "relevance": 0
       },
       {
         "asset_id": "RCA_V2_004",
-        "relevance": 0
-      },
-      {
-        "asset_id": "RCA_V2_006",
-        "relevance": 0
-      },
-      {
-        "asset_id": "RCA_V2_007",
         "relevance": 0
       }
     ],
     "Q_V2_IF_V2_NA_01_NO_ANSWER": [
       {
-        "asset_id": "SOP_V2_001",
-        "relevance": 0
-      },
-      {
-        "asset_id": "SOP_V2_003",
-        "relevance": 0
-      },
-      {
-        "asset_id": "SOP_V2_005",
-        "relevance": 0
-      },
-      {
         "asset_id": "SOP_V2_007",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_V2_011",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_V2_013",
+        "relevance": 0
+      },
+      {
+        "asset_id": "SOP_V2_001",
         "relevance": 0
       }
     ],
@@ -660,15 +612,11 @@
         "relevance": 0
       },
       {
-        "asset_id": "RCA_V2_004",
+        "asset_id": "RCA_V2_005",
         "relevance": 0
       }
     ],
     "Q_V2_IF_V2_NA_03_NO_ANSWER": [
-      {
-        "asset_id": "NOTE_V2_002",
-        "relevance": 0
-      },
       {
         "asset_id": "NOTE_V2_004",
         "relevance": 0
@@ -678,7 +626,11 @@
         "relevance": 0
       },
       {
-        "asset_id": "NOTE_V2_008",
+        "asset_id": "NOTE_V2_010",
+        "relevance": 0
+      },
+      {
+        "asset_id": "NOTE_V2_012",
         "relevance": 0
       }
     ],
@@ -696,7 +648,7 @@
         "relevance": 0
       },
       {
-        "asset_id": "RCA_V2_004",
+        "asset_id": "RCA_V2_005",
         "relevance": 0
       }
     ]
@@ -718,7 +670,8 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_01_SRC first showed directional micro-scratch bands, localized copper residue after Copper planarization; scratch density was 0.82 count/mm2. Find a reviewed historical case with a comparable evidence pattern."
+      "secondary_relevant_asset_ids": [],
+      "text": "Lot LOT_V2_01_SRC first showed directional micro-scratch bands, localized copper residue after Copper planarization; scratch density measured 0.82 count/mm2. Find a reviewed historical case with a comparable evidence pattern."
     },
     {
       "hard_negative_asset_ids": [
@@ -736,13 +689,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "procedure_guidance",
       "requested_document_type": "SOP",
-      "text": "During review of LOT_V2_01_SRC, engineers observed directional micro-scratch bands, localized copper residue after Copper planarization; scratch density was 0.82 count/mm2. Which approved containment and verification procedure applies?"
+      "secondary_relevant_asset_ids": [],
+      "text": "During review of LOT_V2_01_SRC, engineers observed directional micro-scratch bands, localized copper residue after Copper planarization; scratch density measured 0.82 count/mm2. Which approved containment and verification procedure applies?"
     },
     {
       "hard_negative_asset_ids": [
         "RCA_V2_001",
-        "RCA_V2_003",
-        "RCA_V2_005"
+        "RCA_V2_005",
+        "RCA_V2_009"
       ],
       "incident_family_id": "IF_V2_002",
       "language": "en",
@@ -754,7 +708,10 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_02_SRC first showed edge dishing asymmetry, post-polish thickness crescent after Copper planarization; edge-center thickness delta was 41.0 nm. Find a reviewed historical case with a comparable evidence pattern."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_003"
+      ],
+      "text": "Lot LOT_V2_02_SRC first showed edge dishing asymmetry, post-polish thickness crescent after Copper planarization; edge-center thickness delta measured 41.0 nm. Find a reviewed historical case with a comparable evidence pattern."
     },
     {
       "hard_negative_asset_ids": [
@@ -772,13 +729,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "engineering_note_lookup",
       "requested_document_type": "ENGINEERING_NOTE",
-      "text": "An investigation at Copper planarization reported edge dishing asymmetry, post-polish thickness crescent, with edge-center thickness delta was 41.0 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution."
+      "secondary_relevant_asset_ids": [],
+      "text": "An investigation at Copper planarization reported edge dishing asymmetry, post-polish thickness crescent, with edge-center thickness delta measured 41.0 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution."
     },
     {
       "hard_negative_asset_ids": [
         "RCA_V2_001",
-        "RCA_V2_002",
-        "RCA_V2_005"
+        "RCA_V2_005",
+        "RCA_V2_009"
       ],
       "incident_family_id": "IF_V2_003",
       "language": "en",
@@ -790,7 +748,10 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_03_SRC first showed parallel edge scratches, transfer-path recurrence after Copper planarization; edge scratch count was 19.0 count/wafer. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_002"
+      ],
+      "text": "Lot LOT_V2_03_SRC first showed one-sided over-polish arc, azimuthal thickness crescent after Copper planarization; within-wafer removal asymmetry measured 34.0 nm. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
     },
     {
       "hard_negative_asset_ids": [
@@ -808,13 +769,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "procedure_guidance",
       "requested_document_type": "SOP",
-      "text": "During review of LOT_V2_03_SRC, engineers observed parallel edge scratches, transfer-path recurrence after Copper planarization; edge scratch count was 19.0 count/wafer. Which approved containment and verification procedure applies? Equipment identity is not available."
+      "secondary_relevant_asset_ids": [],
+      "text": "During review of LOT_V2_03_SRC, engineers observed one-sided over-polish arc, azimuthal thickness crescent after Copper planarization; within-wafer removal asymmetry measured 34.0 nm. Which approved containment and verification procedure applies? Equipment identity is not available."
     },
     {
       "hard_negative_asset_ids": [
         "RCA_V2_006",
-        "RCA_V2_007",
-        "RCA_V2_010"
+        "RCA_V2_010",
+        "RCA_V2_011"
       ],
       "incident_family_id": "IF_V2_004",
       "language": "en",
@@ -826,13 +788,17 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_04_SRC first showed apparent removal-rate step, stable electrical distribution after Copper planarization; reported copper thickness was 84.0 nm. Find a reviewed historical case with a comparable evidence pattern. The operator note may contain an incorrect module hint."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_007",
+        "RCA_V2_003"
+      ],
+      "text": "Lot LOT_V2_04_SRC first showed apparent removal-rate step, stable electrical distribution after Inline measurement; reported post-planarization film thickness measured 84.0 nm. Find a reviewed historical case with a comparable evidence pattern. The operator note may contain an incorrect module hint."
     },
     {
       "hard_negative_asset_ids": [
+        "NOTE_V2_012",
         "NOTE_V2_006",
-        "NOTE_V2_010",
-        "NOTE_V2_012"
+        "NOTE_V2_010"
       ],
       "incident_family_id": "IF_V2_004",
       "language": "en",
@@ -844,7 +810,8 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "engineering_note_lookup",
       "requested_document_type": "ENGINEERING_NOTE",
-      "text": "An investigation at Copper planarization reported apparent removal-rate step, stable electrical distribution, with reported copper thickness was 84.0 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution. The operator note may contain an incorrect module hint."
+      "secondary_relevant_asset_ids": [],
+      "text": "An investigation at Inline measurement reported apparent removal-rate step, stable electrical distribution, with reported post-planarization film thickness measured 84.0 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution. The operator note may contain an incorrect module hint."
     },
     {
       "hard_negative_asset_ids": [
@@ -862,7 +829,8 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_05_SRC first showed center residue islands, normal endpoint duration after Copper planarization; residue area ratio was 3.8 percent. Find a reviewed historical case with a comparable evidence pattern."
+      "secondary_relevant_asset_ids": [],
+      "text": "Lot LOT_V2_05_SRC first showed center residue islands, normal endpoint duration after Copper planarization; residue area ratio measured 3.8 percent. Find a reviewed historical case with a comparable evidence pattern."
     },
     {
       "hard_negative_asset_ids": [
@@ -880,7 +848,8 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "procedure_guidance",
       "requested_document_type": "SOP",
-      "text": "During review of LOT_V2_05_SRC, engineers observed center residue islands, normal endpoint duration after Copper planarization; residue area ratio was 3.8 percent. Which approved containment and verification procedure applies?"
+      "secondary_relevant_asset_ids": [],
+      "text": "During review of LOT_V2_05_SRC, engineers observed center residue islands, normal endpoint duration after Copper planarization; residue area ratio measured 3.8 percent. Which approved containment and verification procedure applies?"
     },
     {
       "hard_negative_asset_ids": [
@@ -898,7 +867,8 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_06_SRC first showed isolated sidewall roughness, no chamber recurrence after Pattern transfer; roughness index was 1.7 a.u.. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
+      "secondary_relevant_asset_ids": [],
+      "text": "Lot LOT_V2_06_SRC first showed isolated sidewall roughness, no chamber recurrence after Pattern transfer; roughness index measured 1.7 a.u. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
     },
     {
       "hard_negative_asset_ids": [
@@ -916,13 +886,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "engineering_note_lookup",
       "requested_document_type": "ENGINEERING_NOTE",
-      "text": "An investigation at Pattern transfer reported isolated sidewall roughness, no chamber recurrence, with roughness index was 1.7 a.u.. Retrieve an engineering note that explains how to separate detection location from causal attribution. Equipment identity is not available."
+      "secondary_relevant_asset_ids": [],
+      "text": "An investigation at Pattern transfer reported isolated sidewall roughness, no chamber recurrence, with roughness index measured 1.7 a.u. Retrieve an engineering note that explains how to separate detection location from causal attribution. Equipment identity is not available."
     },
     {
       "hard_negative_asset_ids": [
-        "RCA_V2_004",
         "RCA_V2_006",
-        "RCA_V2_010"
+        "RCA_V2_010",
+        "RCA_V2_011"
       ],
       "incident_family_id": "IF_V2_007",
       "language": "en",
@@ -934,7 +905,10 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_07_SRC first showed via CD widening, wafer-edge selectivity loss after Pattern transfer; via CD bias was 12.0 nm. Find a reviewed historical case with a comparable evidence pattern."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_004"
+      ],
+      "text": "Lot LOT_V2_07_SRC first showed true deposited-film thinning, capacitance monitor shift after Dielectric deposition; deposited film thickness loss measured 18.0 nm. Find a reviewed historical case with a comparable evidence pattern."
     },
     {
       "hard_negative_asset_ids": [
@@ -952,13 +926,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "procedure_guidance",
       "requested_document_type": "SOP",
-      "text": "During review of LOT_V2_07_SRC, engineers observed via CD widening, wafer-edge selectivity loss after Pattern transfer; via CD bias was 12.0 nm. Which approved containment and verification procedure applies?"
+      "secondary_relevant_asset_ids": [],
+      "text": "During review of LOT_V2_07_SRC, engineers observed true deposited-film thinning, capacitance monitor shift after Dielectric deposition; deposited film thickness loss measured 18.0 nm. Which approved containment and verification procedure applies?"
     },
     {
       "hard_negative_asset_ids": [
         "RCA_V2_001",
-        "RCA_V2_002",
-        "RCA_V2_003"
+        "RCA_V2_005",
+        "RCA_V2_009"
       ],
       "incident_family_id": "IF_V2_008",
       "language": "en",
@@ -970,7 +945,11 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_08_SRC first showed radial erosion growth, incoming copper map tilt after Copper planarization; erosion range was 36.0 nm. Find a reviewed historical case with a comparable evidence pattern. The operator note may contain an incorrect module hint."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_002",
+        "RCA_V2_003"
+      ],
+      "text": "Lot LOT_V2_08_SRC first showed radial erosion growth, post-polish thickness tilt after Copper planarization; erosion range measured 36.0 nm. Find a reviewed historical case with a comparable evidence pattern. The operator note may contain an incorrect module hint."
     },
     {
       "hard_negative_asset_ids": [
@@ -988,13 +967,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "engineering_note_lookup",
       "requested_document_type": "ENGINEERING_NOTE",
-      "text": "An investigation at Copper planarization reported radial erosion growth, incoming copper map tilt, with erosion range was 36.0 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution. The operator note may contain an incorrect module hint."
+      "secondary_relevant_asset_ids": [],
+      "text": "An investigation at Copper planarization reported radial erosion growth, post-polish thickness tilt, with erosion range measured 36.0 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution. The operator note may contain an incorrect module hint."
     },
     {
       "hard_negative_asset_ids": [
-        "RCA_V2_001",
         "RCA_V2_002",
-        "RCA_V2_003"
+        "RCA_V2_005",
+        "RCA_V2_008"
       ],
       "incident_family_id": "IF_V2_009",
       "language": "en",
@@ -1006,7 +986,11 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_09_SRC first showed repeating arc scratches, rinse-chamber recurrence after Copper planarization; arc defect count was 14.0 count/wafer. Find a reviewed historical case with a comparable evidence pattern."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_003"
+      ],
+      "text": "Lot LOT_V2_09_SRC first showed repeating arc scratches, stable scratch orientation after Copper planarization; arc defect count measured 14.0 count/wafer. Find a reviewed historical case with a comparable evidence pattern."
     },
     {
       "hard_negative_asset_ids": [
@@ -1024,13 +1008,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "procedure_guidance",
       "requested_document_type": "SOP",
-      "text": "During review of LOT_V2_09_SRC, engineers observed repeating arc scratches, rinse-chamber recurrence after Copper planarization; arc defect count was 14.0 count/wafer. Which approved containment and verification procedure applies?"
+      "secondary_relevant_asset_ids": [],
+      "text": "During review of LOT_V2_09_SRC, engineers observed repeating arc scratches, stable scratch orientation after Copper planarization; arc defect count measured 14.0 count/wafer. Which approved containment and verification procedure applies?"
     },
     {
       "hard_negative_asset_ids": [
+        "RCA_V2_014",
         "RCA_V2_004",
-        "RCA_V2_006",
-        "RCA_V2_007"
+        "RCA_V2_006"
       ],
       "incident_family_id": "IF_V2_010",
       "language": "en",
@@ -1042,13 +1027,16 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_10_SRC first showed threshold-voltage tail shift, normal metal resistance after Electrical parametric test; Vt p99 shift was 47.0 mV. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_011"
+      ],
+      "text": "Lot LOT_V2_10_SRC first showed threshold-voltage tail shift, normal metal resistance after Electrical parametric test; Vt p99 shift measured 47.0 mV. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
     },
     {
       "hard_negative_asset_ids": [
+        "NOTE_V2_014",
         "NOTE_V2_004",
-        "NOTE_V2_006",
-        "NOTE_V2_012"
+        "NOTE_V2_006"
       ],
       "incident_family_id": "IF_V2_010",
       "language": "en",
@@ -1060,13 +1048,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "engineering_note_lookup",
       "requested_document_type": "ENGINEERING_NOTE",
-      "text": "An investigation at Electrical parametric test reported threshold-voltage tail shift, normal metal resistance, with Vt p99 shift was 47.0 mV. Retrieve an engineering note that explains how to separate detection location from causal attribution. Equipment identity is not available."
+      "secondary_relevant_asset_ids": [],
+      "text": "An investigation at Electrical parametric test reported threshold-voltage tail shift, normal metal resistance, with Vt p99 shift measured 47.0 mV. Retrieve an engineering note that explains how to separate detection location from causal attribution. Equipment identity is not available."
     },
     {
       "hard_negative_asset_ids": [
+        "RCA_V2_010",
         "RCA_V2_004",
-        "RCA_V2_006",
-        "RCA_V2_007"
+        "RCA_V2_006"
       ],
       "incident_family_id": "IF_V2_011",
       "language": "en",
@@ -1078,7 +1067,10 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_11_SRC first showed serpentine leakage clusters, die-row periodicity after Electrical parametric test; leakage fail rate was 6.4 percent. Find a reviewed historical case with a comparable evidence pattern. The operator note may contain an incorrect module hint."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_014"
+      ],
+      "text": "Lot LOT_V2_11_SRC first showed serpentine leakage clusters, die-row periodicity after Electrical parametric test; leakage fail rate measured 6.4 percent. Find a reviewed historical case with a comparable evidence pattern. The operator note may contain an incorrect module hint."
     },
     {
       "hard_negative_asset_ids": [
@@ -1096,13 +1088,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "procedure_guidance",
       "requested_document_type": "SOP",
-      "text": "During review of LOT_V2_11_SRC, engineers observed serpentine leakage clusters, die-row periodicity after Electrical parametric test; leakage fail rate was 6.4 percent. Which approved containment and verification procedure applies? The operator note may contain an incorrect module hint."
+      "secondary_relevant_asset_ids": [],
+      "text": "During review of LOT_V2_11_SRC, engineers observed serpentine leakage clusters, die-row periodicity after Electrical parametric test; leakage fail rate measured 6.4 percent. Which approved containment and verification procedure applies? The operator note may contain an incorrect module hint."
     },
     {
       "hard_negative_asset_ids": [
-        "RCA_V2_004",
         "RCA_V2_006",
-        "RCA_V2_007"
+        "RCA_V2_010",
+        "RCA_V2_011"
       ],
       "incident_family_id": "IF_V2_012",
       "language": "en",
@@ -1114,7 +1107,11 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_12_SRC first showed odd-slot film thinning, stable downstream polish rate after Inline measurement; film thickness delta was -28.0 nm. Find a reviewed historical case with a comparable evidence pattern."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_007",
+        "RCA_V2_004"
+      ],
+      "text": "Lot LOT_V2_12_SRC first showed odd-slot film thinning, stable downstream polish rate after Inline measurement; film thickness delta measured -28.0 nm. Find a reviewed historical case with a comparable evidence pattern."
     },
     {
       "hard_negative_asset_ids": [
@@ -1132,13 +1129,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "engineering_note_lookup",
       "requested_document_type": "ENGINEERING_NOTE",
-      "text": "An investigation at Inline measurement reported odd-slot film thinning, stable downstream polish rate, with film thickness delta was -28.0 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution."
+      "secondary_relevant_asset_ids": [],
+      "text": "An investigation at Inline measurement reported odd-slot film thinning, stable downstream polish rate, with film thickness delta measured -28.0 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution."
     },
     {
       "hard_negative_asset_ids": [
         "RCA_V2_004",
-        "RCA_V2_006",
-        "RCA_V2_007"
+        "RCA_V2_007",
+        "RCA_V2_010"
       ],
       "incident_family_id": "IF_V2_013",
       "language": "en",
@@ -1150,7 +1148,12 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_13_SRC first showed short-lived removal-rate dip, normal subsequent lots after Copper planarization; endpoint extension was 9.0 s. Find a reviewed historical case with a comparable evidence pattern."
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_005",
+        "RCA_V2_006"
+      ],
+      "text": "Lot LOT_V2_13_SRC first showed short-lived removal-rate dip, normal subsequent lots after Copper planarization; endpoint extension measured 9.0 s. Find a reviewed historical case with a comparable evidence pattern."
     },
     {
       "hard_negative_asset_ids": [
@@ -1168,13 +1171,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "procedure_guidance",
       "requested_document_type": "SOP",
-      "text": "During review of LOT_V2_13_SRC, engineers observed short-lived removal-rate dip, normal subsequent lots after Copper planarization; endpoint extension was 9.0 s. Which approved containment and verification procedure applies?"
+      "secondary_relevant_asset_ids": [],
+      "text": "During review of LOT_V2_13_SRC, engineers observed short-lived removal-rate dip, normal subsequent lots after Copper planarization; endpoint extension measured 9.0 s. Which approved containment and verification procedure applies?"
     },
     {
       "hard_negative_asset_ids": [
-        "RCA_V2_004",
-        "RCA_V2_006",
-        "RCA_V2_007"
+        "RCA_V2_010",
+        "RCA_V2_011",
+        "RCA_V2_004"
       ],
       "incident_family_id": "IF_V2_014",
       "language": "en",
@@ -1186,13 +1190,14 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_14_SRC first showed contact-resistance spikes, site-order recurrence after Electrical parametric test; contact resistance p95 was 18.0 ohm. Find a reviewed historical case with a comparable evidence pattern."
+      "secondary_relevant_asset_ids": [],
+      "text": "Lot LOT_V2_14_SRC first showed contact-resistance spikes, site-order recurrence after Electrical parametric test; contact resistance p95 measured 18.0 ohm. Find a reviewed historical case with a comparable evidence pattern."
     },
     {
       "hard_negative_asset_ids": [
+        "NOTE_V2_010",
         "NOTE_V2_004",
-        "NOTE_V2_006",
-        "NOTE_V2_010"
+        "NOTE_V2_006"
       ],
       "incident_family_id": "IF_V2_014",
       "language": "en",
@@ -1204,14 +1209,15 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "engineering_note_lookup",
       "requested_document_type": "ENGINEERING_NOTE",
-      "text": "An investigation at Electrical parametric test reported contact-resistance spikes, site-order recurrence, with contact resistance p95 was 18.0 ohm. Retrieve an engineering note that explains how to separate detection location from causal attribution."
+      "secondary_relevant_asset_ids": [],
+      "text": "An investigation at Electrical parametric test reported contact-resistance spikes, site-order recurrence, with contact resistance p95 measured 18.0 ohm. Retrieve an engineering note that explains how to separate detection location from causal attribution."
     },
     {
       "hard_negative_asset_ids": [
-        "SOP_V2_001",
-        "SOP_V2_003",
-        "SOP_V2_005",
-        "SOP_V2_007"
+        "SOP_V2_007",
+        "SOP_V2_011",
+        "SOP_V2_013",
+        "SOP_V2_001"
       ],
       "incident_family_id": "IF_V2_NA_01",
       "language": "en",
@@ -1223,14 +1229,15 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "procedure_guidance",
       "requested_document_type": "SOP",
-      "text": "During review of LOT_V2_NA_01, engineers observed micro-trench corner cracking, low-temperature sidewall haze after Cryogenic trench formation; corner crack density was 0.9 count/mm2. Which approved containment and verification procedure applies? Equipment identity is not available."
+      "secondary_relevant_asset_ids": [],
+      "text": "During review of LOT_V2_NA_01, engineers observed micro-trench corner cracking, low-temperature sidewall haze after Cryogenic trench formation; corner crack density measured 0.9 count/mm2. Which approved containment and verification procedure applies? Equipment identity is not available."
     },
     {
       "hard_negative_asset_ids": [
         "RCA_V2_001",
         "RCA_V2_002",
         "RCA_V2_003",
-        "RCA_V2_004"
+        "RCA_V2_005"
       ],
       "incident_family_id": "IF_V2_NA_02",
       "language": "en",
@@ -1242,14 +1249,15 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_NA_02 first showed buried rail reveal voids, localized silicon tearing after Backside power reveal; reveal void fraction was 2.6 percent. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
+      "secondary_relevant_asset_ids": [],
+      "text": "Lot LOT_V2_NA_02 first showed buried rail reveal voids, localized silicon tearing after Backside power reveal; reveal void fraction measured 2.6 percent. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
     },
     {
       "hard_negative_asset_ids": [
-        "NOTE_V2_002",
         "NOTE_V2_004",
         "NOTE_V2_006",
-        "NOTE_V2_008"
+        "NOTE_V2_010",
+        "NOTE_V2_012"
       ],
       "incident_family_id": "IF_V2_NA_03",
       "language": "en",
@@ -1261,14 +1269,15 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "engineering_note_lookup",
       "requested_document_type": "ENGINEERING_NOTE",
-      "text": "An investigation at Anamorphic overlay control reported field-edge overlay rotation, scan-direction asymmetry, with overlay vector magnitude was 4.8 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution. Equipment identity is not available."
+      "secondary_relevant_asset_ids": [],
+      "text": "An investigation at Anamorphic overlay control reported field-edge overlay rotation, scan-direction asymmetry, with overlay vector magnitude measured 4.8 nm. Retrieve an engineering note that explains how to separate detection location from causal attribution. Equipment identity is not available."
     },
     {
       "hard_negative_asset_ids": [
         "RCA_V2_001",
         "RCA_V2_002",
         "RCA_V2_003",
-        "RCA_V2_004"
+        "RCA_V2_005"
       ],
       "incident_family_id": "IF_V2_NA_04",
       "language": "en",
@@ -1280,7 +1289,8 @@
       "query_time_cutoff": "2026-08-01T00:00:00+00:00",
       "question_kind": "historical_match",
       "requested_document_type": "RCA_CASE",
-      "text": "Lot LOT_V2_NA_04 first showed interfacial nano-void ring, post-anneal edge separation after Plasma-activated bonding; bond void ratio was 1.4 percent. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
+      "secondary_relevant_asset_ids": [],
+      "text": "Lot LOT_V2_NA_04 first showed interfacial nano-void ring, post-anneal edge separation after Plasma-activated bonding; bond void ratio measured 1.4 percent. Find a reviewed historical case with a comparable evidence pattern. Equipment identity is not available."
     }
   ],
   "relevance_threshold": 2,

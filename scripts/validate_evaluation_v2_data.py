@@ -16,6 +16,7 @@ from yield_rca_core.evaluation_v2_data import (  # noqa: E402
     TemplateSurfaceQueryProvider,
     build_evaluation_v2_dataset,
     data_quality_markdown,
+    human_review_packet_markdown,
     load_incident_catalog,
     validate_evaluation_v2_dataset,
 )
@@ -56,6 +57,9 @@ def main() -> int:
         encoding="utf-8",
     )
     (REPORT_DIR / "report.md").write_text(data_quality_markdown(report), encoding="utf-8")
+    (REPORT_DIR / "human_review_packet.md").write_text(
+        human_review_packet_markdown(built), encoding="utf-8"
+    )
     print(
         "Evaluation V2 committed-data validation: "
         f"structural={'PASS' if report.structural_pass else 'FAIL'}; "

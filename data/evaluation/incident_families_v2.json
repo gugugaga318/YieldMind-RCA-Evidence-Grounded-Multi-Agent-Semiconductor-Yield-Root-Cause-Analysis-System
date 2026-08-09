@@ -2,6 +2,7 @@
   "dataset_id": "synthetic-semiconductor-causal-v2",
   "incident_families": [
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
         "causal_equipment_id": "CMP_CU_11",
         "causal_module": "Cu CMP",
@@ -13,14 +14,37 @@
         ],
         "root_cause": "CMP_CU_11 pad conditioner bearing drag caused intermittent pad glazing"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "same_step",
+      "document_observation_summary": [
+        "parallel polish tracks following platen motion",
+        "incomplete metal clearing in isolated zones"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_002": 1,
+        "RCA_V2_003": 1,
+        "RCA_V2_005": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [
         "LOT_V2_01_IMP_01",
         "LOT_V2_01_IMP_02"
       ],
+      "impact_metric_values": [],
       "incident_family_id": "IF_V2_001",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_001",
@@ -43,6 +67,8 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-02T12:00:00+00:00",
         "detected_equipment_id": "CMP_CU_11",
@@ -67,7 +93,13 @@
           "localized copper residue"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "calibration",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -132,6 +164,8 @@
       ],
       "resource_relations": [],
       "scenario_category": "same_step",
+      "secondary_relevant_asset_ids": [],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_01_MES_ROUTE",
@@ -150,9 +184,13 @@
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": false
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
         "causal_equipment_id": "PLATE_CU_04",
         "causal_module": "Electroplating",
@@ -164,15 +202,40 @@
         ],
         "root_cause": "PLATE_CU_04 anode contact intermittency created an upstream copper profile skew"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "upstream_route",
+      "document_observation_summary": [
+        "perimeter recess with a one-sided radial profile",
+        "crescent-shaped film-map imbalance after polish"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [
+        "RCA_V2_008"
+      ],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_001": 1,
+        "RCA_V2_005": 1,
+        "RCA_V2_009": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [
         "LOT_V2_02_IMP_01",
         "LOT_V2_02_IMP_02",
         "LOT_V2_02_IMP_03"
       ],
+      "impact_metric_values": [],
       "incident_family_id": "IF_V2_002",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_002",
@@ -195,6 +258,8 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-03T12:00:00+00:00",
         "detected_equipment_id": "CMP_CU_12",
@@ -219,7 +284,17 @@
           "post-polish thickness crescent"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "calibration",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [
+        "incoming copper thickness tilt",
+        38.0,
+        "nm"
+      ],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -284,6 +359,10 @@
       ],
       "resource_relations": [],
       "scenario_category": "upstream",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_003"
+      ],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_02_MES_ROUTE",
@@ -296,34 +375,68 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_02_PRE_CMP_PROFILE",
+          "evidence_type": "METROLOGY_PRE_CMP",
+          "summary": "Pre-CMP incoming copper thickness tilt measured 38.0 nm, proving the profile existed before polish."
+        },
+        {
           "evidence_id": "EV_V2_02_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
           "summary": "Current-Lot operational evidence supports the causal attribution."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": false
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
-        "causal_equipment_id": "WET_BACK_07",
-        "causal_module": "Wet Clean",
-        "causal_operation": "7000",
-        "cause_signal": "transfer_arm_vibration",
+        "causal_equipment_id": "CMP_CU_13",
+        "causal_module": "Cu CMP",
+        "causal_operation": "6400",
+        "cause_signal": "carrier_head_orbit_runout",
         "corrective_actions": [
-          "repair the transfer-arm bearing",
-          "inspect lots sharing WET_BACK_07 exposure"
+          "repair and dynamically balance the carrier head",
+          "inspect lots sharing CMP_CU_13 exposure"
         ],
-        "root_cause": "WET_BACK_07 transfer-arm bearing vibration marked wafers during post-clean handling"
+        "root_cause": "CMP_CU_13 carrier-head orbit runout caused azimuthal over-polish"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "shared_resource",
+      "document_observation_summary": [
+        "single-sector material loss following head rotation",
+        "crescent film profile emerging only after planarization"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [
+        "RCA_V2_008"
+      ],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_001": 1,
+        "RCA_V2_005": 1,
+        "RCA_V2_009": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [
         "LOT_V2_03_IMP_01",
         "LOT_V2_03_IMP_02"
       ],
+      "impact_metric_values": [],
       "incident_family_id": "IF_V2_003",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_003",
@@ -346,6 +459,8 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-04T12:00:00+00:00",
         "detected_equipment_id": "CMP_CU_13",
@@ -353,24 +468,34 @@
         "detected_operation": "6400",
         "detected_operation_name": "Copper planarization",
         "known_defect_attributes": {
-          "pattern": "parallel edge scratches",
+          "pattern": "one-sided over-polish arc",
           "symptom_cluster": "surface_geometry"
         },
         "known_measurements": [
           {
-            "metric_name": "edge scratch count",
-            "observed": 19.0,
-            "unit": "count/wafer"
+            "metric_name": "within-wafer removal asymmetry",
+            "observed": 34.0,
+            "unit": "nm"
           }
         ],
         "product_id": "PROD_V2_03",
         "source_lot_id": "LOT_V2_03_SRC",
         "symptom_types": [
-          "parallel edge scratches",
-          "transfer-path recurrence"
+          "one-sided over-polish arc",
+          "azimuthal thickness crescent"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "calibration",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [
+        "incoming copper thickness tilt",
+        2.0,
+        "nm"
+      ],
       "process_route": [
         {
           "module": "Lithography",
@@ -435,11 +560,15 @@
       ],
       "resource_relations": [
         {
-          "resource_id": "WET_BACK_07",
+          "resource_id": "CMP_CU_13",
           "resource_type": "equipment"
         }
       ],
       "scenario_category": "shared_resource",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_002"
+      ],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_03_MES_ROUTE",
@@ -452,15 +581,24 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_03_PRE_CMP_NORMAL",
+          "evidence_type": "METROLOGY_PRE_CMP",
+          "summary": "Pre-CMP incoming copper thickness tilt measured 2.0 nm inside specification, weakening the upstream-profile hypothesis."
+        },
+        {
           "evidence_id": "EV_V2_03_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
           "summary": "Current-Lot operational evidence supports the causal attribution."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": false
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
         "causal_equipment_id": "MET_FILM_03",
         "causal_module": "Metrology",
@@ -472,11 +610,37 @@
         ],
         "root_cause": "MET_FILM_03 reference-wafer offset produced a false post-CMP thickness shift"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "global_semantic",
+      "document_observation_summary": [
+        "abrupt optical film readback displacement",
+        "unchanged electrical monitors during the reported process shift"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [
+        "RCA_V2_012"
+      ],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {},
+      "impact_defect_counts": [],
       "impact_lot_truth": [],
+      "impact_metric_values": [],
       "incident_family_id": "IF_V2_004",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {
+        "measured_value": 100.0,
+        "metrology_tool": "MET_FILM_04",
+        "spec_high": 110.0,
+        "spec_low": 90.0
+      },
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_004",
@@ -499,19 +663,30 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [
+        {
+          "module": "Cu CMP",
+          "parameter_name": "removal_rate_proxy"
+        },
+        {
+          "module": "CVD",
+          "parameter_name": "deposition_rate_proxy"
+        }
+      ],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-05T12:00:00+00:00",
-        "detected_equipment_id": "CMP_CU_14",
-        "detected_module": "Cu CMP",
-        "detected_operation": "6400",
-        "detected_operation_name": "Copper planarization",
+        "detected_equipment_id": "MET_FILM_03",
+        "detected_module": "Metrology",
+        "detected_operation": "8000",
+        "detected_operation_name": "Inline measurement",
         "known_defect_attributes": {
           "pattern": "apparent removal-rate step",
           "symptom_cluster": "parametric_shift"
         },
         "known_measurements": [
           {
-            "metric_name": "reported copper thickness",
+            "metric_name": "reported post-planarization film thickness",
             "observed": 84.0,
             "unit": "nm"
           }
@@ -523,7 +698,13 @@
           "stable electrical distribution"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "calibration",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -588,6 +769,11 @@
       ],
       "resource_relations": [],
       "scenario_category": "metrology_artifact",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_007",
+        "RCA_V2_003"
+      ],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_04_MES_ROUTE",
@@ -600,37 +786,83 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_04_REFERENCE_CALIBRATION",
+          "evidence_type": "METROLOGY_REFERENCE_CALIBRATION",
+          "summary": "MET_FILM_03 failed its reference-wafer calibration check with a reproducible offset."
+        },
+        {
+          "evidence_id": "EV_V2_04_INDEPENDENT_REMEASURE",
+          "evidence_type": "INDEPENDENT_METROLOGY_REMEASURE",
+          "summary": "Independent remeasurement on MET_FILM_04 returned 100.0 nm inside specification."
+        },
+        {
+          "evidence_id": "EV_V2_04_PROCESS_FDC_NORMAL",
+          "evidence_type": "PROCESS_FDC_NORMAL_EXCLUSION",
+          "summary": "Current-Lot CVD and Cu CMP operational signals remain normal."
+        },
+        {
+          "evidence_id": "EV_V2_04_WAT_NORMAL",
+          "evidence_type": "WAT_NORMAL_EXCLUSION",
+          "summary": "Current-Lot electrical checks remain normal, supporting a measurement artifact rather than a real process excursion."
+        },
+        {
           "evidence_id": "EV_V2_04_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
           "summary": "Current-Lot operational evidence supports the causal attribution."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": false,
+      "wat_impact_lots_fail": false
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
         "causal_equipment_id": "CMP_CU_15",
         "causal_module": "Cu CMP",
         "causal_operation": "6400",
-        "cause_signal": "slurry_delivery_pressure",
+        "cause_signal": "slurry_pump_pressure_drop_index",
         "corrective_actions": [
           "collect pump pressure traces",
           "run confirmation wafers before attribution"
         ],
         "root_cause": "unverified CMP slurry delivery restriction"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": 116.0,
       "contradicting_evidence": [
         {
           "evidence_id": "EV_V2_05_CONTRADICTION",
           "evidence_type": "FDC_NORMAL_EXCLUSION",
-          "summary": "A second independent trace remains normal and blocks confirmation."
+          "summary": "The independent slurry flow meter and CMP endpoint duration remained normal, so the suspected delivery restriction cannot be confirmed."
         }
       ],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "same_step",
+      "document_observation_summary": [
+        "scattered unremoved metal patches near wafer center",
+        "completion timing remaining inside its control band"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "inconclusive",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_001": 1,
+        "RCA_V2_002": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [],
+      "impact_metric_values": [],
       "incident_family_id": "IF_V2_005",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_005",
@@ -653,6 +885,17 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [
+        {
+          "module": "Cu CMP",
+          "parameter_name": "independent_slurry_flow_meter"
+        },
+        {
+          "module": "Cu CMP",
+          "parameter_name": "endpoint_duration_proxy"
+        }
+      ],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-06T12:00:00+00:00",
         "detected_equipment_id": "CMP_CU_15",
@@ -677,7 +920,13 @@
           "normal endpoint duration"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "calibration",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -742,6 +991,8 @@
       ],
       "resource_relations": [],
       "scenario_category": "conflicting_evidence",
+      "secondary_relevant_asset_ids": [],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_05_MES_ROUTE",
@@ -752,12 +1003,21 @@
           "evidence_id": "EV_V2_05_OBSERVATION",
           "evidence_type": "DEFECT_OR_METROLOGY",
           "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_05_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "A transient slurry-pump pressure-drop index exceeded its control limit."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": false
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
         "causal_equipment_id": "UNRESOLVED",
         "causal_module": "Unresolved",
@@ -769,11 +1029,32 @@
         ],
         "root_cause": "UNRESOLVED because current-lot equipment evidence is missing"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": true,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "global_semantic",
+      "document_observation_summary": [
+        "single-wafer profile texture excursion",
+        "absence of repeated signatures on adjacent chamber runs"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "inconclusive",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_004": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [],
+      "impact_metric_values": [],
       "incident_family_id": "IF_V2_006",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_006",
@@ -796,6 +1077,8 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-07T12:00:00+00:00",
         "detected_equipment_id": "ETCH_METAL_08",
@@ -820,7 +1103,13 @@
           "no chamber recurrence"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "calibration",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -885,6 +1174,8 @@
       ],
       "resource_relations": [],
       "scenario_category": "insufficient_evidence",
+      "secondary_relevant_asset_ids": [],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_06_MES_ROUTE",
@@ -895,33 +1186,66 @@
           "evidence_id": "EV_V2_06_OBSERVATION",
           "evidence_type": "DEFECT_OR_METROLOGY",
           "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_06_SAME_CHAMBER_CONTROLS",
+          "evidence_type": "DEFECT_RECURRENCE_CHECK",
+          "summary": "Two adjacent control Lots ran on ETCH_METAL_08 without the sidewall defect, showing no chamber-level recurrence while leaving a one-wafer transient open."
         }
       ],
       "synthetic": true,
       "unavailable_data_sources": [
-        "FDC feature history"
-      ]
+        "Dry Etch FDC feature history"
+      ],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": false
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
-        "causal_equipment_id": "ETCH_VIA_09",
-        "causal_module": "Dry Etch",
-        "causal_operation": "2000",
-        "cause_signal": "chamber_wall_temperature",
+        "causal_equipment_id": "CVD_FILM_07",
+        "causal_module": "CVD",
+        "causal_operation": "5000",
+        "cause_signal": "chamber_temperature_bias",
         "corrective_actions": [
-          "repair wall-temperature control",
-          "restore seasoning qualification"
+          "repair chamber-temperature control",
+          "requalify deposition rate"
         ],
-        "root_cause": "ETCH_VIA_09 chamber-wall control drift changed polymer balance"
+        "root_cause": "CVD_FILM_07 chamber-temperature drift reduced deposition rate"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": true,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "same_step",
+      "document_observation_summary": [
+        "repeatable film loss on independent optical measurement",
+        "electrical capacitance movement consistent with reduced dielectric thickness"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_010": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [
         "LOT_V2_07_IMP_01",
         "LOT_V2_07_IMP_02"
       ],
+      "impact_metric_values": [
+        16.0,
+        14.0
+      ],
       "incident_family_id": "IF_V2_007",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_007",
@@ -944,31 +1268,39 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-08T12:00:00+00:00",
-        "detected_equipment_id": "ETCH_VIA_09",
-        "detected_module": "Dry Etch",
-        "detected_operation": "2000",
-        "detected_operation_name": "Pattern transfer",
+        "detected_equipment_id": "CVD_FILM_07",
+        "detected_module": "CVD",
+        "detected_operation": "5000",
+        "detected_operation_name": "Dielectric deposition",
         "known_defect_attributes": {
-          "pattern": "via CD widening",
+          "pattern": "true deposited-film thinning",
           "symptom_cluster": "parametric_shift"
         },
         "known_measurements": [
           {
-            "metric_name": "via CD bias",
-            "observed": 12.0,
+            "metric_name": "deposited film thickness loss",
+            "observed": 18.0,
             "unit": "nm"
           }
         ],
         "product_id": "PROD_V2_07",
         "source_lot_id": "LOT_V2_07_SRC",
         "symptom_types": [
-          "via CD widening",
-          "wafer-edge selectivity loss"
+          "true deposited-film thinning",
+          "capacitance monitor shift"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "calibration",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -1033,6 +1365,10 @@
       ],
       "resource_relations": [],
       "scenario_category": "same_step",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_004"
+      ],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_07_MES_ROUTE",
@@ -1045,15 +1381,29 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_07_IMPACT_CORRELATION",
+          "evidence_type": "CORRELATED_IMPACT_LOT_EVIDENCE",
+          "summary": "The source Lot and two exposed Lots share CVD_FILM_07 temperature OOC, independently measured film loss, and same-direction electrical movement."
+        },
+        {
+          "evidence_id": "EV_V2_07_RECOVERY_CONTROLS",
+          "evidence_type": "POST_RECOVERY_CONTROL_EVIDENCE",
+          "summary": "Two later control Lots on CVD_FILM_07 have normal temperature, film thickness, and WAT after chamber-temperature recovery."
+        },
+        {
           "evidence_id": "EV_V2_07_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
           "summary": "Current-Lot operational evidence supports the causal attribution."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": true
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
         "causal_equipment_id": "PLATE_CU_09",
         "causal_module": "Electroplating",
@@ -1065,15 +1415,40 @@
         ],
         "root_cause": "PLATE_CU_09 agitation controller drift distorted the incoming copper profile"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": true,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "upstream_route",
+      "document_observation_summary": [
+        "radially increasing recessed topography after planarization",
+        "pre-polish metal profile leaning across the wafer"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_001": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [
         "LOT_V2_08_IMP_01",
         "LOT_V2_08_IMP_02",
         "LOT_V2_08_IMP_03"
       ],
+      "impact_metric_values": [
+        34.0,
+        31.0,
+        29.0
+      ],
       "incident_family_id": "IF_V2_008",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_008",
@@ -1096,6 +1471,19 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [
+        {
+          "equipment_id": "CMP_CU_21",
+          "module": "Cu CMP",
+          "parameter_name": "removal_rate_proxy"
+        },
+        {
+          "equipment_id": "CMP_CU_21",
+          "module": "Cu CMP",
+          "parameter_name": "endpoint_duration_proxy"
+        }
+      ],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-09T12:00:00+00:00",
         "detected_equipment_id": "CMP_CU_21",
@@ -1117,10 +1505,20 @@
         "source_lot_id": "LOT_V2_08_SRC",
         "symptom_types": [
           "radial erosion growth",
-          "incoming copper map tilt"
+          "post-polish thickness tilt"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "test",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [
+        "incoming copper thickness tilt",
+        33.0,
+        "nm"
+      ],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -1185,6 +1583,11 @@
       ],
       "resource_relations": [],
       "scenario_category": "upstream",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_002",
+        "RCA_V2_003"
+      ],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_08_MES_ROUTE",
@@ -1197,35 +1600,88 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_08_PRE_CMP_PROFILE",
+          "evidence_type": "METROLOGY_PRE_CMP",
+          "summary": "Pre-CMP incoming copper thickness tilt measured 33.0 nm, proving the profile existed before polish."
+        },
+        {
+          "evidence_id": "EV_V2_08_IMPACT_CORRELATION",
+          "evidence_type": "CORRELATED_IMPACT_LOT_EVIDENCE",
+          "summary": "The source Lot and three affected Lots share PLATE_CU_09 agitation OOC, Pre-CMP copper tilt, and post-CMP erosion."
+        },
+        {
+          "evidence_id": "EV_V2_08_RECOVERY_CONTROLS",
+          "evidence_type": "POST_RECOVERY_CONTROL_EVIDENCE",
+          "summary": "Two later control Lots on PLATE_CU_09 have normal agitation, incoming copper profiles, and post-CMP results after controller recovery."
+        },
+        {
+          "evidence_id": "EV_V2_08_DETECTED_STEP_NORMAL",
+          "evidence_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION",
+          "summary": "CMP_CU_21 removal-rate and endpoint signals remain normal on the source Lot."
+        },
+        {
           "evidence_id": "EV_V2_08_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
           "summary": "Current-Lot operational evidence supports the causal attribution."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": false
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
-        "causal_equipment_id": "WET_BACK_12",
-        "causal_module": "Wet Clean",
-        "causal_operation": "7000",
+        "causal_equipment_id": "CMP_CU_22",
+        "causal_module": "Cu CMP",
+        "causal_operation": "6400",
         "cause_signal": "rinse_nozzle_particle_index",
         "corrective_actions": [
           "clean and qualify the rinse chamber",
           "inspect all lots sharing its exposure window"
         ],
-        "root_cause": "WET_BACK_12 rinse chamber particle shedding marked wafers after clean"
+        "root_cause": "CMP_CU_22 post-polish rinse chamber particle shedding marked wafers"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": true,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "shared_resource",
+      "document_observation_summary": [
+        "curved surface marks recurring with rinse exposure",
+        "defect orientation tied to chamber rotation geometry"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_002": 1
+      },
+      "impact_defect_counts": [
+        13,
+        12,
+        11
+      ],
       "impact_lot_truth": [
         "LOT_V2_09_IMP_01",
         "LOT_V2_09_IMP_02",
         "LOT_V2_09_IMP_03"
       ],
+      "impact_metric_values": [
+        13.0,
+        12.0,
+        11.0
+      ],
       "incident_family_id": "IF_V2_009",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_009",
@@ -1248,6 +1704,19 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [
+        {
+          "equipment_id": "CMP_CU_22",
+          "module": "Cu CMP",
+          "parameter_name": "carrier_head_orbit_runout"
+        },
+        {
+          "equipment_id": "CMP_CU_22",
+          "module": "Cu CMP",
+          "parameter_name": "conditioner_motor_torque"
+        }
+      ],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-10T12:00:00+00:00",
         "detected_equipment_id": "CMP_CU_22",
@@ -1269,10 +1738,16 @@
         "source_lot_id": "LOT_V2_09_SRC",
         "symptom_types": [
           "repeating arc scratches",
-          "rinse-chamber recurrence"
+          "stable scratch orientation"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "test",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -1337,11 +1812,16 @@
       ],
       "resource_relations": [
         {
-          "resource_id": "WET_BACK_12_CH01",
+          "resource_id": "CMP_CU_22_CH01",
           "resource_type": "chamber"
         }
       ],
       "scenario_category": "shared_resource",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_003"
+      ],
+      "source_defect_count": 14,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_09_MES_ROUTE",
@@ -1354,15 +1834,34 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_09_IMPACT_CORRELATION",
+          "evidence_type": "CORRELATED_IMPACT_LOT_EVIDENCE",
+          "summary": "The source Lot and three affected Lots share CMP_CU_22_CH01 particle OOC and matching arc orientation, curvature, and location distributions."
+        },
+        {
+          "evidence_id": "EV_V2_09_RECOVERY_CONTROLS",
+          "evidence_type": "POST_RECOVERY_CONTROL_EVIDENCE",
+          "summary": "Two later control Lots on CMP_CU_22_CH01 have normal particle indicators and defect counts after rinse-chamber cleaning."
+        },
+        {
+          "evidence_id": "EV_V2_09_DETECTED_STEP_NORMAL",
+          "evidence_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION",
+          "summary": "CMP_CU_22 carrier-head runout and pad-conditioner torque remain normal."
+        },
+        {
           "evidence_id": "EV_V2_09_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
           "summary": "Current-Lot operational evidence supports the causal attribution."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": false
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
         "causal_equipment_id": "IMP_WELL_03",
         "causal_module": "Ion Implant",
@@ -1374,14 +1873,40 @@
         ],
         "root_cause": "IMP_WELL_03 dose-integrator drift shifted well implant dose"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": true,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "global_semantic",
+      "document_observation_summary": [
+        "upper-tail transistor turn-on displacement",
+        "interconnect control structures remaining nominal"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_014": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [
         "LOT_V2_10_IMP_01",
         "LOT_V2_10_IMP_02"
       ],
+      "impact_metric_values": [
+        43.0,
+        39.0
+      ],
       "incident_family_id": "IF_V2_010",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {
+        "test_equipment_id": "WAT_CELL_09"
+      },
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_010",
@@ -1402,6 +1927,23 @@
           "evidence_id": "EV_V2_10_NEUTRAL",
           "evidence_type": "UNRELATED_NORMAL_SIGNAL",
           "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "normal_fdc_signals": [],
+      "normal_wat_signals": [
+        {
+          "measured_value": 0.98,
+          "parameter_name": "metal_line_resistance",
+          "spec_high": 1.1,
+          "spec_low": 0.9,
+          "test_item": "METAL_CONTROL"
+        },
+        {
+          "measured_value": 0.02,
+          "parameter_name": "reticle_field_periodicity_index",
+          "spec_high": 0.1,
+          "spec_low": 0.0,
+          "test_item": "SPATIAL_CONTROL"
         }
       ],
       "observation_record": {
@@ -1428,7 +1970,13 @@
           "normal metal resistance"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "test",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -1493,6 +2041,10 @@
       ],
       "resource_relations": [],
       "scenario_category": "global_cross_module",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_011"
+      ],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_10_MES_ROUTE",
@@ -1505,15 +2057,39 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_10_IMPACT_CORRELATION",
+          "evidence_type": "CORRELATED_IMPACT_LOT_EVIDENCE",
+          "summary": "The source Lot and two affected Lots share IMP_WELL_03 dose-integrator OOC and same-direction Vt shifts."
+        },
+        {
+          "evidence_id": "EV_V2_10_RECOVERY_CONTROLS",
+          "evidence_type": "POST_RECOVERY_CONTROL_EVIDENCE",
+          "summary": "Two later control Lots on IMP_WELL_03 have normal dose integration and Vt after recalibration."
+        },
+        {
+          "evidence_id": "EV_V2_10_INDEPENDENT_WAT_RETEST",
+          "evidence_type": "INDEPENDENT_WAT_RETEST",
+          "summary": "Independent retest on WAT_CELL_09 reproduces the Vt shift on all three affected Lots, excluding a single-tester artifact."
+        },
+        {
+          "evidence_id": "EV_V2_10_ELECTRICAL_CONTROLS_NORMAL",
+          "evidence_type": "WAT_NORMAL_EXCLUSION",
+          "summary": "Metal resistance and reticle-field periodicity controls remain normal."
+        },
+        {
           "evidence_id": "EV_V2_10_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
           "summary": "Current-Lot operational evidence supports the causal attribution."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": true
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
         "causal_equipment_id": "LITHO_SCN_06",
         "causal_module": "Lithography",
@@ -1525,14 +2101,40 @@
         ],
         "root_cause": "LITHO_SCN_06 reticle haze repeated a line-space bridging signature"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": true,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "global_semantic",
+      "document_observation_summary": [
+        "meandering electrical short pattern across repeated fields",
+        "failure cadence matching exposure-row spacing"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_010": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [
         "LOT_V2_11_IMP_01",
         "LOT_V2_11_IMP_02"
       ],
+      "impact_metric_values": [
+        5.8,
+        5.1
+      ],
       "incident_family_id": "IF_V2_011",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {
+        "test_equipment_id": "WAT_CELL_10"
+      },
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_011",
@@ -1553,6 +2155,30 @@
           "evidence_id": "EV_V2_11_NEUTRAL",
           "evidence_type": "UNRELATED_NORMAL_SIGNAL",
           "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "normal_fdc_signals": [],
+      "normal_wat_signals": [
+        {
+          "measured_value": 3.0,
+          "parameter_name": "Vt p99 shift",
+          "spec_high": 10.0,
+          "spec_low": -10.0,
+          "test_item": "DEVICE_CONTROL"
+        },
+        {
+          "measured_value": 1.0,
+          "parameter_name": "probe_contact_resistance",
+          "spec_high": 1.2,
+          "spec_low": 0.8,
+          "test_item": "PROBE_CONTROL"
+        },
+        {
+          "measured_value": 0.03,
+          "parameter_name": "test_sequence_correlation_index",
+          "spec_high": 0.1,
+          "spec_low": 0.0,
+          "test_item": "SEQUENCE_CONTROL"
         }
       ],
       "observation_record": {
@@ -1579,7 +2205,16 @@
           "die-row periodicity"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [
+        0.0,
+        1.0
+      ],
+      "odd_slot_metric_values": [],
       "partition": "test",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -1644,6 +2279,10 @@
       ],
       "resource_relations": [],
       "scenario_category": "global_cross_module",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_014"
+      ],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_11_MES_ROUTE",
@@ -1656,15 +2295,39 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_11_IMPACT_CORRELATION",
+          "evidence_type": "CORRELATED_IMPACT_LOT_EVIDENCE",
+          "summary": "The source Lot and two affected Lots share LITHO_SCN_06 reticle-scatter OOC and leakage periodicity aligned to exposure-field spacing."
+        },
+        {
+          "evidence_id": "EV_V2_11_RECOVERY_CONTROLS",
+          "evidence_type": "POST_RECOVERY_CONTROL_EVIDENCE",
+          "summary": "Two later control Lots on LITHO_SCN_06 have normal reticle scatter and leakage after reticle cleaning."
+        },
+        {
+          "evidence_id": "EV_V2_11_INDEPENDENT_WAT_RETEST",
+          "evidence_type": "INDEPENDENT_WAT_RETEST",
+          "summary": "Independent retest on WAT_CELL_10 reproduces the same leakage rate and spatial periodicity on all affected Lots."
+        },
+        {
+          "evidence_id": "EV_V2_11_ELECTRICAL_CONTROLS_NORMAL",
+          "evidence_type": "WAT_NORMAL_EXCLUSION",
+          "summary": "Vt shift, probe contact resistance, and test-sequence correlation remain normal, weakening implant and probe-card hypotheses."
+        },
+        {
           "evidence_id": "EV_V2_11_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
           "summary": "Current-Lot operational evidence supports the causal attribution."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": true
     },
     {
+      "all_lots_share_detected_equipment": true,
       "causal_record": {
         "causal_equipment_id": "CVD_ILD_17",
         "causal_module": "CVD",
@@ -1676,15 +2339,40 @@
         ],
         "root_cause": "CVD_ILD_17 susceptor sensor intermittency reduced odd-slot deposition rate"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": true,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "upstream_route",
+      "document_observation_summary": [
+        "alternating wafer positions with reduced dielectric deposition",
+        "subsequent planarization controls showing no rate loss"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {},
+      "impact_defect_counts": [],
       "impact_lot_truth": [
         "LOT_V2_12_IMP_01",
         "LOT_V2_12_IMP_02",
         "LOT_V2_12_IMP_03"
       ],
+      "impact_metric_values": [
+        -28.0,
+        -28.0,
+        -28.0
+      ],
       "incident_family_id": "IF_V2_012",
+      "independent_metrology_confirmation": {
+        "metrology_tool": "MET_FILM_12"
+      },
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_012",
@@ -1707,6 +2395,17 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [
+        {
+          "module": "Cu CMP",
+          "parameter_name": "removal_rate_proxy"
+        },
+        {
+          "module": "Cu CMP",
+          "parameter_name": "endpoint_duration_proxy"
+        }
+      ],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-13T12:00:00+00:00",
         "detected_equipment_id": "MET_FILM_11",
@@ -1731,7 +2430,20 @@
           "stable downstream polish rate"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [
+        -10.0,
+        10.0
+      ],
+      "odd_slot_metric_values": [
+        -28.0,
+        -26.0,
+        -24.0
+      ],
       "partition": "test",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -1796,6 +2508,11 @@
       ],
       "resource_relations": [],
       "scenario_category": "impact_lot_truth",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_007",
+        "RCA_V2_004"
+      ],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_12_MES_ROUTE",
@@ -1808,31 +2525,99 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_12_IMPACT_CORRELATION",
+          "evidence_type": "CORRELATED_IMPACT_LOT_EVIDENCE",
+          "summary": "The source Lot and three affected Lots share CVD_ILD_17 sensor OOC and film loss on odd wafer slots only."
+        },
+        {
+          "evidence_id": "EV_V2_12_RECOVERY_CONTROLS",
+          "evidence_type": "POST_RECOVERY_CONTROL_EVIDENCE",
+          "summary": "Two later control Lots on CVD_ILD_17 have normal FDC and all six wafer slots inside film-thickness specification after sensor replacement."
+        },
+        {
+          "evidence_id": "EV_V2_12_DETECTED_STEP_NORMAL",
+          "evidence_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION",
+          "summary": "Downstream CMP removal-rate and endpoint signals remain normal."
+        },
+        {
+          "evidence_id": "EV_V2_12_INDEPENDENT_METROLOGY",
+          "evidence_type": "INDEPENDENT_METROLOGY_CONFIRMATION",
+          "summary": "Independent MET_FILM_12 remeasurement reproduces the odd-slot film-loss pattern while even slots remain normal."
+        },
+        {
           "evidence_id": "EV_V2_12_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
           "summary": "Current-Lot operational evidence supports the causal attribution."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 6,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": true
     },
     {
+      "all_lots_share_detected_equipment": true,
       "causal_record": {
         "causal_equipment_id": "UNRESOLVED",
         "causal_module": "Unresolved",
         "causal_operation": "6400",
         "cause_signal": "chemical_batch_trace",
         "corrective_actions": [
-          "report the unavailable source",
-          "avoid inferring a chemical batch"
+          "report the unavailable chemical genealogy source",
+          "preserve slurry samples without attributing a batch"
         ],
-        "root_cause": "UNRESOLVED because chemical batch genealogy is unavailable"
+        "root_cause": "UNRESOLVED after normal pad and equipment checks because chemical batch genealogy is unavailable"
       },
+      "causal_signal_measured_offset_hours": 10.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": false,
+      "detected_step_fdc_excursions": [
+        {
+          "baseline_value": 0.0,
+          "normal_value": 1.0,
+          "parameter_name": "endpoint_extension",
+          "source_value": 9.0,
+          "unit": "s"
+        },
+        {
+          "baseline_value": 100.0,
+          "normal_value": 101.0,
+          "parameter_name": "removal_rate_drop_index",
+          "source_value": 118.0,
+          "unit": "normalized"
+        }
+      ],
       "discovery_lane": "shared_resource",
+      "document_observation_summary": [
+        "brief planarization efficiency reduction without recurrence",
+        "later production material remaining inside baseline"
+      ],
+      "equipment_diagnostic_signals": [],
+      "equipment_disposition": {},
+      "excluded_candidate_asset_ids": [],
       "expected_status": "inconclusive",
+      "hard_negative_relevance_overrides": {
+        "RCA_V2_004": 1
+      },
+      "impact_defect_counts": [],
       "impact_lot_truth": [],
+      "impact_metric_values": [],
       "incident_family_id": "IF_V2_013",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {
+        "metric_name": "post-CMP residual film delta",
+        "metrology_tool": "MET_CU_MAP_13",
+        "normal_value": 1.0,
+        "source_value": 12.0,
+        "spec_high": 5.0,
+        "spec_low": -5.0,
+        "unit": "nm"
+      },
+      "independent_remeasure": {},
+      "independent_wat_retest": {},
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_013",
@@ -1855,6 +2640,42 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [
+        {
+          "equipment_id": "CMP_CU_23",
+          "module": "Cu CMP",
+          "parameter_name": "conditioner_motor_torque"
+        },
+        {
+          "baseline_value": 50.0,
+          "equipment_id": "CMP_CU_23",
+          "module": "Cu CMP",
+          "observed_value": 62.0,
+          "parameter_name": "pad_life_used_percent",
+          "unit": "percent_life"
+        },
+        {
+          "equipment_id": "CMP_CU_23",
+          "module": "Cu CMP",
+          "parameter_name": "slurry_flow"
+        },
+        {
+          "equipment_id": "CMP_CU_23",
+          "module": "Cu CMP",
+          "parameter_name": "slurry_delivery_pressure"
+        },
+        {
+          "equipment_id": "CMP_CU_23",
+          "module": "Cu CMP",
+          "parameter_name": "carrier_pressure"
+        },
+        {
+          "equipment_id": "CMP_CU_23",
+          "module": "Cu CMP",
+          "parameter_name": "platen_speed"
+        }
+      ],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-14T12:00:00+00:00",
         "detected_equipment_id": "CMP_CU_23",
@@ -1879,7 +2700,20 @@
           "normal subsequent lots"
         ]
       },
+      "observation_source": "FDC",
+      "observation_spec": [
+        0.0,
+        5.0
+      ],
+      "odd_slot_metric_values": [],
       "partition": "test",
+      "post_clean_wat_retest": {},
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [
+        "incoming film thickness tilt",
+        1.0,
+        "nm"
+      ],
       "process_route": [
         {
           "module": "Lithography",
@@ -1944,6 +2778,12 @@
       ],
       "resource_relations": [],
       "scenario_category": "unsupported_data_source",
+      "secondary_relevant_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_005",
+        "RCA_V2_006"
+      ],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_13_MES_ROUTE",
@@ -1954,14 +2794,43 @@
           "evidence_id": "EV_V2_13_OBSERVATION",
           "evidence_type": "DEFECT_OR_METROLOGY",
           "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_13_PRE_CMP_NORMAL",
+          "evidence_type": "METROLOGY_PRE_CMP",
+          "summary": "Pre-CMP incoming film thickness tilt measured 1.0 nm inside specification, weakening the upstream-profile hypothesis."
+        },
+        {
+          "evidence_id": "EV_V2_13_SAME_CHAMBER_CONTROLS",
+          "evidence_type": "DEFECT_RECURRENCE_CHECK",
+          "summary": "Two later control Lots on CMP_CU_23 have normal removal and endpoint behavior."
+        },
+        {
+          "evidence_id": "EV_V2_13_DETECTED_STEP_NORMAL",
+          "evidence_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION",
+          "summary": "Pad age, conditioner torque, slurry delivery, carrier pressure, and platen speed remain normal on the source Lot."
+        },
+        {
+          "evidence_id": "EV_V2_13_DETECTED_STEP_EXCURSION",
+          "evidence_type": "DETECTED_STEP_FDC_EXCURSION",
+          "summary": "The source Lot has a real endpoint extension and removal-rate dip on CMP_CU_23; later controls are normal."
+        },
+        {
+          "evidence_id": "EV_V2_13_INDEPENDENT_PROCESS_CONFIRMATION",
+          "evidence_type": "INDEPENDENT_PROCESS_CONFIRMATION",
+          "summary": "Independent post-CMP metrology confirms residual film on the source Lot, excluding a pure endpoint-sensor artifact."
         }
       ],
       "synthetic": true,
       "unavailable_data_sources": [
         "chemical batch genealogy"
-      ]
+      ],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": false
     },
     {
+      "all_lots_share_detected_equipment": false,
       "causal_record": {
         "causal_equipment_id": "WAT_CELL_12",
         "causal_module": "WAT",
@@ -1973,11 +2842,61 @@
         ],
         "root_cause": "WAT_CELL_12 probe-card contamination caused false resistance spikes"
       },
+      "causal_signal_measured_offset_hours": 20.0,
+      "causal_signal_observed_value": null,
       "contradicting_evidence": [],
+      "control_lots_share_causal_equipment": false,
+      "control_lots_share_detected_equipment": true,
+      "detected_step_fdc_excursions": [],
       "discovery_lane": "same_step",
+      "document_observation_summary": [
+        "intermittent high-ohmic probe readings",
+        "excursions repeating with measurement-site sequence"
+      ],
+      "equipment_diagnostic_signals": [
+        {
+          "baseline_value": 0.0,
+          "measured_offset_minutes": 35,
+          "observed_value": 82.0,
+          "ooc_flag": true,
+          "parameter_name": "probe_card_contamination_index",
+          "severity": "HIGH",
+          "trend_slope": 0.6,
+          "unit": "percent"
+        },
+        {
+          "baseline_value": 100.0,
+          "measured_offset_minutes": 50,
+          "observed_value": 101.0,
+          "ooc_flag": false,
+          "parameter_name": "post_clean_probe_contact_repeatability",
+          "severity": "NORMAL",
+          "trend_slope": 0.0,
+          "unit": "normalized"
+        }
+      ],
+      "equipment_disposition": {
+        "hold_code": "WAT_PROBE_CARD_CONTAMINATION",
+        "hold_comment": "A same-wafer cross-tool retest on WAT_CELL_13 passed before optical inspection found residue on the WAT_CELL_12 probe card.",
+        "hold_reason": "Probe-card optical inspection confirmed contamination",
+        "release_comment": "The probe card was cleaned and qualified; the retained wafer and two later control Lots passed on WAT_CELL_12. The qualification-to-cleaning genealogy contains no additional production Lots."
+      },
+      "excluded_candidate_asset_ids": [],
       "expected_status": "supported",
+      "hard_negative_relevance_overrides": {},
+      "impact_defect_counts": [],
       "impact_lot_truth": [],
+      "impact_metric_values": [],
       "incident_family_id": "IF_V2_014",
+      "independent_metrology_confirmation": {},
+      "independent_process_confirmation": {},
+      "independent_remeasure": {},
+      "independent_wat_retest": {
+        "fail_mode": "",
+        "measured_value": 5.2,
+        "pass_fail": true,
+        "test_equipment_id": "WAT_CELL_13"
+      },
       "knowledge_asset_links": [
         {
           "asset_id": "RCA_V2_014",
@@ -2000,6 +2919,8 @@
           "summary": "A downstream control metric remains inside its normal range."
         }
       ],
+      "normal_fdc_signals": [],
+      "normal_wat_signals": [],
       "observation_record": {
         "detected_at": "2026-06-15T12:00:00+00:00",
         "detected_equipment_id": "WAT_CELL_12",
@@ -2024,7 +2945,19 @@
           "site-order recurrence"
         ]
       },
+      "observation_source": "METROLOGY",
+      "observation_spec": [],
+      "odd_slot_metric_values": [],
       "partition": "test",
+      "post_clean_wat_retest": {
+        "fail_mode": "",
+        "measured_value": 5.1,
+        "pass_fail": true,
+        "test_equipment_id": "WAT_CELL_12",
+        "test_item": "V2_POST_CLEAN_QUALIFICATION_RETEST"
+      },
+      "pre_cmp_metric": [],
+      "pre_cmp_normal_metric": [],
       "process_route": [
         {
           "module": "Lithography",
@@ -2089,6 +3022,8 @@
       ],
       "resource_relations": [],
       "scenario_category": "same_step",
+      "secondary_relevant_asset_ids": [],
+      "source_defect_count": null,
       "supporting_evidence": [
         {
           "evidence_id": "EV_V2_14_MES_ROUTE",
@@ -2101,13 +3036,36 @@
           "summary": "The user-visible symptom and measurement are reproducible."
         },
         {
+          "evidence_id": "EV_V2_14_INDEPENDENT_WAT_RETEST",
+          "evidence_type": "INDEPENDENT_WAT_RETEST",
+          "summary": "The retained source wafer passes on independent WAT_CELL_13, excluding a reproducible wafer electrical excursion."
+        },
+        {
+          "evidence_id": "EV_V2_14_EQUIPMENT_INSPECTION",
+          "evidence_type": "EQUIPMENT_INSPECTION_CONFIRMATION",
+          "summary": "Optical inspection finds contamination residue on the WAT_CELL_12 probe card."
+        },
+        {
+          "evidence_id": "EV_V2_14_POST_CLEAN_RECOVERY",
+          "evidence_type": "POST_MAINTENANCE_RECOVERY",
+          "summary": "After probe-card cleaning and qualification, the retained wafer and two later control Lots pass on WAT_CELL_12 without measurement-sequence repetition."
+        },
+        {
+          "evidence_id": "EV_V2_14_IMPACT_SCOPE_AUDIT",
+          "evidence_type": "EQUIPMENT_GENEALOGY_SCOPE_AUDIT",
+          "summary": "The qualification-to-cleaning equipment genealogy contains only the source Lot, so no additional impacted Lots are confirmed."
+        },
+        {
           "evidence_id": "EV_V2_14_CAUSAL_SIGNAL",
           "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
-          "summary": "Current-Lot operational evidence supports the causal attribution."
+          "summary": "WAT_CELL_12 probe-contact repeatability is abnormal on the source Lot; this localizes the signal to the measurement system but does not alone prove probe-card contamination."
         }
       ],
       "synthetic": true,
-      "unavailable_data_sources": []
+      "unavailable_data_sources": [],
+      "wafer_qty": 1,
+      "wat_expected_fail": true,
+      "wat_impact_lots_fail": false
     },
     {
       "causal_record": null,
@@ -2127,7 +3085,7 @@
         "detected_operation_name": "Cryogenic trench formation",
         "known_defect_attributes": {
           "pattern": "micro-trench corner cracking",
-          "symptom_cluster": "unrepresented_technology"
+          "symptom_cluster": "parametric_shift"
         },
         "known_measurements": [
           {
@@ -2170,7 +3128,7 @@
         "detected_operation_name": "Backside power reveal",
         "known_defect_attributes": {
           "pattern": "buried rail reveal voids",
-          "symptom_cluster": "unrepresented_technology"
+          "symptom_cluster": "surface_geometry"
         },
         "known_measurements": [
           {
@@ -2213,7 +3171,7 @@
         "detected_operation_name": "Anamorphic overlay control",
         "known_defect_attributes": {
           "pattern": "field-edge overlay rotation",
-          "symptom_cluster": "unrepresented_technology"
+          "symptom_cluster": "parametric_shift"
         },
         "known_measurements": [
           {
@@ -2256,7 +3214,7 @@
         "detected_operation_name": "Plasma-activated bonding",
         "known_defect_attributes": {
           "pattern": "interfacial nano-void ring",
-          "symptom_cluster": "unrepresented_technology"
+          "symptom_cluster": "surface_geometry"
         },
         "known_measurements": [
           {

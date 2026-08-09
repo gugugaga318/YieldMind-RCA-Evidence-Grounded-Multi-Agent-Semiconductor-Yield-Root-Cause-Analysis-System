@@ -51,16 +51,19 @@ class EvaluationV2DataContractTest(unittest.TestCase):
             self.built["rca_scenarios"],
         )
 
-    def test_structural_gate_passes_and_human_review_remains_explicit(self) -> None:
+    def test_structural_and_completed_human_review_gates_pass(self) -> None:
         report = validate_evaluation_v2_dataset(self.built)
 
         self.assertTrue(report.structural_pass, report.errors)
-        self.assertFalse(report.human_review_complete)
+        self.assertTrue(report.human_review_complete)
         self.assertEqual(report.metrics["retrieval_queries"], 32)
         self.assertEqual(report.metrics["rca_scenarios"], 14)
         self.assertGreaterEqual(report.metrics["candidate_pool_min"], 4)
         self.assertEqual(report.metrics["supported_rca_scenarios"], 11)
         self.assertGreaterEqual(report.metrics["cross_module_supported_ratio"], 0.30)
+        self.assertEqual(report.metrics["complete_symptom_phrase_reuse"], 0)
+        self.assertEqual(report.metrics["pending_qrel_reviews"], 0)
+        self.assertEqual(report.metrics["pending_scenario_reviews"], 0)
 
     def test_qrels_and_partitions_are_family_isolated_and_review_covered(self) -> None:
         partitions = self.built["partitions"]["partitions"]
@@ -83,7 +86,7 @@ class EvaluationV2DataContractTest(unittest.TestCase):
         }
         self.assertEqual(expected, reviewed)
         self.assertTrue(
-            all(item["decision"] == "PENDING" for item in self.built["qrel_review"]["reviews"])
+            all(item["decision"] == "ACCEPTED" for item in self.built["qrel_review"]["reviews"])
         )
 
     def test_no_answer_queries_have_dense_governed_candidate_pools(self) -> None:

@@ -19,6 +19,7 @@ from yield_rca_core.evaluation_v2_data import (  # noqa: E402
     build_evaluation_v2_dataset,
     data_quality_markdown,
     default_incident_catalog,
+    human_review_packet_markdown,
     load_incident_catalog,
     validate_evaluation_v2_dataset,
     write_evaluation_v2_dataset,
@@ -45,6 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--confirm-paid-qwen", action="store_true")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--max-paid-calls", type=int, default=8)
+    parser.add_argument(
+        "--refresh-default-catalog",
+        action="store_true",
+        help="Replace the catalog with the reviewed built-in blueprint before generation.",
+    )
     parser.add_argument(
         "--overwrite-reviews",
         action="store_true",
@@ -82,7 +88,9 @@ def _provider(args: argparse.Namespace):  # type: ignore[no-untyped-def]
 def main() -> int:
     args = build_parser().parse_args()
     catalog = (
-        load_incident_catalog(args.catalog) if args.catalog.exists() else default_incident_catalog()
+        default_incident_catalog()
+        if args.refresh_default_catalog or not args.catalog.exists()
+        else load_incident_catalog(args.catalog)
     )
     provider = _provider(args)
     built = build_evaluation_v2_dataset(catalog, provider)
@@ -96,14 +104,10 @@ def main() -> int:
     # Regeneration preserves human decisions on disk, so report those persisted
     # decisions rather than the fresh in-memory PENDING templates.
     built["qrel_review"] = json.loads(
-        (args.evaluation_dir / "retrieval_qrel_review_v2.json").read_text(
-            encoding="utf-8"
-        )
+        (args.evaluation_dir / "retrieval_qrel_review_v2.json").read_text(encoding="utf-8")
     )
     built["scenario_review"] = json.loads(
-        (args.evaluation_dir / "rca_scenario_review_v2.json").read_text(
-            encoding="utf-8"
-        )
+        (args.evaluation_dir / "rca_scenario_review_v2.json").read_text(encoding="utf-8")
     )
     report = validate_evaluation_v2_dataset(built)
     args.report_dir.mkdir(parents=True, exist_ok=True)
@@ -124,6 +128,9 @@ def main() -> int:
         encoding="utf-8",
     )
     (args.report_dir / "report.md").write_text(data_quality_markdown(report), encoding="utf-8")
+    (args.report_dir / "human_review_packet.md").write_text(
+        human_review_packet_markdown(built), encoding="utf-8"
+    )
     status = "PASS" if report.structural_pass else "FAIL"
     review = "COMPLETE" if report.human_review_complete else "PENDING"
     print(

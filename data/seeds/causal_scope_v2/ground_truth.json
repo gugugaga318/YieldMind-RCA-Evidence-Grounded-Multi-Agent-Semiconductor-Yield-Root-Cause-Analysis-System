@@ -27,7 +27,7 @@
       "source_lot_id": "LOT_V2_02_SRC"
     },
     {
-      "causal_module": "Wet Clean",
+      "causal_module": "Cu CMP",
       "detected_module": "Cu CMP",
       "expected_status": "supported",
       "impact_lots": [
@@ -35,12 +35,12 @@
         "LOT_V2_03_IMP_02"
       ],
       "incident_family_id": "IF_V2_003",
-      "root_cause": "WET_BACK_07 transfer-arm bearing vibration marked wafers during post-clean handling",
+      "root_cause": "CMP_CU_13 carrier-head orbit runout caused azimuthal over-polish",
       "source_lot_id": "LOT_V2_03_SRC"
     },
     {
       "causal_module": "Metrology",
-      "detected_module": "Cu CMP",
+      "detected_module": "Metrology",
       "expected_status": "supported",
       "impact_lots": [],
       "incident_family_id": "IF_V2_004",
@@ -66,15 +66,15 @@
       "source_lot_id": "LOT_V2_06_SRC"
     },
     {
-      "causal_module": "Dry Etch",
-      "detected_module": "Dry Etch",
+      "causal_module": "CVD",
+      "detected_module": "CVD",
       "expected_status": "supported",
       "impact_lots": [
         "LOT_V2_07_IMP_01",
         "LOT_V2_07_IMP_02"
       ],
       "incident_family_id": "IF_V2_007",
-      "root_cause": "ETCH_VIA_09 chamber-wall control drift changed polymer balance",
+      "root_cause": "CVD_FILM_07 chamber-temperature drift reduced deposition rate",
       "source_lot_id": "LOT_V2_07_SRC"
     },
     {
@@ -91,7 +91,7 @@
       "source_lot_id": "LOT_V2_08_SRC"
     },
     {
-      "causal_module": "Wet Clean",
+      "causal_module": "Cu CMP",
       "detected_module": "Cu CMP",
       "expected_status": "supported",
       "impact_lots": [
@@ -100,7 +100,7 @@
         "LOT_V2_09_IMP_03"
       ],
       "incident_family_id": "IF_V2_009",
-      "root_cause": "WET_BACK_12 rinse chamber particle shedding marked wafers after clean",
+      "root_cause": "CMP_CU_22 post-polish rinse chamber particle shedding marked wafers",
       "source_lot_id": "LOT_V2_09_SRC"
     },
     {
@@ -146,7 +146,7 @@
       "expected_status": "inconclusive",
       "impact_lots": [],
       "incident_family_id": "IF_V2_013",
-      "root_cause": "UNRESOLVED because chemical batch genealogy is unavailable",
+      "root_cause": "UNRESOLVED after normal pad and equipment checks because chemical batch genealogy is unavailable",
       "source_lot_id": "LOT_V2_13_SRC"
     },
     {

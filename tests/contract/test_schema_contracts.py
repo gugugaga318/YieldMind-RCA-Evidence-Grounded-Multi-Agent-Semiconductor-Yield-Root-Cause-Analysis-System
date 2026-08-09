@@ -4,7 +4,6 @@ import re
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 UP_SQL = (ROOT / "db" / "migrations" / "001_initial_schema.up.sql").read_text(
     encoding="utf-8"
@@ -12,6 +11,12 @@ UP_SQL = (ROOT / "db" / "migrations" / "001_initial_schema.up.sql").read_text(
 DOWN_SQL = (ROOT / "db" / "migrations" / "001_initial_schema.down.sql").read_text(
     encoding="utf-8"
 )
+WAT_PROVENANCE_UP_SQL = (
+    ROOT / "db" / "migrations" / "010_wat_test_equipment_provenance.up.sql"
+).read_text(encoding="utf-8")
+WAT_PROVENANCE_DOWN_SQL = (
+    ROOT / "db" / "migrations" / "010_wat_test_equipment_provenance.down.sql"
+).read_text(encoding="utf-8")
 
 
 REQUIRED_TABLES = [
@@ -47,6 +52,12 @@ def table_block(table_name: str) -> str:
 
 
 class SchemaContractTest(unittest.TestCase):
+    def test_wat_test_equipment_provenance_has_reversible_foreign_key_migration(self) -> None:
+        self.assertIn("ADD COLUMN test_equipment_id text", WAT_PROVENANCE_UP_SQL)
+        self.assertIn("REFERENCES equipment_master(equipment_id)", WAT_PROVENANCE_UP_SQL)
+        self.assertIn("idx_wat_result_test_equipment", WAT_PROVENANCE_UP_SQL)
+        self.assertIn("DROP COLUMN IF EXISTS test_equipment_id", WAT_PROVENANCE_DOWN_SQL)
+
     def test_required_tables_exist_in_up_and_down_migrations(self) -> None:
         for table_name in REQUIRED_TABLES:
             self.assertIn(f"CREATE TABLE {table_name}", UP_SQL)
@@ -112,4 +123,3 @@ class SchemaContractTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

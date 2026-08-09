@@ -19,6 +19,7 @@ from yield_rca_core.evaluation_v2_data import (  # noqa: E402
     default_incident_catalog,
     document_writer_payloads,
     query_writer_payloads,
+    validate_incident_catalog,
     write_evaluation_v2_dataset,
 )
 
@@ -54,6 +55,26 @@ class FakeQwenClient:
 
 
 class EvaluationV2DataUnitTest(unittest.TestCase):
+    def test_test_queries_may_reuse_calibration_knowledge_without_reverse_leakage(self) -> None:
+        catalog = default_incident_catalog()
+        test_family = next(
+            item
+            for item in catalog["incident_families"]
+            if item["incident_family_id"] == "IF_V2_008"
+        )
+
+        self.assertIn("RCA_V2_002", test_family["secondary_relevant_asset_ids"])
+        validate_incident_catalog(catalog)
+
+        calibration_family = next(
+            item
+            for item in catalog["incident_families"]
+            if item["incident_family_id"] == "IF_V2_001"
+        )
+        calibration_family["secondary_relevant_asset_ids"].append("RCA_V2_008")
+        with self.assertRaisesRegex(EvaluationV2DataError, "leaks test data"):
+            validate_incident_catalog(catalog)
+
     def test_writer_payloads_enforce_asymmetric_information_access(self) -> None:
         catalog = default_incident_catalog()
         document_payload = document_writer_payloads(catalog)[0]
@@ -70,8 +91,10 @@ class EvaluationV2DataUnitTest(unittest.TestCase):
             "asset_id",
             "qrels",
             "content",
+            "document_observation_summary",
         }
         self.assertTrue(forbidden.isdisjoint(_all_keys(query_payload)))
+        self.assertIn("document_observation_summary", document_payload)
         self.assertEqual(
             set(query_payload),
             {

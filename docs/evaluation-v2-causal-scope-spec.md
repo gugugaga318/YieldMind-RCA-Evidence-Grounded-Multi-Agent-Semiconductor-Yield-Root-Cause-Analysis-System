@@ -427,6 +427,8 @@ ID alone.
 
 - No incident family may appear in both calibration and test.
 - No translated or paraphrased Query for one primary target may cross partitions.
+- Test Queries may grade already-reviewed Calibration assets as secondary relevant
+  knowledge; Calibration Queries must never reference Test assets.
 - Calibration may fit thresholds or score calibration only.
 - Test data remains untouched until the release evaluation command runs.
 - Dataset generation fails closed when family or target overlap is detected.
@@ -623,14 +625,15 @@ Implementation checkpoint (2026-08-10):
 
 - the deterministic Synthetic V2 baseline contains 18 Incident Families, 28 governed
   Knowledge assets, 32 Retrieval Queries, and 14 RCA scenarios;
-- 11 RCA scenarios are supported and 8 of those 11 require cross-Module attribution;
+- 11 RCA scenarios are supported and 5 of those 11 require cross-Module attribution;
 - the smallest post-governance Retrieval candidate pool contains seven assets;
 - Query Writer isolation, qrel/partition Python ownership, overlap/leakage checks,
   hard-negative density, No-answer density, shared Fab seed consistency, and V1 fixture
   preservation pass automated validation;
-- all 156 graded qrel records and all 14 RCA scenario records have versioned review
-  entries whose decisions remain `PENDING`;
-- Long Task C is blocked until a domain reviewer completes both review artifacts.
+- all 144 graded qrel records and all 14 RCA scenario records have versioned review
+  entries accepted by reviewer `ybt` after case-by-case review;
+- the human-review checkpoint is complete, so Long Task C may begin after Long Task B
+  regression validation and commit.
 
 Deliver:
 
