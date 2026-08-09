@@ -1,0 +1,141 @@
+route_id,product_id,operation_no,sequence_no,module,operation_name,is_critical
+ROUTE_PROD_V2_01,PROD_V2_01,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_01,PROD_V2_01,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_01,PROD_V2_01,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_01,PROD_V2_01,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_01,PROD_V2_01,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_01,PROD_V2_01,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_01,PROD_V2_01,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_01,PROD_V2_01,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_01,PROD_V2_01,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_01,PROD_V2_01,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_02,PROD_V2_02,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_02,PROD_V2_02,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_02,PROD_V2_02,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_02,PROD_V2_02,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_02,PROD_V2_02,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_02,PROD_V2_02,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_02,PROD_V2_02,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_02,PROD_V2_02,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_02,PROD_V2_02,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_02,PROD_V2_02,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_03,PROD_V2_03,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_03,PROD_V2_03,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_03,PROD_V2_03,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_03,PROD_V2_03,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_03,PROD_V2_03,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_03,PROD_V2_03,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_03,PROD_V2_03,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_03,PROD_V2_03,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_03,PROD_V2_03,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_03,PROD_V2_03,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_04,PROD_V2_04,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_04,PROD_V2_04,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_04,PROD_V2_04,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_04,PROD_V2_04,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_04,PROD_V2_04,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_04,PROD_V2_04,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_04,PROD_V2_04,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_04,PROD_V2_04,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_04,PROD_V2_04,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_04,PROD_V2_04,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_05,PROD_V2_05,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_05,PROD_V2_05,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_05,PROD_V2_05,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_05,PROD_V2_05,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_05,PROD_V2_05,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_05,PROD_V2_05,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_05,PROD_V2_05,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_05,PROD_V2_05,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_05,PROD_V2_05,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_05,PROD_V2_05,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_06,PROD_V2_06,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_06,PROD_V2_06,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_06,PROD_V2_06,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_06,PROD_V2_06,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_06,PROD_V2_06,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_06,PROD_V2_06,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_06,PROD_V2_06,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_06,PROD_V2_06,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_06,PROD_V2_06,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_06,PROD_V2_06,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_07,PROD_V2_07,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_07,PROD_V2_07,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_07,PROD_V2_07,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_07,PROD_V2_07,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_07,PROD_V2_07,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_07,PROD_V2_07,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_07,PROD_V2_07,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_07,PROD_V2_07,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_07,PROD_V2_07,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_07,PROD_V2_07,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_08,PROD_V2_08,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_08,PROD_V2_08,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_08,PROD_V2_08,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_08,PROD_V2_08,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_08,PROD_V2_08,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_08,PROD_V2_08,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_08,PROD_V2_08,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_08,PROD_V2_08,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_08,PROD_V2_08,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_08,PROD_V2_08,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_09,PROD_V2_09,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_09,PROD_V2_09,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_09,PROD_V2_09,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_09,PROD_V2_09,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_09,PROD_V2_09,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_09,PROD_V2_09,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_09,PROD_V2_09,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_09,PROD_V2_09,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_09,PROD_V2_09,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_09,PROD_V2_09,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_10,PROD_V2_10,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_10,PROD_V2_10,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_10,PROD_V2_10,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_10,PROD_V2_10,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_10,PROD_V2_10,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_10,PROD_V2_10,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_10,PROD_V2_10,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_10,PROD_V2_10,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_10,PROD_V2_10,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_10,PROD_V2_10,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_11,PROD_V2_11,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_11,PROD_V2_11,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_11,PROD_V2_11,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_11,PROD_V2_11,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_11,PROD_V2_11,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_11,PROD_V2_11,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_11,PROD_V2_11,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_11,PROD_V2_11,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_11,PROD_V2_11,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_11,PROD_V2_11,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_12,PROD_V2_12,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_12,PROD_V2_12,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_12,PROD_V2_12,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_12,PROD_V2_12,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_12,PROD_V2_12,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_12,PROD_V2_12,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_12,PROD_V2_12,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_12,PROD_V2_12,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_12,PROD_V2_12,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_12,PROD_V2_12,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_13,PROD_V2_13,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_13,PROD_V2_13,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_13,PROD_V2_13,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_13,PROD_V2_13,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_13,PROD_V2_13,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_13,PROD_V2_13,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_13,PROD_V2_13,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_13,PROD_V2_13,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_13,PROD_V2_13,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_13,PROD_V2_13,9000,10,WAT,Electrical parametric test,true
+ROUTE_PROD_V2_14,PROD_V2_14,1000,1,Lithography,Coat and expose,true
+ROUTE_PROD_V2_14,PROD_V2_14,2000,2,Dry Etch,Pattern transfer,true
+ROUTE_PROD_V2_14,PROD_V2_14,3000,3,Ion Implant,Dose implantation,true
+ROUTE_PROD_V2_14,PROD_V2_14,4000,4,PVD,Barrier deposition,true
+ROUTE_PROD_V2_14,PROD_V2_14,5000,5,CVD,Dielectric deposition,true
+ROUTE_PROD_V2_14,PROD_V2_14,6000,6,Electroplating,Copper electroplating,true
+ROUTE_PROD_V2_14,PROD_V2_14,6400,7,Cu CMP,Copper planarization,true
+ROUTE_PROD_V2_14,PROD_V2_14,7000,8,Wet Clean,Post-process clean,true
+ROUTE_PROD_V2_14,PROD_V2_14,8000,9,Metrology,Inline measurement,true
+ROUTE_PROD_V2_14,PROD_V2_14,9000,10,WAT,Electrical parametric test,true

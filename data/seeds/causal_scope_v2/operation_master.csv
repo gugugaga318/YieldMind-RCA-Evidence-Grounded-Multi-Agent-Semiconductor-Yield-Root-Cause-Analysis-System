@@ -1,0 +1,11 @@
+operation_no,operation_name,module,process_area,material,canonical_equipment_type,is_critical
+1000,Coat and expose,Lithography,Synthetic Fab V2,,Scanner,true
+2000,Pattern transfer,Dry Etch,Synthetic Fab V2,,Plasma Etcher,true
+3000,Dose implantation,Ion Implant,Synthetic Fab V2,,Implanter,true
+4000,Barrier deposition,PVD,Synthetic Fab V2,,PVD Cluster,true
+5000,Dielectric deposition,CVD,Synthetic Fab V2,,CVD Reactor,true
+6000,Copper electroplating,Electroplating,Synthetic Fab V2,,Plating Tool,true
+6400,Copper planarization,Cu CMP,Synthetic Fab V2,,CMP Polisher,true
+7000,Post-process clean,Wet Clean,Synthetic Fab V2,,Wet Bench,true
+8000,Inline measurement,Metrology,Synthetic Fab V2,,Metrology Tool,true
+9000,Electrical parametric test,WAT,Synthetic Fab V2,,Parametric Tester,true

@@ -1,0 +1,165 @@
+{
+  "dataset_id": "synthetic-semiconductor-causal-v2",
+  "incident_families": [
+    {
+      "causal_module": "Cu CMP",
+      "detected_module": "Cu CMP",
+      "expected_status": "supported",
+      "impact_lots": [
+        "LOT_V2_01_IMP_01",
+        "LOT_V2_01_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_001",
+      "root_cause": "CMP_CU_11 pad conditioner bearing drag caused intermittent pad glazing",
+      "source_lot_id": "LOT_V2_01_SRC"
+    },
+    {
+      "causal_module": "Electroplating",
+      "detected_module": "Cu CMP",
+      "expected_status": "supported",
+      "impact_lots": [
+        "LOT_V2_02_IMP_01",
+        "LOT_V2_02_IMP_02",
+        "LOT_V2_02_IMP_03"
+      ],
+      "incident_family_id": "IF_V2_002",
+      "root_cause": "PLATE_CU_04 anode contact intermittency created an upstream copper profile skew",
+      "source_lot_id": "LOT_V2_02_SRC"
+    },
+    {
+      "causal_module": "Wet Clean",
+      "detected_module": "Cu CMP",
+      "expected_status": "supported",
+      "impact_lots": [
+        "LOT_V2_03_IMP_01",
+        "LOT_V2_03_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_003",
+      "root_cause": "WET_BACK_07 transfer-arm bearing vibration marked wafers during post-clean handling",
+      "source_lot_id": "LOT_V2_03_SRC"
+    },
+    {
+      "causal_module": "Metrology",
+      "detected_module": "Cu CMP",
+      "expected_status": "supported",
+      "impact_lots": [],
+      "incident_family_id": "IF_V2_004",
+      "root_cause": "MET_FILM_03 reference-wafer offset produced a false post-CMP thickness shift",
+      "source_lot_id": "LOT_V2_04_SRC"
+    },
+    {
+      "causal_module": "Cu CMP",
+      "detected_module": "Cu CMP",
+      "expected_status": "inconclusive",
+      "impact_lots": [],
+      "incident_family_id": "IF_V2_005",
+      "root_cause": "unverified CMP slurry delivery restriction",
+      "source_lot_id": "LOT_V2_05_SRC"
+    },
+    {
+      "causal_module": "Unresolved",
+      "detected_module": "Dry Etch",
+      "expected_status": "inconclusive",
+      "impact_lots": [],
+      "incident_family_id": "IF_V2_006",
+      "root_cause": "UNRESOLVED because current-lot equipment evidence is missing",
+      "source_lot_id": "LOT_V2_06_SRC"
+    },
+    {
+      "causal_module": "Dry Etch",
+      "detected_module": "Dry Etch",
+      "expected_status": "supported",
+      "impact_lots": [
+        "LOT_V2_07_IMP_01",
+        "LOT_V2_07_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_007",
+      "root_cause": "ETCH_VIA_09 chamber-wall control drift changed polymer balance",
+      "source_lot_id": "LOT_V2_07_SRC"
+    },
+    {
+      "causal_module": "Electroplating",
+      "detected_module": "Cu CMP",
+      "expected_status": "supported",
+      "impact_lots": [
+        "LOT_V2_08_IMP_01",
+        "LOT_V2_08_IMP_02",
+        "LOT_V2_08_IMP_03"
+      ],
+      "incident_family_id": "IF_V2_008",
+      "root_cause": "PLATE_CU_09 agitation controller drift distorted the incoming copper profile",
+      "source_lot_id": "LOT_V2_08_SRC"
+    },
+    {
+      "causal_module": "Wet Clean",
+      "detected_module": "Cu CMP",
+      "expected_status": "supported",
+      "impact_lots": [
+        "LOT_V2_09_IMP_01",
+        "LOT_V2_09_IMP_02",
+        "LOT_V2_09_IMP_03"
+      ],
+      "incident_family_id": "IF_V2_009",
+      "root_cause": "WET_BACK_12 rinse chamber particle shedding marked wafers after clean",
+      "source_lot_id": "LOT_V2_09_SRC"
+    },
+    {
+      "causal_module": "Ion Implant",
+      "detected_module": "WAT",
+      "expected_status": "supported",
+      "impact_lots": [
+        "LOT_V2_10_IMP_01",
+        "LOT_V2_10_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_010",
+      "root_cause": "IMP_WELL_03 dose-integrator drift shifted well implant dose",
+      "source_lot_id": "LOT_V2_10_SRC"
+    },
+    {
+      "causal_module": "Lithography",
+      "detected_module": "WAT",
+      "expected_status": "supported",
+      "impact_lots": [
+        "LOT_V2_11_IMP_01",
+        "LOT_V2_11_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_011",
+      "root_cause": "LITHO_SCN_06 reticle haze repeated a line-space bridging signature",
+      "source_lot_id": "LOT_V2_11_SRC"
+    },
+    {
+      "causal_module": "CVD",
+      "detected_module": "Metrology",
+      "expected_status": "supported",
+      "impact_lots": [
+        "LOT_V2_12_IMP_01",
+        "LOT_V2_12_IMP_02",
+        "LOT_V2_12_IMP_03"
+      ],
+      "incident_family_id": "IF_V2_012",
+      "root_cause": "CVD_ILD_17 susceptor sensor intermittency reduced odd-slot deposition rate",
+      "source_lot_id": "LOT_V2_12_SRC"
+    },
+    {
+      "causal_module": "Unresolved",
+      "detected_module": "Cu CMP",
+      "expected_status": "inconclusive",
+      "impact_lots": [],
+      "incident_family_id": "IF_V2_013",
+      "root_cause": "UNRESOLVED because chemical batch genealogy is unavailable",
+      "source_lot_id": "LOT_V2_13_SRC"
+    },
+    {
+      "causal_module": "WAT",
+      "detected_module": "WAT",
+      "expected_status": "supported",
+      "impact_lots": [],
+      "incident_family_id": "IF_V2_014",
+      "root_cause": "WAT_CELL_12 probe-card contamination caused false resistance spikes",
+      "source_lot_id": "LOT_V2_14_SRC"
+    }
+  ],
+  "limitations": "Synthetic benchmark for causal-retrieval engineering; it is not validation against confidential or production Fab data.",
+  "schema_version": "2.0",
+  "synthetic": true
+}

@@ -1,0 +1,1569 @@
+{
+  "dataset_id": "synthetic-semiconductor-causal-v2",
+  "instructions": "A domain reviewer must accept, reject, or adjudicate every provisional relation before Long Task C release evaluation.",
+  "review_gate": "HUMAN_DATASET_REVIEW_REQUIRED",
+  "reviews": [
+    {
+      "asset_id": "RCA_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_001_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_001_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_001_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_001_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_001_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_001_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_001_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_001_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_001_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_009",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_001_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_002_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_002_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_002_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_002_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_002_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_002_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_002_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_008",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_002_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_002_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_002_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_003_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_003_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_003_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_003_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_003_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_003_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_003_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_003_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_003_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_009",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_003_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_004_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_004_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_004_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_004_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_004_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_004_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_004_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_004_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_004_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_012",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_004_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_005_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_005_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_005_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_005_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_005_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_005_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_005_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_005_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_005_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_009",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_005_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_006_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_006_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_006_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_006_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_006_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_006_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_006_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_006_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_006_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_012",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_006_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_007_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_007_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_007_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_007_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_007_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_007_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_007_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_011",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_007_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_013",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_007_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_007_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_008",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_008_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_008",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_008_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_008_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_008_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_008_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_008",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_008_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_008",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_008_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_008_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_008_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_008_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_009",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_009_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_009",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_009_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_009_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_009_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_009_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_009",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_009_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_009",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_009_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_009_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_009_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_009_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_010_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_010_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_010_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_010_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_010_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_010_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_010_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_010_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_010_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_012",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_010_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_011",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_011_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_011",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_011_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_011_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_011_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_011_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_011",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_011_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_011",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_011_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_011_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_013",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_011_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_011_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_012",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_012_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_012",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_012_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_012_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_012_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_012_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_012",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_012_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_012",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_012_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_012_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_012_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_012_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_013",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_013_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_013",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_013_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_013_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_013_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_013_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_013",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_013_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_013",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_013_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_013_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_011",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_013_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_013_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_014",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_014_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_014",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_014_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_014_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_014_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_014_RCA",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_014",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 3,
+      "query_id": "Q_V2_IF_V2_014_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_014",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 1,
+      "query_id": "Q_V2_IF_V2_014_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_014_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_014_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_010",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_014_GUIDE",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_01_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_01_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_005",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_01_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "SOP_V2_007",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_01_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_02_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_02_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_02_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_02_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_03_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_03_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_006",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_03_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "NOTE_V2_008",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_03_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_001",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_04_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_002",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_04_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_003",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_04_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    },
+    {
+      "asset_id": "RCA_V2_004",
+      "decision": "PENDING",
+      "derivation": "Python hidden Incident-to-Asset graph",
+      "notes": "",
+      "provisional_relevance": 0,
+      "query_id": "Q_V2_IF_V2_NA_04_NO_ANSWER",
+      "reviewed_at": "",
+      "reviewer": ""
+    }
+  ],
+  "schema_version": "2.0",
+  "synthetic": true
+}

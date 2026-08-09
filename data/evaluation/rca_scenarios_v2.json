@@ -1,0 +1,864 @@
+{
+  "base_dataset": "data/seeds/causal_scope_v2",
+  "dataset_id": "synthetic-semiconductor-causal-v2",
+  "limitations": "Synthetic benchmark for causal-retrieval engineering; it is not validation against confidential or production Fab data.",
+  "scenarios": [
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Cu CMP",
+      "expected_discovery_lane": "same_step",
+      "expected_impact_lots": [
+        "LOT_V2_01_IMP_01",
+        "LOT_V2_01_IMP_02"
+      ],
+      "expected_root_cause": "CMP_CU_11 pad conditioner bearing drag caused intermittent pad glazing",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_002",
+        "RCA_V2_003",
+        "RCA_V2_005"
+      ],
+      "incident_family_id": "IF_V2_001",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_002",
+        "RCA_V2_003",
+        "RCA_V2_005"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-02T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_11",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "directional micro-scratch bands",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "scratch density",
+            "observed": 0.82,
+            "unit": "count/mm2"
+          }
+        ],
+        "product_id": "PROD_V2_01",
+        "source_lot_id": "LOT_V2_01_SRC",
+        "symptom_types": [
+          "directional micro-scratch bands",
+          "localized copper residue"
+        ]
+      },
+      "partition": "calibration",
+      "query": "Investigate Lot LOT_V2_01_SRC: directional micro-scratch bands, localized copper residue appeared after Copper planarization, and scratch density was 0.82 count/mm2. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause.",
+      "required_evidence_ids": [
+        "EV_V2_01_MES_ROUTE",
+        "EV_V2_01_OBSERVATION",
+        "EV_V2_01_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "same_step",
+      "scenario_id": "RCA_V2_IF_V2_001",
+      "source_lot_id": "LOT_V2_01_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Electroplating",
+      "expected_discovery_lane": "upstream_route",
+      "expected_impact_lots": [
+        "LOT_V2_02_IMP_01",
+        "LOT_V2_02_IMP_02",
+        "LOT_V2_02_IMP_03"
+      ],
+      "expected_root_cause": "PLATE_CU_04 anode contact intermittency created an upstream copper profile skew",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_003",
+        "RCA_V2_005"
+      ],
+      "incident_family_id": "IF_V2_002",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_002",
+        "RCA_V2_001",
+        "RCA_V2_003",
+        "RCA_V2_005"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-03T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_12",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "edge dishing asymmetry",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "edge-center thickness delta",
+            "observed": 41.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_02",
+        "source_lot_id": "LOT_V2_02_SRC",
+        "symptom_types": [
+          "edge dishing asymmetry",
+          "post-polish thickness crescent"
+        ]
+      },
+      "partition": "calibration",
+      "query": "Investigate Lot LOT_V2_02_SRC: edge dishing asymmetry, post-polish thickness crescent appeared after Copper planarization, and edge-center thickness delta was 41.0 nm. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause.",
+      "required_evidence_ids": [
+        "EV_V2_02_MES_ROUTE",
+        "EV_V2_02_OBSERVATION",
+        "EV_V2_02_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "upstream",
+      "scenario_id": "RCA_V2_IF_V2_002",
+      "source_lot_id": "LOT_V2_02_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Wet Clean",
+      "expected_discovery_lane": "shared_resource",
+      "expected_impact_lots": [
+        "LOT_V2_03_IMP_01",
+        "LOT_V2_03_IMP_02"
+      ],
+      "expected_root_cause": "WET_BACK_07 transfer-arm bearing vibration marked wafers during post-clean handling",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_002",
+        "RCA_V2_005"
+      ],
+      "incident_family_id": "IF_V2_003",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_003",
+        "RCA_V2_001",
+        "RCA_V2_002",
+        "RCA_V2_005"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-04T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_13",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "parallel edge scratches",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "edge scratch count",
+            "observed": 19.0,
+            "unit": "count/wafer"
+          }
+        ],
+        "product_id": "PROD_V2_03",
+        "source_lot_id": "LOT_V2_03_SRC",
+        "symptom_types": [
+          "parallel edge scratches",
+          "transfer-path recurrence"
+        ]
+      },
+      "partition": "calibration",
+      "query": "Investigate Lot LOT_V2_03_SRC: parallel edge scratches, transfer-path recurrence appeared after Copper planarization, and edge scratch count was 19.0 count/wafer. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause. Equipment identity is not available.",
+      "required_evidence_ids": [
+        "EV_V2_03_MES_ROUTE",
+        "EV_V2_03_OBSERVATION",
+        "EV_V2_03_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "shared_resource",
+      "scenario_id": "RCA_V2_IF_V2_003",
+      "source_lot_id": "LOT_V2_03_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Metrology",
+      "expected_discovery_lane": "global_semantic",
+      "expected_impact_lots": [],
+      "expected_root_cause": "MET_FILM_03 reference-wafer offset produced a false post-CMP thickness shift",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_006",
+        "RCA_V2_007",
+        "RCA_V2_010"
+      ],
+      "incident_family_id": "IF_V2_004",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007",
+        "RCA_V2_010"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-05T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_14",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "apparent removal-rate step",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "reported copper thickness",
+            "observed": 84.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_04",
+        "source_lot_id": "LOT_V2_04_SRC",
+        "symptom_types": [
+          "apparent removal-rate step",
+          "stable electrical distribution"
+        ]
+      },
+      "partition": "calibration",
+      "query": "Investigate Lot LOT_V2_04_SRC: apparent removal-rate step, stable electrical distribution appeared after Copper planarization, and reported copper thickness was 84.0 nm. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause. The operator note may contain an incorrect module hint.",
+      "required_evidence_ids": [
+        "EV_V2_04_MES_ROUTE",
+        "EV_V2_04_OBSERVATION",
+        "EV_V2_04_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "metrology_artifact",
+      "scenario_id": "RCA_V2_IF_V2_004",
+      "source_lot_id": "LOT_V2_04_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [
+        "EV_V2_05_CONTRADICTION"
+      ],
+      "expected_causal_module": "Cu CMP",
+      "expected_discovery_lane": "same_step",
+      "expected_impact_lots": [],
+      "expected_root_cause": "unverified CMP slurry delivery restriction",
+      "expected_status": "inconclusive",
+      "hard_negative_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_002",
+        "RCA_V2_003"
+      ],
+      "incident_family_id": "IF_V2_005",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_005",
+        "RCA_V2_001",
+        "RCA_V2_002",
+        "RCA_V2_003"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-06T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_15",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "center residue islands",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "residue area ratio",
+            "observed": 3.8,
+            "unit": "percent"
+          }
+        ],
+        "product_id": "PROD_V2_05",
+        "source_lot_id": "LOT_V2_05_SRC",
+        "symptom_types": [
+          "center residue islands",
+          "normal endpoint duration"
+        ]
+      },
+      "partition": "calibration",
+      "query": "Investigate Lot LOT_V2_05_SRC: center residue islands, normal endpoint duration appeared after Copper planarization, and residue area ratio was 3.8 percent. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause.",
+      "required_evidence_ids": [
+        "EV_V2_05_MES_ROUTE",
+        "EV_V2_05_OBSERVATION"
+      ],
+      "required_warning_ids": [
+        "WARN_RCA_INCONCLUSIVE",
+        "WARN_RCA_CONFLICTING_EVIDENCE"
+      ],
+      "scenario_category": "conflicting_evidence",
+      "scenario_id": "RCA_V2_IF_V2_005",
+      "source_lot_id": "LOT_V2_05_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Unresolved",
+      "expected_discovery_lane": "global_semantic",
+      "expected_impact_lots": [],
+      "expected_root_cause": "UNRESOLVED because current-lot equipment evidence is missing",
+      "expected_status": "inconclusive",
+      "hard_negative_asset_ids": [
+        "RCA_V2_004",
+        "RCA_V2_007",
+        "RCA_V2_010"
+      ],
+      "incident_family_id": "IF_V2_006",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_006",
+        "RCA_V2_004",
+        "RCA_V2_007",
+        "RCA_V2_010"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-07T12:00:00+00:00",
+        "detected_equipment_id": "ETCH_METAL_08",
+        "detected_module": "Dry Etch",
+        "detected_operation": "2000",
+        "detected_operation_name": "Pattern transfer",
+        "known_defect_attributes": {
+          "pattern": "isolated sidewall roughness",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "roughness index",
+            "observed": 1.7,
+            "unit": "a.u."
+          }
+        ],
+        "product_id": "PROD_V2_06",
+        "source_lot_id": "LOT_V2_06_SRC",
+        "symptom_types": [
+          "isolated sidewall roughness",
+          "no chamber recurrence"
+        ]
+      },
+      "partition": "calibration",
+      "query": "Investigate Lot LOT_V2_06_SRC: isolated sidewall roughness, no chamber recurrence appeared after Pattern transfer, and roughness index was 1.7 a.u.. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause. Equipment identity is not available.",
+      "required_evidence_ids": [
+        "EV_V2_06_MES_ROUTE",
+        "EV_V2_06_OBSERVATION"
+      ],
+      "required_warning_ids": [
+        "WARN_RCA_INCONCLUSIVE",
+        "WARN_UNSUPPORTED_DATA_SOURCE"
+      ],
+      "scenario_category": "insufficient_evidence",
+      "scenario_id": "RCA_V2_IF_V2_006",
+      "source_lot_id": "LOT_V2_06_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": [
+        "FDC feature history"
+      ]
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Dry Etch",
+      "expected_discovery_lane": "same_step",
+      "expected_impact_lots": [
+        "LOT_V2_07_IMP_01",
+        "LOT_V2_07_IMP_02"
+      ],
+      "expected_root_cause": "ETCH_VIA_09 chamber-wall control drift changed polymer balance",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_010"
+      ],
+      "incident_family_id": "IF_V2_007",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_007",
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_010"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-08T12:00:00+00:00",
+        "detected_equipment_id": "ETCH_VIA_09",
+        "detected_module": "Dry Etch",
+        "detected_operation": "2000",
+        "detected_operation_name": "Pattern transfer",
+        "known_defect_attributes": {
+          "pattern": "via CD widening",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "via CD bias",
+            "observed": 12.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_07",
+        "source_lot_id": "LOT_V2_07_SRC",
+        "symptom_types": [
+          "via CD widening",
+          "wafer-edge selectivity loss"
+        ]
+      },
+      "partition": "calibration",
+      "query": "Investigate Lot LOT_V2_07_SRC: via CD widening, wafer-edge selectivity loss appeared after Pattern transfer, and via CD bias was 12.0 nm. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause.",
+      "required_evidence_ids": [
+        "EV_V2_07_MES_ROUTE",
+        "EV_V2_07_OBSERVATION",
+        "EV_V2_07_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "same_step",
+      "scenario_id": "RCA_V2_IF_V2_007",
+      "source_lot_id": "LOT_V2_07_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Electroplating",
+      "expected_discovery_lane": "upstream_route",
+      "expected_impact_lots": [
+        "LOT_V2_08_IMP_01",
+        "LOT_V2_08_IMP_02",
+        "LOT_V2_08_IMP_03"
+      ],
+      "expected_root_cause": "PLATE_CU_09 agitation controller drift distorted the incoming copper profile",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_002",
+        "RCA_V2_003"
+      ],
+      "incident_family_id": "IF_V2_008",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_008",
+        "RCA_V2_001",
+        "RCA_V2_002",
+        "RCA_V2_003"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-09T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_21",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "radial erosion growth",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "erosion range",
+            "observed": 36.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_08",
+        "source_lot_id": "LOT_V2_08_SRC",
+        "symptom_types": [
+          "radial erosion growth",
+          "incoming copper map tilt"
+        ]
+      },
+      "partition": "test",
+      "query": "Investigate Lot LOT_V2_08_SRC: radial erosion growth, incoming copper map tilt appeared after Copper planarization, and erosion range was 36.0 nm. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause. The operator note may contain an incorrect module hint.",
+      "required_evidence_ids": [
+        "EV_V2_08_MES_ROUTE",
+        "EV_V2_08_OBSERVATION",
+        "EV_V2_08_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "upstream",
+      "scenario_id": "RCA_V2_IF_V2_008",
+      "source_lot_id": "LOT_V2_08_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Wet Clean",
+      "expected_discovery_lane": "shared_resource",
+      "expected_impact_lots": [
+        "LOT_V2_09_IMP_01",
+        "LOT_V2_09_IMP_02",
+        "LOT_V2_09_IMP_03"
+      ],
+      "expected_root_cause": "WET_BACK_12 rinse chamber particle shedding marked wafers after clean",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_001",
+        "RCA_V2_002",
+        "RCA_V2_003"
+      ],
+      "incident_family_id": "IF_V2_009",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_009",
+        "RCA_V2_001",
+        "RCA_V2_002",
+        "RCA_V2_003"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-10T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_22",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "repeating arc scratches",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "arc defect count",
+            "observed": 14.0,
+            "unit": "count/wafer"
+          }
+        ],
+        "product_id": "PROD_V2_09",
+        "source_lot_id": "LOT_V2_09_SRC",
+        "symptom_types": [
+          "repeating arc scratches",
+          "rinse-chamber recurrence"
+        ]
+      },
+      "partition": "test",
+      "query": "Investigate Lot LOT_V2_09_SRC: repeating arc scratches, rinse-chamber recurrence appeared after Copper planarization, and arc defect count was 14.0 count/wafer. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause.",
+      "required_evidence_ids": [
+        "EV_V2_09_MES_ROUTE",
+        "EV_V2_09_OBSERVATION",
+        "EV_V2_09_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "shared_resource",
+      "scenario_id": "RCA_V2_IF_V2_009",
+      "source_lot_id": "LOT_V2_09_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Ion Implant",
+      "expected_discovery_lane": "global_semantic",
+      "expected_impact_lots": [
+        "LOT_V2_10_IMP_01",
+        "LOT_V2_10_IMP_02"
+      ],
+      "expected_root_cause": "IMP_WELL_03 dose-integrator drift shifted well implant dose",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "incident_family_id": "IF_V2_010",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_010",
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-11T12:00:00+00:00",
+        "detected_equipment_id": "WAT_CELL_07",
+        "detected_module": "WAT",
+        "detected_operation": "9000",
+        "detected_operation_name": "Electrical parametric test",
+        "known_defect_attributes": {
+          "pattern": "threshold-voltage tail shift",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "Vt p99 shift",
+            "observed": 47.0,
+            "unit": "mV"
+          }
+        ],
+        "product_id": "PROD_V2_10",
+        "source_lot_id": "LOT_V2_10_SRC",
+        "symptom_types": [
+          "threshold-voltage tail shift",
+          "normal metal resistance"
+        ]
+      },
+      "partition": "test",
+      "query": "Investigate Lot LOT_V2_10_SRC: threshold-voltage tail shift, normal metal resistance appeared after Electrical parametric test, and Vt p99 shift was 47.0 mV. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause. Equipment identity is not available.",
+      "required_evidence_ids": [
+        "EV_V2_10_MES_ROUTE",
+        "EV_V2_10_OBSERVATION",
+        "EV_V2_10_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "global_cross_module",
+      "scenario_id": "RCA_V2_IF_V2_010",
+      "source_lot_id": "LOT_V2_10_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Lithography",
+      "expected_discovery_lane": "global_semantic",
+      "expected_impact_lots": [
+        "LOT_V2_11_IMP_01",
+        "LOT_V2_11_IMP_02"
+      ],
+      "expected_root_cause": "LITHO_SCN_06 reticle haze repeated a line-space bridging signature",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "incident_family_id": "IF_V2_011",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_011",
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-12T12:00:00+00:00",
+        "detected_equipment_id": "WAT_CELL_08",
+        "detected_module": "WAT",
+        "detected_operation": "9000",
+        "detected_operation_name": "Electrical parametric test",
+        "known_defect_attributes": {
+          "pattern": "serpentine leakage clusters",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "leakage fail rate",
+            "observed": 6.4,
+            "unit": "percent"
+          }
+        ],
+        "product_id": "PROD_V2_11",
+        "source_lot_id": "LOT_V2_11_SRC",
+        "symptom_types": [
+          "serpentine leakage clusters",
+          "die-row periodicity"
+        ]
+      },
+      "partition": "test",
+      "query": "Investigate Lot LOT_V2_11_SRC: serpentine leakage clusters, die-row periodicity appeared after Electrical parametric test, and leakage fail rate was 6.4 percent. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause. The operator note may contain an incorrect module hint.",
+      "required_evidence_ids": [
+        "EV_V2_11_MES_ROUTE",
+        "EV_V2_11_OBSERVATION",
+        "EV_V2_11_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "global_cross_module",
+      "scenario_id": "RCA_V2_IF_V2_011",
+      "source_lot_id": "LOT_V2_11_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "CVD",
+      "expected_discovery_lane": "upstream_route",
+      "expected_impact_lots": [
+        "LOT_V2_12_IMP_01",
+        "LOT_V2_12_IMP_02",
+        "LOT_V2_12_IMP_03"
+      ],
+      "expected_root_cause": "CVD_ILD_17 susceptor sensor intermittency reduced odd-slot deposition rate",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "incident_family_id": "IF_V2_012",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_012",
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-13T12:00:00+00:00",
+        "detected_equipment_id": "MET_FILM_11",
+        "detected_module": "Metrology",
+        "detected_operation": "8000",
+        "detected_operation_name": "Inline measurement",
+        "known_defect_attributes": {
+          "pattern": "odd-slot film thinning",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "film thickness delta",
+            "observed": -28.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_12",
+        "source_lot_id": "LOT_V2_12_SRC",
+        "symptom_types": [
+          "odd-slot film thinning",
+          "stable downstream polish rate"
+        ]
+      },
+      "partition": "test",
+      "query": "Investigate Lot LOT_V2_12_SRC: odd-slot film thinning, stable downstream polish rate appeared after Inline measurement, and film thickness delta was -28.0 nm. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause.",
+      "required_evidence_ids": [
+        "EV_V2_12_MES_ROUTE",
+        "EV_V2_12_OBSERVATION",
+        "EV_V2_12_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "impact_lot_truth",
+      "scenario_id": "RCA_V2_IF_V2_012",
+      "source_lot_id": "LOT_V2_12_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "Unresolved",
+      "expected_discovery_lane": "shared_resource",
+      "expected_impact_lots": [],
+      "expected_root_cause": "UNRESOLVED because chemical batch genealogy is unavailable",
+      "expected_status": "inconclusive",
+      "hard_negative_asset_ids": [
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "incident_family_id": "IF_V2_013",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_013",
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-14T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_23",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "short-lived removal-rate dip",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "endpoint extension",
+            "observed": 9.0,
+            "unit": "s"
+          }
+        ],
+        "product_id": "PROD_V2_13",
+        "source_lot_id": "LOT_V2_13_SRC",
+        "symptom_types": [
+          "short-lived removal-rate dip",
+          "normal subsequent lots"
+        ]
+      },
+      "partition": "test",
+      "query": "Investigate Lot LOT_V2_13_SRC: short-lived removal-rate dip, normal subsequent lots appeared after Copper planarization, and endpoint extension was 9.0 s. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause.",
+      "required_evidence_ids": [
+        "EV_V2_13_MES_ROUTE",
+        "EV_V2_13_OBSERVATION"
+      ],
+      "required_warning_ids": [
+        "WARN_RCA_INCONCLUSIVE",
+        "WARN_UNSUPPORTED_DATA_SOURCE"
+      ],
+      "scenario_category": "unsupported_data_source",
+      "scenario_id": "RCA_V2_IF_V2_013",
+      "source_lot_id": "LOT_V2_13_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": [
+        "chemical batch genealogy"
+      ]
+    },
+    {
+      "contradicting_evidence_ids": [],
+      "expected_causal_module": "WAT",
+      "expected_discovery_lane": "same_step",
+      "expected_impact_lots": [],
+      "expected_root_cause": "WAT_CELL_12 probe-card contamination caused false resistance spikes",
+      "expected_status": "supported",
+      "hard_negative_asset_ids": [
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "incident_family_id": "IF_V2_014",
+      "knowledge_candidate_asset_ids": [
+        "RCA_V2_014",
+        "RCA_V2_004",
+        "RCA_V2_006",
+        "RCA_V2_007"
+      ],
+      "knowledge_is_not_causal_proof": true,
+      "observation_scope": {
+        "detected_at": "2026-06-15T12:00:00+00:00",
+        "detected_equipment_id": "WAT_CELL_12",
+        "detected_module": "WAT",
+        "detected_operation": "9000",
+        "detected_operation_name": "Electrical parametric test",
+        "known_defect_attributes": {
+          "pattern": "contact-resistance spikes",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "contact resistance p95",
+            "observed": 18.0,
+            "unit": "ohm"
+          }
+        ],
+        "product_id": "PROD_V2_14",
+        "source_lot_id": "LOT_V2_14_SRC",
+        "symptom_types": [
+          "contact-resistance spikes",
+          "site-order recurrence"
+        ]
+      },
+      "partition": "test",
+      "query": "Investigate Lot LOT_V2_14_SRC: contact-resistance spikes, site-order recurrence appeared after Electrical parametric test, and contact resistance p95 was 18.0 ohm. Identify the root cause and impact Lots; treat the observed stage as a hint, not a confirmed cause.",
+      "required_evidence_ids": [
+        "EV_V2_14_MES_ROUTE",
+        "EV_V2_14_OBSERVATION",
+        "EV_V2_14_CAUSAL_SIGNAL"
+      ],
+      "required_warning_ids": [],
+      "scenario_category": "same_step",
+      "scenario_id": "RCA_V2_IF_V2_014",
+      "source_lot_id": "LOT_V2_14_SRC",
+      "synthetic": true,
+      "unavailable_data_sources": []
+    }
+  ],
+  "schema_version": "2.0",
+  "synthetic": true
+}

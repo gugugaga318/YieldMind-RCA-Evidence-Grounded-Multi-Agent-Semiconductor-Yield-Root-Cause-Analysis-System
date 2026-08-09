@@ -3,7 +3,7 @@
 ## Status
 
 - Status: Approved design; Long Task A implemented behind a default-off Feature Flag;
-  Long Tasks B-C pending
+  Long Task B structurally implemented with human data review pending; Long Task C pending
 - Target branch: `feature/autonomous-qwen-react`
 - Proposed delivery: Batch 22
 - Depends on: Batch 21 semantic gating and Long Tasks 1-4 governed Hybrid Retrieval
@@ -618,6 +618,19 @@ Acceptance:
 - fixed and controlled baselines do not regress.
 
 ### Long Task B - Independent Retrieval and RCA V2 Data
+
+Implementation checkpoint (2026-08-10):
+
+- the deterministic Synthetic V2 baseline contains 18 Incident Families, 28 governed
+  Knowledge assets, 32 Retrieval Queries, and 14 RCA scenarios;
+- 11 RCA scenarios are supported and 8 of those 11 require cross-Module attribution;
+- the smallest post-governance Retrieval candidate pool contains seven assets;
+- Query Writer isolation, qrel/partition Python ownership, overlap/leakage checks,
+  hard-negative density, No-answer density, shared Fab seed consistency, and V1 fixture
+  preservation pass automated validation;
+- all 156 graded qrel records and all 14 RCA scenario records have versioned review
+  entries whose decisions remain `PENDING`;
+- Long Task C is blocked until a domain reviewer completes both review artifacts.
 
 Deliver:
 

@@ -1,0 +1,24 @@
+{
+  "counts": {
+    "answerable_families": 14,
+    "documents": 28,
+    "incident_families": 18,
+    "no_answer_queries": 4,
+    "rca_scenarios": 14,
+    "retrieval_queries": 32
+  },
+  "dataset_id": "synthetic-semiconductor-causal-v2",
+  "generation": {
+    "model": "none",
+    "paid_call_count": 0,
+    "partitions_generated_by_python": true,
+    "prompt_version": "synthetic_v2_query_wording_v1",
+    "qrels_generated_by_python": true,
+    "query_wording_provider": "deterministic_observation_template",
+    "raw_prompts_stored": false,
+    "raw_responses_stored": false
+  },
+  "limitations": "Synthetic benchmark for causal-retrieval engineering; it is not validation against confidential or production Fab data.",
+  "schema_version": "2.0",
+  "synthetic": true
+}

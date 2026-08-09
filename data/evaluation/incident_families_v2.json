@@ -1,0 +1,2288 @@
+{
+  "dataset_id": "synthetic-semiconductor-causal-v2",
+  "incident_families": [
+    {
+      "causal_record": {
+        "causal_equipment_id": "CMP_CU_11",
+        "causal_module": "Cu CMP",
+        "causal_operation": "6400",
+        "cause_signal": "conditioner_motor_torque",
+        "corrective_actions": [
+          "replace the conditioner bearing",
+          "qualify pad break-in stability"
+        ],
+        "root_cause": "CMP_CU_11 pad conditioner bearing drag caused intermittent pad glazing"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "same_step",
+      "expected_status": "supported",
+      "impact_lot_truth": [
+        "LOT_V2_01_IMP_01",
+        "LOT_V2_01_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_001",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_001",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "SOP_V2_001",
+          "document_type": "SOP",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "complete",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_01_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-02T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_11",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "directional micro-scratch bands",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "scratch density",
+            "observed": 0.82,
+            "unit": "count/mm2"
+          }
+        ],
+        "product_id": "PROD_V2_01",
+        "source_lot_id": "LOT_V2_01_SRC",
+        "symptom_types": [
+          "directional micro-scratch bands",
+          "localized copper residue"
+        ]
+      },
+      "partition": "calibration",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "same_step",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_01_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_01_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_01_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "PLATE_CU_04",
+        "causal_module": "Electroplating",
+        "causal_operation": "6000",
+        "cause_signal": "anode_contact_voltage",
+        "corrective_actions": [
+          "renew the anode contact set",
+          "verify pre-CMP copper map uniformity"
+        ],
+        "root_cause": "PLATE_CU_04 anode contact intermittency created an upstream copper profile skew"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "upstream_route",
+      "expected_status": "supported",
+      "impact_lot_truth": [
+        "LOT_V2_02_IMP_01",
+        "LOT_V2_02_IMP_02",
+        "LOT_V2_02_IMP_03"
+      ],
+      "incident_family_id": "IF_V2_002",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_002",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "NOTE_V2_002",
+          "document_type": "ENGINEERING_NOTE",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "complete",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_02_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-03T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_12",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "edge dishing asymmetry",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "edge-center thickness delta",
+            "observed": 41.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_02",
+        "source_lot_id": "LOT_V2_02_SRC",
+        "symptom_types": [
+          "edge dishing asymmetry",
+          "post-polish thickness crescent"
+        ]
+      },
+      "partition": "calibration",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "upstream",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_02_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_02_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_02_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "WET_BACK_07",
+        "causal_module": "Wet Clean",
+        "causal_operation": "7000",
+        "cause_signal": "transfer_arm_vibration",
+        "corrective_actions": [
+          "repair the transfer-arm bearing",
+          "inspect lots sharing WET_BACK_07 exposure"
+        ],
+        "root_cause": "WET_BACK_07 transfer-arm bearing vibration marked wafers during post-clean handling"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "shared_resource",
+      "expected_status": "supported",
+      "impact_lot_truth": [
+        "LOT_V2_03_IMP_01",
+        "LOT_V2_03_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_003",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_003",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "SOP_V2_003",
+          "document_type": "SOP",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "missing",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_03_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-04T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_13",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "parallel edge scratches",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "edge scratch count",
+            "observed": 19.0,
+            "unit": "count/wafer"
+          }
+        ],
+        "product_id": "PROD_V2_03",
+        "source_lot_id": "LOT_V2_03_SRC",
+        "symptom_types": [
+          "parallel edge scratches",
+          "transfer-path recurrence"
+        ]
+      },
+      "partition": "calibration",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [
+        {
+          "resource_id": "WET_BACK_07",
+          "resource_type": "equipment"
+        }
+      ],
+      "scenario_category": "shared_resource",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_03_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_03_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_03_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "MET_FILM_03",
+        "causal_module": "Metrology",
+        "causal_operation": "8000",
+        "cause_signal": "reference_wafer_offset",
+        "corrective_actions": [
+          "recalibrate the optical model",
+          "remeasure retained reference wafers"
+        ],
+        "root_cause": "MET_FILM_03 reference-wafer offset produced a false post-CMP thickness shift"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "global_semantic",
+      "expected_status": "supported",
+      "impact_lot_truth": [],
+      "incident_family_id": "IF_V2_004",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_004",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "NOTE_V2_004",
+          "document_type": "ENGINEERING_NOTE",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "noisy",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_04_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-05T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_14",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "apparent removal-rate step",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "reported copper thickness",
+            "observed": 84.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_04",
+        "source_lot_id": "LOT_V2_04_SRC",
+        "symptom_types": [
+          "apparent removal-rate step",
+          "stable electrical distribution"
+        ]
+      },
+      "partition": "calibration",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "metrology_artifact",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_04_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_04_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_04_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "CMP_CU_15",
+        "causal_module": "Cu CMP",
+        "causal_operation": "6400",
+        "cause_signal": "slurry_delivery_pressure",
+        "corrective_actions": [
+          "collect pump pressure traces",
+          "run confirmation wafers before attribution"
+        ],
+        "root_cause": "unverified CMP slurry delivery restriction"
+      },
+      "contradicting_evidence": [
+        {
+          "evidence_id": "EV_V2_05_CONTRADICTION",
+          "evidence_type": "FDC_NORMAL_EXCLUSION",
+          "summary": "A second independent trace remains normal and blocks confirmation."
+        }
+      ],
+      "discovery_lane": "same_step",
+      "expected_status": "inconclusive",
+      "impact_lot_truth": [],
+      "incident_family_id": "IF_V2_005",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_005",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "SOP_V2_005",
+          "document_type": "SOP",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "complete",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_05_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-06T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_15",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "center residue islands",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "residue area ratio",
+            "observed": 3.8,
+            "unit": "percent"
+          }
+        ],
+        "product_id": "PROD_V2_05",
+        "source_lot_id": "LOT_V2_05_SRC",
+        "symptom_types": [
+          "center residue islands",
+          "normal endpoint duration"
+        ]
+      },
+      "partition": "calibration",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "conflicting_evidence",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_05_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_05_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "UNRESOLVED",
+        "causal_module": "Unresolved",
+        "causal_operation": "2000",
+        "cause_signal": "unresolved_signal",
+        "corrective_actions": [
+          "retain the wafer for review",
+          "do not promote a historical match"
+        ],
+        "root_cause": "UNRESOLVED because current-lot equipment evidence is missing"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "global_semantic",
+      "expected_status": "inconclusive",
+      "impact_lot_truth": [],
+      "incident_family_id": "IF_V2_006",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_006",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "NOTE_V2_006",
+          "document_type": "ENGINEERING_NOTE",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "missing",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_06_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-07T12:00:00+00:00",
+        "detected_equipment_id": "ETCH_METAL_08",
+        "detected_module": "Dry Etch",
+        "detected_operation": "2000",
+        "detected_operation_name": "Pattern transfer",
+        "known_defect_attributes": {
+          "pattern": "isolated sidewall roughness",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "roughness index",
+            "observed": 1.7,
+            "unit": "a.u."
+          }
+        ],
+        "product_id": "PROD_V2_06",
+        "source_lot_id": "LOT_V2_06_SRC",
+        "symptom_types": [
+          "isolated sidewall roughness",
+          "no chamber recurrence"
+        ]
+      },
+      "partition": "calibration",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "insufficient_evidence",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_06_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_06_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": [
+        "FDC feature history"
+      ]
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "ETCH_VIA_09",
+        "causal_module": "Dry Etch",
+        "causal_operation": "2000",
+        "cause_signal": "chamber_wall_temperature",
+        "corrective_actions": [
+          "repair wall-temperature control",
+          "restore seasoning qualification"
+        ],
+        "root_cause": "ETCH_VIA_09 chamber-wall control drift changed polymer balance"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "same_step",
+      "expected_status": "supported",
+      "impact_lot_truth": [
+        "LOT_V2_07_IMP_01",
+        "LOT_V2_07_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_007",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_007",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "SOP_V2_007",
+          "document_type": "SOP",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "complete",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_07_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-08T12:00:00+00:00",
+        "detected_equipment_id": "ETCH_VIA_09",
+        "detected_module": "Dry Etch",
+        "detected_operation": "2000",
+        "detected_operation_name": "Pattern transfer",
+        "known_defect_attributes": {
+          "pattern": "via CD widening",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "via CD bias",
+            "observed": 12.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_07",
+        "source_lot_id": "LOT_V2_07_SRC",
+        "symptom_types": [
+          "via CD widening",
+          "wafer-edge selectivity loss"
+        ]
+      },
+      "partition": "calibration",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "same_step",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_07_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_07_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_07_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "PLATE_CU_09",
+        "causal_module": "Electroplating",
+        "causal_operation": "6000",
+        "cause_signal": "electrolyte_agitation_speed",
+        "corrective_actions": [
+          "replace the agitation encoder",
+          "qualify incoming copper uniformity"
+        ],
+        "root_cause": "PLATE_CU_09 agitation controller drift distorted the incoming copper profile"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "upstream_route",
+      "expected_status": "supported",
+      "impact_lot_truth": [
+        "LOT_V2_08_IMP_01",
+        "LOT_V2_08_IMP_02",
+        "LOT_V2_08_IMP_03"
+      ],
+      "incident_family_id": "IF_V2_008",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_008",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "NOTE_V2_008",
+          "document_type": "ENGINEERING_NOTE",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "noisy",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_08_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-09T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_21",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "radial erosion growth",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "erosion range",
+            "observed": 36.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_08",
+        "source_lot_id": "LOT_V2_08_SRC",
+        "symptom_types": [
+          "radial erosion growth",
+          "incoming copper map tilt"
+        ]
+      },
+      "partition": "test",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "upstream",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_08_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_08_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_08_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "WET_BACK_12",
+        "causal_module": "Wet Clean",
+        "causal_operation": "7000",
+        "cause_signal": "rinse_nozzle_particle_index",
+        "corrective_actions": [
+          "clean and qualify the rinse chamber",
+          "inspect all lots sharing its exposure window"
+        ],
+        "root_cause": "WET_BACK_12 rinse chamber particle shedding marked wafers after clean"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "shared_resource",
+      "expected_status": "supported",
+      "impact_lot_truth": [
+        "LOT_V2_09_IMP_01",
+        "LOT_V2_09_IMP_02",
+        "LOT_V2_09_IMP_03"
+      ],
+      "incident_family_id": "IF_V2_009",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_009",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "SOP_V2_009",
+          "document_type": "SOP",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "complete",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_09_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-10T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_22",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "repeating arc scratches",
+          "symptom_cluster": "surface_geometry"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "arc defect count",
+            "observed": 14.0,
+            "unit": "count/wafer"
+          }
+        ],
+        "product_id": "PROD_V2_09",
+        "source_lot_id": "LOT_V2_09_SRC",
+        "symptom_types": [
+          "repeating arc scratches",
+          "rinse-chamber recurrence"
+        ]
+      },
+      "partition": "test",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [
+        {
+          "resource_id": "WET_BACK_12_CH01",
+          "resource_type": "chamber"
+        }
+      ],
+      "scenario_category": "shared_resource",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_09_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_09_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_09_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "IMP_WELL_03",
+        "causal_module": "Ion Implant",
+        "causal_operation": "3000",
+        "cause_signal": "beam_dose_integrator",
+        "corrective_actions": [
+          "recalibrate the dose integrator",
+          "review lots since the last beam check"
+        ],
+        "root_cause": "IMP_WELL_03 dose-integrator drift shifted well implant dose"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "global_semantic",
+      "expected_status": "supported",
+      "impact_lot_truth": [
+        "LOT_V2_10_IMP_01",
+        "LOT_V2_10_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_010",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_010",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "NOTE_V2_010",
+          "document_type": "ENGINEERING_NOTE",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "missing",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_10_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-11T12:00:00+00:00",
+        "detected_equipment_id": "WAT_CELL_07",
+        "detected_module": "WAT",
+        "detected_operation": "9000",
+        "detected_operation_name": "Electrical parametric test",
+        "known_defect_attributes": {
+          "pattern": "threshold-voltage tail shift",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "Vt p99 shift",
+            "observed": 47.0,
+            "unit": "mV"
+          }
+        ],
+        "product_id": "PROD_V2_10",
+        "source_lot_id": "LOT_V2_10_SRC",
+        "symptom_types": [
+          "threshold-voltage tail shift",
+          "normal metal resistance"
+        ]
+      },
+      "partition": "test",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "global_cross_module",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_10_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_10_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_10_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "LITHO_SCN_06",
+        "causal_module": "Lithography",
+        "causal_operation": "1000",
+        "cause_signal": "reticle_scatter_index",
+        "corrective_actions": [
+          "clean and reinspect the reticle",
+          "screen lots exposed after haze growth"
+        ],
+        "root_cause": "LITHO_SCN_06 reticle haze repeated a line-space bridging signature"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "global_semantic",
+      "expected_status": "supported",
+      "impact_lot_truth": [
+        "LOT_V2_11_IMP_01",
+        "LOT_V2_11_IMP_02"
+      ],
+      "incident_family_id": "IF_V2_011",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_011",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "SOP_V2_011",
+          "document_type": "SOP",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "noisy",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_11_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-12T12:00:00+00:00",
+        "detected_equipment_id": "WAT_CELL_08",
+        "detected_module": "WAT",
+        "detected_operation": "9000",
+        "detected_operation_name": "Electrical parametric test",
+        "known_defect_attributes": {
+          "pattern": "serpentine leakage clusters",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "leakage fail rate",
+            "observed": 6.4,
+            "unit": "percent"
+          }
+        ],
+        "product_id": "PROD_V2_11",
+        "source_lot_id": "LOT_V2_11_SRC",
+        "symptom_types": [
+          "serpentine leakage clusters",
+          "die-row periodicity"
+        ]
+      },
+      "partition": "test",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "global_cross_module",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_11_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_11_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_11_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "CVD_ILD_17",
+        "causal_module": "CVD",
+        "causal_operation": "5000",
+        "cause_signal": "susceptor_temperature_error",
+        "corrective_actions": [
+          "replace the susceptor sensor",
+          "hold lots sharing chamber and time exposure"
+        ],
+        "root_cause": "CVD_ILD_17 susceptor sensor intermittency reduced odd-slot deposition rate"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "upstream_route",
+      "expected_status": "supported",
+      "impact_lot_truth": [
+        "LOT_V2_12_IMP_01",
+        "LOT_V2_12_IMP_02",
+        "LOT_V2_12_IMP_03"
+      ],
+      "incident_family_id": "IF_V2_012",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_012",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "NOTE_V2_012",
+          "document_type": "ENGINEERING_NOTE",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "complete",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_12_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-13T12:00:00+00:00",
+        "detected_equipment_id": "MET_FILM_11",
+        "detected_module": "Metrology",
+        "detected_operation": "8000",
+        "detected_operation_name": "Inline measurement",
+        "known_defect_attributes": {
+          "pattern": "odd-slot film thinning",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "film thickness delta",
+            "observed": -28.0,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_12",
+        "source_lot_id": "LOT_V2_12_SRC",
+        "symptom_types": [
+          "odd-slot film thinning",
+          "stable downstream polish rate"
+        ]
+      },
+      "partition": "test",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "impact_lot_truth",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_12_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_12_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_12_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "UNRESOLVED",
+        "causal_module": "Unresolved",
+        "causal_operation": "6400",
+        "cause_signal": "chemical_batch_trace",
+        "corrective_actions": [
+          "report the unavailable source",
+          "avoid inferring a chemical batch"
+        ],
+        "root_cause": "UNRESOLVED because chemical batch genealogy is unavailable"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "shared_resource",
+      "expected_status": "inconclusive",
+      "impact_lot_truth": [],
+      "incident_family_id": "IF_V2_013",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_013",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "SOP_V2_013",
+          "document_type": "SOP",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "complete",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_13_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-14T12:00:00+00:00",
+        "detected_equipment_id": "CMP_CU_23",
+        "detected_module": "Cu CMP",
+        "detected_operation": "6400",
+        "detected_operation_name": "Copper planarization",
+        "known_defect_attributes": {
+          "pattern": "short-lived removal-rate dip",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "endpoint extension",
+            "observed": 9.0,
+            "unit": "s"
+          }
+        ],
+        "product_id": "PROD_V2_13",
+        "source_lot_id": "LOT_V2_13_SRC",
+        "symptom_types": [
+          "short-lived removal-rate dip",
+          "normal subsequent lots"
+        ]
+      },
+      "partition": "test",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "unsupported_data_source",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_13_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_13_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": [
+        "chemical batch genealogy"
+      ]
+    },
+    {
+      "causal_record": {
+        "causal_equipment_id": "WAT_CELL_12",
+        "causal_module": "WAT",
+        "causal_operation": "9000",
+        "cause_signal": "probe_contact_repeatability",
+        "corrective_actions": [
+          "clean and qualify the probe card",
+          "retest retained wafers"
+        ],
+        "root_cause": "WAT_CELL_12 probe-card contamination caused false resistance spikes"
+      },
+      "contradicting_evidence": [],
+      "discovery_lane": "same_step",
+      "expected_status": "supported",
+      "impact_lot_truth": [],
+      "incident_family_id": "IF_V2_014",
+      "knowledge_asset_links": [
+        {
+          "asset_id": "RCA_V2_014",
+          "document_type": "RCA_CASE",
+          "relevance": 3,
+          "role": "primary_historical_event"
+        },
+        {
+          "asset_id": "NOTE_V2_014",
+          "document_type": "ENGINEERING_NOTE",
+          "relevance": 3,
+          "role": "incident_guidance"
+        }
+      ],
+      "metadata_quality": "complete",
+      "neutral_evidence": [
+        {
+          "evidence_id": "EV_V2_14_NEUTRAL",
+          "evidence_type": "UNRELATED_NORMAL_SIGNAL",
+          "summary": "A downstream control metric remains inside its normal range."
+        }
+      ],
+      "observation_record": {
+        "detected_at": "2026-06-15T12:00:00+00:00",
+        "detected_equipment_id": "WAT_CELL_12",
+        "detected_module": "WAT",
+        "detected_operation": "9000",
+        "detected_operation_name": "Electrical parametric test",
+        "known_defect_attributes": {
+          "pattern": "contact-resistance spikes",
+          "symptom_cluster": "parametric_shift"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "contact resistance p95",
+            "observed": 18.0,
+            "unit": "ohm"
+          }
+        ],
+        "product_id": "PROD_V2_14",
+        "source_lot_id": "LOT_V2_14_SRC",
+        "symptom_types": [
+          "contact-resistance spikes",
+          "site-order recurrence"
+        ]
+      },
+      "partition": "test",
+      "process_route": [
+        {
+          "module": "Lithography",
+          "operation_name": "Coat and expose",
+          "operation_no": "1000",
+          "sequence_no": 1
+        },
+        {
+          "module": "Dry Etch",
+          "operation_name": "Pattern transfer",
+          "operation_no": "2000",
+          "sequence_no": 2
+        },
+        {
+          "module": "Ion Implant",
+          "operation_name": "Dose implantation",
+          "operation_no": "3000",
+          "sequence_no": 3
+        },
+        {
+          "module": "PVD",
+          "operation_name": "Barrier deposition",
+          "operation_no": "4000",
+          "sequence_no": 4
+        },
+        {
+          "module": "CVD",
+          "operation_name": "Dielectric deposition",
+          "operation_no": "5000",
+          "sequence_no": 5
+        },
+        {
+          "module": "Electroplating",
+          "operation_name": "Copper electroplating",
+          "operation_no": "6000",
+          "sequence_no": 6
+        },
+        {
+          "module": "Cu CMP",
+          "operation_name": "Copper planarization",
+          "operation_no": "6400",
+          "sequence_no": 7
+        },
+        {
+          "module": "Wet Clean",
+          "operation_name": "Post-process clean",
+          "operation_no": "7000",
+          "sequence_no": 8
+        },
+        {
+          "module": "Metrology",
+          "operation_name": "Inline measurement",
+          "operation_no": "8000",
+          "sequence_no": 9
+        },
+        {
+          "module": "WAT",
+          "operation_name": "Electrical parametric test",
+          "operation_no": "9000",
+          "sequence_no": 10
+        }
+      ],
+      "resource_relations": [],
+      "scenario_category": "same_step",
+      "supporting_evidence": [
+        {
+          "evidence_id": "EV_V2_14_MES_ROUTE",
+          "evidence_type": "MES_PROCESS_HISTORY",
+          "summary": "Source Lot route and equipment exposure are available."
+        },
+        {
+          "evidence_id": "EV_V2_14_OBSERVATION",
+          "evidence_type": "DEFECT_OR_METROLOGY",
+          "summary": "The user-visible symptom and measurement are reproducible."
+        },
+        {
+          "evidence_id": "EV_V2_14_CAUSAL_SIGNAL",
+          "evidence_type": "FDC_OR_OPERATIONAL_CONFIRMATION",
+          "summary": "Current-Lot operational evidence supports the causal attribution."
+        }
+      ],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": null,
+      "contradicting_evidence": [],
+      "discovery_lane": "global_semantic",
+      "expected_status": "no_answer",
+      "impact_lot_truth": [],
+      "incident_family_id": "IF_V2_NA_01",
+      "knowledge_asset_links": [],
+      "metadata_quality": "missing",
+      "neutral_evidence": [],
+      "observation_record": {
+        "detected_at": "2026-07-01T12:00:00+00:00",
+        "detected_equipment_id": "ETCH_SIC_01",
+        "detected_module": "SiC Trench Etch",
+        "detected_operation": "Cryogenic trench formation",
+        "detected_operation_name": "Cryogenic trench formation",
+        "known_defect_attributes": {
+          "pattern": "micro-trench corner cracking",
+          "symptom_cluster": "unrepresented_technology"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "corner crack density",
+            "observed": 0.9,
+            "unit": "count/mm2"
+          }
+        ],
+        "product_id": "PROD_V2_NA_01",
+        "source_lot_id": "LOT_V2_NA_01",
+        "symptom_types": [
+          "micro-trench corner cracking",
+          "low-temperature sidewall haze"
+        ]
+      },
+      "partition": "calibration",
+      "process_route": [],
+      "requested_task": "procedure_guidance",
+      "resource_relations": [],
+      "scenario_category": "retrieval_no_answer",
+      "supporting_evidence": [],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": null,
+      "contradicting_evidence": [],
+      "discovery_lane": "global_semantic",
+      "expected_status": "no_answer",
+      "impact_lot_truth": [],
+      "incident_family_id": "IF_V2_NA_02",
+      "knowledge_asset_links": [],
+      "metadata_quality": "missing",
+      "neutral_evidence": [],
+      "observation_record": {
+        "detected_at": "2026-07-02T12:00:00+00:00",
+        "detected_equipment_id": "BGRIND_22",
+        "detected_module": "Advanced Packaging",
+        "detected_operation": "Backside power reveal",
+        "detected_operation_name": "Backside power reveal",
+        "known_defect_attributes": {
+          "pattern": "buried rail reveal voids",
+          "symptom_cluster": "unrepresented_technology"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "reveal void fraction",
+            "observed": 2.6,
+            "unit": "percent"
+          }
+        ],
+        "product_id": "PROD_V2_NA_02",
+        "source_lot_id": "LOT_V2_NA_02",
+        "symptom_types": [
+          "buried rail reveal voids",
+          "localized silicon tearing"
+        ]
+      },
+      "partition": "test",
+      "process_route": [],
+      "requested_task": "historical_match",
+      "resource_relations": [],
+      "scenario_category": "retrieval_no_answer",
+      "supporting_evidence": [],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": null,
+      "contradicting_evidence": [],
+      "discovery_lane": "global_semantic",
+      "expected_status": "no_answer",
+      "impact_lot_truth": [],
+      "incident_family_id": "IF_V2_NA_03",
+      "knowledge_asset_links": [],
+      "metadata_quality": "missing",
+      "neutral_evidence": [],
+      "observation_record": {
+        "detected_at": "2026-07-03T12:00:00+00:00",
+        "detected_equipment_id": "EUV_HNA_02",
+        "detected_module": "High-NA EUV",
+        "detected_operation": "Anamorphic overlay control",
+        "detected_operation_name": "Anamorphic overlay control",
+        "known_defect_attributes": {
+          "pattern": "field-edge overlay rotation",
+          "symptom_cluster": "unrepresented_technology"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "overlay vector magnitude",
+            "observed": 4.8,
+            "unit": "nm"
+          }
+        ],
+        "product_id": "PROD_V2_NA_03",
+        "source_lot_id": "LOT_V2_NA_03",
+        "symptom_types": [
+          "field-edge overlay rotation",
+          "scan-direction asymmetry"
+        ]
+      },
+      "partition": "calibration",
+      "process_route": [],
+      "requested_task": "engineering_note_lookup",
+      "resource_relations": [],
+      "scenario_category": "retrieval_no_answer",
+      "supporting_evidence": [],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    },
+    {
+      "causal_record": null,
+      "contradicting_evidence": [],
+      "discovery_lane": "global_semantic",
+      "expected_status": "no_answer",
+      "impact_lot_truth": [],
+      "incident_family_id": "IF_V2_NA_04",
+      "knowledge_asset_links": [],
+      "metadata_quality": "missing",
+      "neutral_evidence": [],
+      "observation_record": {
+        "detected_at": "2026-07-04T12:00:00+00:00",
+        "detected_equipment_id": "BOND_HYB_09",
+        "detected_module": "Hybrid Bonding",
+        "detected_operation": "Plasma-activated bonding",
+        "detected_operation_name": "Plasma-activated bonding",
+        "known_defect_attributes": {
+          "pattern": "interfacial nano-void ring",
+          "symptom_cluster": "unrepresented_technology"
+        },
+        "known_measurements": [
+          {
+            "metric_name": "bond void ratio",
+            "observed": 1.4,
+            "unit": "percent"
+          }
+        ],
+        "product_id": "PROD_V2_NA_04",
+        "source_lot_id": "LOT_V2_NA_04",
+        "symptom_types": [
+          "interfacial nano-void ring",
+          "post-anneal edge separation"
+        ]
+      },
+      "partition": "test",
+      "process_route": [],
+      "requested_task": "historical_match",
+      "resource_relations": [],
+      "scenario_category": "retrieval_no_answer",
+      "supporting_evidence": [],
+      "synthetic": true,
+      "unavailable_data_sources": []
+    }
+  ],
+  "limitations": "Synthetic benchmark for causal-retrieval engineering; it is not validation against confidential or production Fab data.",
+  "schema_version": "2.0",
+  "synthetic": true
+}
