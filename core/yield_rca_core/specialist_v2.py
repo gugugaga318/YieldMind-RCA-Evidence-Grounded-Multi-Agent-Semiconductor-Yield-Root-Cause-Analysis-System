@@ -788,6 +788,17 @@ class SpecialistV2Executor:
                 "query": query,
                 "module": _string(context.get("module")),
                 "equipment_type": _string(context.get("equipment_type")),
+                "source_lot_id": _string(context.get("source_lot_id")),
+                "product_id": _string(context.get("product_id")),
+                "detected_operation": _string(context.get("detected_operation")),
+                "detected_equipment_id": _string(
+                    context.get("detected_equipment_id")
+                ),
+                "detected_at": _string(context.get("detected_at")),
+                "symptom_types": list(context.get("symptom_types", [])),
+                "explicit_module_limit": bool(
+                    context.get("explicit_module_limit", False)
+                ),
             },
             "Retrieve engineer-confirmed historical cases for the fixed engineering query.",
         )
@@ -1388,4 +1399,16 @@ class SpecialistV2Executor:
             "top_case": top_case,
             "cases": list(data.get("cases", [])),
             "documents": list(data.get("documents", [])),
+            "retrieval_strategy": _string(data.get("retrieval_strategy")) or "no_match",
+            "score_components": dict(data.get("score_components", {})),
+            "calibrated_relevance": data.get("calibrated_relevance"),
+            "source_confidence": data.get("source_confidence"),
+            "matched_chunk_ids": list(data.get("matched_chunk_ids", [])),
+            "candidate_lanes": list(data.get("candidate_lanes", [])),
+            "scope_reasons": list(data.get("scope_reasons", [])),
+            "route_distance": data.get("route_distance"),
+            "shared_resource_types": list(data.get("shared_resource_types", [])),
+            "scope_fusion_score": data.get("scope_fusion_score"),
+            "observation_scope": data.get("observation_scope"),
+            "causal_search_scope": data.get("causal_search_scope"),
         }

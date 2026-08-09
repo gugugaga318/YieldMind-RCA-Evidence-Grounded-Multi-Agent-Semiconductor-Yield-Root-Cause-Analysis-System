@@ -6,7 +6,9 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from yield_rca_core.causal_retrieval import CausalLaneKnowledgeRetriever
 from yield_rca_core.hybrid_retrieval import (
+    ChunkCandidateSource,
     ExactVectorCandidateSource,
     HybridDocumentChunkRetriever,
     HybridRetrievalConfigurationError,
@@ -70,6 +72,9 @@ class KnowledgeRetrievalSettings:
     reranker_candidate_k: int = 20
     reranker_local_path: Path | None = None
     calibration_artifact: Path | None = None
+    causal_scope_enabled: bool = False
+    causal_candidate_budget: int = 20
+    causal_lane_minimum: int = 1
 
     def __post_init__(self) -> None:
         if self.mode not in {"keyword", "hybrid"}:
@@ -85,6 +90,14 @@ class KnowledgeRetrievalSettings:
         if not 1 <= self.reranker_candidate_k <= 20:
             raise HybridRetrievalConfigurationError(
                 "YIELD_RCA_KNOWLEDGE_RERANKER_CANDIDATE_K must be between 1 and 20"
+            )
+        if not 4 <= self.causal_candidate_budget <= 80:
+            raise HybridRetrievalConfigurationError(
+                "YIELD_RCA_CAUSAL_SCOPE_CANDIDATE_BUDGET must be between 4 and 80"
+            )
+        if not 1 <= self.causal_lane_minimum <= 5:
+            raise HybridRetrievalConfigurationError(
+                "YIELD_RCA_CAUSAL_SCOPE_LANE_MINIMUM must be between 1 and 5"
             )
 
     @classmethod
@@ -133,6 +146,15 @@ class KnowledgeRetrievalSettings:
                 Path(local_reranker).resolve() if local_reranker else None
             ),
             calibration_artifact=Path(artifact).resolve() if artifact else None,
+            causal_scope_enabled=_env_bool(
+                "YIELD_RCA_CAUSAL_SCOPE_ENABLED", False
+            ),
+            causal_candidate_budget=_env_int(
+                "YIELD_RCA_CAUSAL_SCOPE_CANDIDATE_BUDGET", 20
+            ),
+            causal_lane_minimum=_env_int(
+                "YIELD_RCA_CAUSAL_SCOPE_LANE_MINIMUM", 1
+            ),
         )
 
 
@@ -145,25 +167,34 @@ def build_knowledge_retriever(
     """Build the explicit online mode without loading models at service startup."""
 
     configured = settings or KnowledgeRetrievalSettings.from_env()
+    retriever: KnowledgeLookupRetriever
     if configured.mode == "keyword":
-        return DocumentChunkKeywordRetriever(store)
-
-    embedding = SentenceTransformerEmbeddingBackend(
-        configured.embedding_model,
-        revision=configured.embedding_revision,
-        device=configured.embedding_device,
-        batch_size=configured.embedding_batch_size,
-    )
-    if database_url:
-        lexical_source = PostgresBM25CandidateSource(database_url)
-        vector_source = PostgresExactVectorCandidateSource(database_url, embedding)
+        retriever = DocumentChunkKeywordRetriever(store)
     else:
-        lexical_source = PythonBM25CandidateSource(store)
-        vector_source = ExactVectorCandidateSource(store, embedding)
-    retriever: KnowledgeLookupRetriever = HybridDocumentChunkRetriever(
-        lexical_source,
-        vector_source,
-    )
+        embedding = SentenceTransformerEmbeddingBackend(
+            configured.embedding_model,
+            revision=configured.embedding_revision,
+            device=configured.embedding_device,
+            batch_size=configured.embedding_batch_size,
+        )
+        lexical_source: ChunkCandidateSource
+        vector_source: ChunkCandidateSource
+        if database_url:
+            lexical_source = PostgresBM25CandidateSource(database_url)
+            vector_source = PostgresExactVectorCandidateSource(database_url, embedding)
+        else:
+            lexical_source = PythonBM25CandidateSource(store)
+            vector_source = ExactVectorCandidateSource(store, embedding)
+        retriever = HybridDocumentChunkRetriever(
+            lexical_source,
+            vector_source,
+        )
+    if configured.causal_scope_enabled:
+        retriever = CausalLaneKnowledgeRetriever(
+            retriever,
+            candidate_budget=configured.causal_candidate_budget,
+            lane_minimum=configured.causal_lane_minimum,
+        )
     if not configured.reranker_enabled:
         return retriever
 
@@ -182,9 +213,10 @@ def build_knowledge_retriever(
             model_name=reranker.model_name,
             model_revision=reranker.model_revision,
         )
-    return RerankedKnowledgeRetriever(
+    result: KnowledgeLookupRetriever = RerankedKnowledgeRetriever(
         retriever,
         reranker,
         calibrator=calibrator,
         candidate_k=configured.reranker_candidate_k,
     )
+    return result

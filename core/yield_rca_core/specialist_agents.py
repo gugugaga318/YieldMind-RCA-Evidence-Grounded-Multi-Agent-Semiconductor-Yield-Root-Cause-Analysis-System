@@ -579,6 +579,13 @@ class KnowledgeAgent:
         query: str,
         module: str = "",
         equipment_type: str = "",
+        source_lot_id: str = "",
+        product_id: str = "",
+        detected_operation: str = "",
+        detected_equipment_id: str = "",
+        detected_at: str = "",
+        symptom_types: tuple[str, ...] = (),
+        explicit_module_limit: bool = False,
     ) -> AgentFinding:
         output = self.retrieve_similar_case_tool.run(
             _tool_input(
@@ -588,6 +595,13 @@ class KnowledgeAgent:
                     "query": query,
                     "module": module,
                     "equipment_type": equipment_type,
+                    "source_lot_id": source_lot_id,
+                    "product_id": product_id,
+                    "detected_operation": detected_operation,
+                    "detected_equipment_id": detected_equipment_id,
+                    "detected_at": detected_at,
+                    "symptom_types": list(symptom_types),
+                    "explicit_module_limit": explicit_module_limit,
                 },
                 requested_by=AgentKind.KNOWLEDGE.value,
             )
@@ -613,6 +627,15 @@ class KnowledgeAgent:
                     "calibrated_relevance": output.data.get("calibrated_relevance"),
                     "source_confidence": output.data.get("source_confidence"),
                     "matched_chunk_ids": list(output.data.get("matched_chunk_ids", [])),
+                    "candidate_lanes": list(output.data.get("candidate_lanes", [])),
+                    "scope_reasons": list(output.data.get("scope_reasons", [])),
+                    "route_distance": output.data.get("route_distance"),
+                    "shared_resource_types": list(
+                        output.data.get("shared_resource_types", [])
+                    ),
+                    "scope_fusion_score": output.data.get("scope_fusion_score"),
+                    "observation_scope": output.data.get("observation_scope"),
+                    "causal_search_scope": output.data.get("causal_search_scope"),
                 },
                 warnings=_warnings(output),
             )
@@ -649,6 +672,15 @@ class KnowledgeAgent:
                 "calibrated_relevance": output.data.get("calibrated_relevance"),
                 "source_confidence": output.data.get("source_confidence"),
                 "matched_chunk_ids": list(output.data.get("matched_chunk_ids", [])),
+                "candidate_lanes": list(output.data.get("candidate_lanes", [])),
+                "scope_reasons": list(output.data.get("scope_reasons", [])),
+                "route_distance": output.data.get("route_distance"),
+                "shared_resource_types": list(
+                    output.data.get("shared_resource_types", [])
+                ),
+                "scope_fusion_score": output.data.get("scope_fusion_score"),
+                "observation_scope": output.data.get("observation_scope"),
+                "causal_search_scope": output.data.get("causal_search_scope"),
             },
             warnings=_warnings(output, additional=additional_warnings),
         )
@@ -660,6 +692,12 @@ class KnowledgeAgent:
         preliminary_candidates: list[dict[str, Any]],
         module: str = "",
         equipment_type: str = "",
+        source_lot_id: str = "",
+        product_id: str = "",
+        detected_operation: str = "",
+        detected_equipment_id: str = "",
+        detected_at: str = "",
+        explicit_module_limit: bool = False,
     ) -> AgentFinding:
         candidate_terms = [
             str(item.get("root_cause", "")).strip()
@@ -683,6 +721,12 @@ class KnowledgeAgent:
                     "query": query,
                     "module": module,
                     "equipment_type": equipment_type,
+                    "source_lot_id": source_lot_id,
+                    "product_id": product_id,
+                    "detected_operation": detected_operation,
+                    "detected_equipment_id": detected_equipment_id,
+                    "detected_at": detected_at,
+                    "explicit_module_limit": explicit_module_limit,
                     "match_evidence_id": "EV_KNOWLEDGE_VALIDATION_MATCH",
                     "missing_evidence_id": "EV_KNOWLEDGE_VALIDATION_DATA_MISSING",
                 },
@@ -730,6 +774,15 @@ class KnowledgeAgent:
                 "calibrated_relevance": output.data.get("calibrated_relevance"),
                 "source_confidence": output.data.get("source_confidence"),
                 "matched_chunk_ids": list(output.data.get("matched_chunk_ids", [])),
+                "candidate_lanes": list(output.data.get("candidate_lanes", [])),
+                "scope_reasons": list(output.data.get("scope_reasons", [])),
+                "route_distance": output.data.get("route_distance"),
+                "shared_resource_types": list(
+                    output.data.get("shared_resource_types", [])
+                ),
+                "scope_fusion_score": output.data.get("scope_fusion_score"),
+                "observation_scope": output.data.get("observation_scope"),
+                "causal_search_scope": output.data.get("causal_search_scope"),
             },
             warnings=_warnings(output),
         )

@@ -241,6 +241,46 @@ p {
   line-height: 1.45;
 }
 
+.job-form .scope-limit-control {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: -2px 0 15px;
+  padding: 10px;
+  color: #3f4d47;
+  background: #f4f7f5;
+  border: 1px solid var(--line-soft);
+  border-radius: 5px;
+  text-transform: none;
+}
+
+.job-form .scope-limit-control input {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  margin: 2px 0 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.scope-limit-control span,
+.scope-limit-control strong,
+.scope-limit-control small {
+  display: block;
+}
+
+.scope-limit-control strong {
+  font-size: 11px;
+}
+
+.scope-limit-control small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
 .mode-control {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1683,6 +1723,84 @@ p {
   gap: 8px;
 }
 
+.agent-trace-causal-scope {
+  margin-top: 10px;
+  padding: 11px 12px;
+  background: #f4f8fa;
+  border: 1px solid #d7e5eb;
+  border-left: 3px solid #497c9b;
+  border-radius: 5px;
+}
+
+.agent-trace-causal-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.agent-trace-causal-heading svg {
+  color: #497c9b;
+}
+
+.agent-trace-causal-heading span,
+.agent-trace-causal-heading strong {
+  display: block;
+}
+
+.agent-trace-causal-heading span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.agent-trace-causal-heading strong {
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+.agent-trace-causal-scope dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 9px 0 0;
+  overflow: hidden;
+  background: #dce7eb;
+  border: 1px solid #dce7eb;
+  border-radius: 4px;
+}
+
+.agent-trace-causal-scope dl > div {
+  min-width: 0;
+  padding: 8px 9px;
+  background: #ffffff;
+}
+
+.agent-trace-causal-scope dt {
+  color: var(--muted);
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.agent-trace-causal-scope dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #33464f;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.agent-trace-causal-scope p,
+.agent-trace-causal-scope > small {
+  display: block;
+  margin: 7px 0 0;
+  color: #64777f;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.agent-trace-causal-scope p strong {
+  color: #755829;
+}
+
 .agent-trace-observation-grid {
   margin-top: 11px;
 }
@@ -3015,6 +3133,149 @@ p {
   color: var(--muted);
 }
 
+.knowledge-scope-legacy {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  color: #6f592f;
+  background: #fbf6e9;
+  border: 1px solid #ead9ae;
+  border-radius: 5px;
+}
+
+.knowledge-scope-legacy strong,
+.knowledge-scope-legacy span {
+  display: block;
+  font-size: 11px;
+}
+
+.knowledge-scope-legacy span {
+  margin-top: 3px;
+  color: #7b6b49;
+}
+
+.knowledge-scope-card {
+  margin-bottom: 14px;
+  padding: 14px;
+  background: #f8faf9;
+  border: 1px solid #d7e0dc;
+  border-left: 4px solid #497c9b;
+  border-radius: 5px;
+}
+
+.knowledge-scope-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.knowledge-scope-heading strong {
+  font-size: 13px;
+  text-transform: capitalize;
+}
+
+.knowledge-scope-heading > span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.knowledge-scope-card > p {
+  margin: 8px 0 10px;
+  color: #44554d;
+  font-size: 11px;
+}
+
+.knowledge-scope-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  background: var(--line-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+}
+
+.knowledge-scope-facts > div {
+  min-width: 0;
+  padding: 9px;
+  background: #ffffff;
+}
+
+.knowledge-scope-facts b,
+.knowledge-scope-facts span {
+  display: block;
+}
+
+.knowledge-scope-facts b {
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.knowledge-scope-facts span {
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: #33443d;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.knowledge-lane-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.knowledge-lane-grid article {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 7px;
+  padding: 9px;
+  background: #ffffff;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+}
+
+.knowledge-lane-grid .lane-available svg {
+  color: var(--accent);
+}
+
+.knowledge-lane-grid .lane-unavailable {
+  color: #777f7b;
+  background: #f1f3f2;
+}
+
+.knowledge-lane-grid .lane-unavailable svg {
+  color: #9aa29e;
+}
+
+.knowledge-lane-grid strong,
+.knowledge-lane-grid span,
+.knowledge-lane-grid small {
+  display: block;
+}
+
+.knowledge-lane-grid strong {
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+.knowledge-lane-grid span,
+.knowledge-lane-grid small {
+  margin-top: 2px;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.knowledge-lane-grid span {
+  color: var(--muted);
+}
+
+.knowledge-lane-grid small {
+  color: #315c50;
+}
+
 .knowledge-hit-list {
   display: grid;
   gap: 10px;
@@ -3083,6 +3344,42 @@ p {
   margin-top: 8px;
   color: var(--muted);
   font-size: 10px;
+}
+
+.knowledge-hit-scope {
+  margin-top: 9px;
+  padding: 9px 10px;
+  background: #f4f8fa;
+  border: 1px solid #dbe7ed;
+  border-radius: 4px;
+}
+
+.knowledge-hit-scope > strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #45606f;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.knowledge-hit-scope > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.knowledge-hit-scope > div span {
+  padding: 3px 6px;
+  color: #31596d;
+  background: #e4f0f5;
+  border-radius: 3px;
+  font-size: 9px;
+  text-transform: capitalize;
+}
+
+.knowledge-hit-scope small {
+  margin-top: 5px;
+  color: #60747e;
 }
 
 .knowledge-score-grid {
@@ -3426,6 +3723,15 @@ p {
     grid-template-columns: 1fr 1fr;
   }
 
+  .knowledge-scope-heading {
+    flex-direction: column;
+  }
+
+  .knowledge-scope-facts,
+  .knowledge-lane-grid {
+    grid-template-columns: 1fr;
+  }
+
   .runtime-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3457,6 +3763,10 @@ p {
   .agent-trace-observation-grid,
   .agent-trace-action-contract,
   .agent-trace-reference-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-trace-causal-scope dl {
     grid-template-columns: 1fr;
   }
 

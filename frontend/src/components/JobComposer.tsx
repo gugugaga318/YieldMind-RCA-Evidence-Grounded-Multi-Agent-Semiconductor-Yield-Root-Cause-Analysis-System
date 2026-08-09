@@ -20,6 +20,8 @@ interface JobComposerProps {
   onKnowledgeQuestionKindChange: (kind: KnowledgeQuestionKind) => void;
   knowledgeModule: string;
   onKnowledgeModuleChange: (module: string) => void;
+  knowledgeExplicitModuleLimit: boolean;
+  onKnowledgeExplicitModuleLimitChange: (enabled: boolean) => void;
   onSubmit: () => void;
   loading: boolean;
   currentJob: RCAJobCreated | null;
@@ -37,6 +39,8 @@ export function JobComposer({
   onKnowledgeQuestionKindChange,
   knowledgeModule,
   onKnowledgeModuleChange,
+  knowledgeExplicitModuleLimit,
+  onKnowledgeExplicitModuleLimitChange,
   onSubmit,
   loading,
   currentJob,
@@ -109,7 +113,7 @@ export function JobComposer({
               <option value="procedure_guidance">SOP guidance</option>
               <option value="engineering_note_lookup">Engineering Note</option>
             </select>
-            <label htmlFor="knowledge-module">Module filter</label>
+            <label htmlFor="knowledge-module">Observed module hint</label>
             <input
               id="knowledge-module"
               value={knowledgeModule}
@@ -118,6 +122,23 @@ export function JobComposer({
               placeholder="e.g. Cu CMP"
               disabled={loading}
             />
+            <label className="scope-limit-control" htmlFor="knowledge-module-limit">
+              <input
+                id="knowledge-module-limit"
+                type="checkbox"
+                checked={knowledgeExplicitModuleLimit}
+                onChange={(event) =>
+                  onKnowledgeExplicitModuleLimitChange(event.target.checked)
+                }
+                disabled={loading || knowledgeModule.trim().length === 0}
+              />
+              <span>
+                <strong>Restrict search to this module</strong>
+                <small>
+                  Leave off for causal search beyond where the symptom was observed.
+                </small>
+              </span>
+            </label>
             <label htmlFor="knowledge-query">Knowledge question</label>
             <textarea
               id="knowledge-query"

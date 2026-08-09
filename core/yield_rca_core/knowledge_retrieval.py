@@ -12,6 +12,12 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Any, Protocol
 
+from yield_rca_core.causal_retrieval import prepare_causal_plan
+from yield_rca_core.causal_scope import (
+    CausalSearchScope,
+    ObservationScope,
+    RepositoryCausalContextProvider,
+)
 from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
 from yield_rca_core.knowledge_models import (
     KnowledgeDocumentType,
@@ -112,6 +118,13 @@ class RetrievalQuery:
     query: str
     module: str = ""
     equipment_type: str = ""
+    source_lot_id: str = ""
+    product_id: str = ""
+    detected_operation: str = ""
+    detected_equipment_id: str = ""
+    detected_at: str = ""
+    symptom_types: tuple[str, ...] = ()
+    explicit_module_limit: bool = False
     top_k: int = 10
 
 
@@ -126,6 +139,11 @@ class RetrievalHit:
     calibrated_relevance: float | None = None
     source_confidence: float | None = None
     matched_chunk_ids: tuple[str, ...] = ()
+    candidate_lanes: tuple[str, ...] = ()
+    scope_reasons: tuple[str, ...] = ()
+    route_distance: int | None = None
+    shared_resource_types: tuple[str, ...] = ()
+    scope_fusion_score: float | None = None
 
     def to_legacy_case(self) -> dict[str, Any]:
         return self.asset.to_legacy_case(similarity=self.score)
@@ -137,6 +155,8 @@ class RetrievalResult:
 
     query: RetrievalQuery
     hits: list[RetrievalHit]
+    observation_scope: ObservationScope | None = None
+    causal_search_scope: CausalSearchScope | None = None
 
     @property
     def top_hit(self) -> RetrievalHit | None:
@@ -232,8 +252,19 @@ class TypedKnowledgeRetrieverAdapter:
             *additional_asset_repositories,
         )
         self.retriever = retriever
+        self.context_provider = RepositoryCausalContextProvider(repository)
 
     def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
+        observation = ObservationScope(
+            source_lot_id=query.source_lot_id,
+            product_id=query.product_id,
+            detected_module=query.module,
+            detected_operation=query.detected_operation,
+            detected_equipment_id=query.detected_equipment_id,
+            detected_equipment_type=query.equipment_type,
+            detected_at=query.detected_at,
+            symptom_types=query.symptom_types,
+        )
         plan = KnowledgeLookupPlan(
             intent=KnowledgeLookupIntent.KNOWLEDGE_LOOKUP.value,
             question_kind=KnowledgeQuestionKind.HISTORICAL_MATCH.value,
@@ -245,10 +276,20 @@ class TypedKnowledgeRetrieverAdapter:
             ),
             module=query.module,
             equipment_type=query.equipment_type,
+            observation_scope=observation,
+            explicit_module_limit=query.explicit_module_limit,
             top_k=query.top_k,
         )
+        plan = prepare_causal_plan(
+            self.retriever,
+            plan,
+            context_provider=self.context_provider,
+        )
         fingerprint = sha256(
-            f"{query.query}|{query.module}|{query.equipment_type}".encode()
+            (
+                f"{query.query}|{query.module}|{query.equipment_type}|"
+                f"{query.source_lot_id}|{query.detected_operation}|{query.detected_at}"
+            ).encode()
         ).hexdigest()[:16].upper()
         logical_hits = self.retriever.retrieve(
             plan,
@@ -273,6 +314,16 @@ class TypedKnowledgeRetrieverAdapter:
                     calibrated_relevance=logical_hit.calibrated_relevance,
                     source_confidence=logical_hit.source_confidence,
                     matched_chunk_ids=logical_hit.matched_chunk_ids,
+                    candidate_lanes=logical_hit.candidate_lanes,
+                    scope_reasons=logical_hit.scope_reasons,
+                    route_distance=logical_hit.route_distance,
+                    shared_resource_types=logical_hit.shared_resource_types,
+                    scope_fusion_score=logical_hit.scope_fusion_score,
                 )
             )
-        return RetrievalResult(query=query, hits=hits)
+        return RetrievalResult(
+            query=query,
+            hits=hits,
+            observation_scope=plan.observation_scope,
+            causal_search_scope=plan.causal_search_scope,
+        )

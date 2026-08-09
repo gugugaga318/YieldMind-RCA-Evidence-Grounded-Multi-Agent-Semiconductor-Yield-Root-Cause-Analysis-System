@@ -2,7 +2,8 @@
 
 ## Status
 
-- Status: Approved design; implementation not started
+- Status: Approved design; Long Task A implemented behind a default-off Feature Flag;
+  Long Tasks B-C pending
 - Target branch: `feature/autonomous-qwen-react`
 - Proposed delivery: Batch 22
 - Depends on: Batch 21 semantic gating and Long Tasks 1-4 governed Hybrid Retrieval

@@ -10,6 +10,10 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from fastapi.testclient import TestClient  # noqa: E402
 from yield_rca_api.app import create_app  # noqa: E402
+from yield_rca_core.knowledge_runtime import (  # noqa: E402
+    KnowledgeRetrievalSettings,
+    build_knowledge_retriever,
+)
 from yield_rca_core.knowledge_store import load_builtin_knowledge_store  # noqa: E402
 from yield_rca_core.workflow import build_csv_workflow  # noqa: E402
 
@@ -74,6 +78,82 @@ class KnowledgeAPIIntegrationTest(unittest.TestCase):
         self.assertNotIn("hypotheses", payload)
         self.assertNotIn("impact_lots", payload)
         self.assertNotIn("report", payload)
+        self.assertIsNone(payload["plan"]["causal_search_scope"])
+
+    def test_causal_scope_api_separates_observation_hint_from_hard_limit(self) -> None:
+        causal_retriever = build_knowledge_retriever(
+            self.knowledge_store,
+            settings=KnowledgeRetrievalSettings(causal_scope_enabled=True),
+        )
+        with TestClient(
+            create_app(
+                workflow=build_csv_workflow(SEED_DIR),
+                knowledge_store=self.knowledge_store,
+                knowledge_retriever=causal_retriever,
+            )
+        ) as client:
+            wide_response = client.post(
+                "/knowledge/lookups",
+                json={
+                    "query": "radial scratch retaining ring reference",
+                    "question_kind": "historical_match",
+                    "module": "Cu CMP",
+                },
+            )
+            hard_response = client.post(
+                "/knowledge/lookups",
+                json={
+                    "query": "Only search Cu CMP radial scratch references",
+                    "question_kind": "historical_match",
+                    "module": "Cu CMP",
+                },
+            )
+            future_only_response = client.post(
+                "/knowledge/lookups",
+                json={
+                    "query": "radial scratch retaining ring reference",
+                    "question_kind": "historical_match",
+                    "module": "Cu CMP",
+                    "detected_at": "2020-01-01T00:00:00+00:00",
+                },
+            )
+
+        self.assertEqual(wide_response.status_code, 200, wide_response.text)
+        wide = wide_response.json()
+        scope = wide["plan"]["causal_search_scope"]
+        self.assertEqual(wide["plan"]["observation_scope"]["detected_module"], "Cu CMP")
+        self.assertEqual(scope["hard_constraints"]["module"], "")
+        self.assertEqual(scope["soft_hints"]["module"], "Cu CMP")
+        self.assertEqual(
+            set(scope["available_lanes"]),
+            {"same_step", "global_semantic"},
+        )
+        unavailable = {
+            item["lane"]: item["reason"]
+            for item in scope["expansion_lanes"]
+            if not item["available"]
+        }
+        self.assertIn("upstream_route", unavailable)
+        self.assertIn("shared_resource", unavailable)
+        self.assertTrue(wide["hits"][0]["candidate_lanes"])
+
+        self.assertEqual(hard_response.status_code, 200, hard_response.text)
+        hard = hard_response.json()
+        self.assertTrue(hard["plan"]["explicit_module_limit"])
+        self.assertEqual(
+            hard["plan"]["causal_search_scope"]["hard_constraints"]["module"],
+            "Cu CMP",
+        )
+        self.assertTrue(
+            all(item["document"]["module"] == "Cu CMP" for item in hard["hits"])
+        )
+        self.assertEqual(future_only_response.status_code, 200)
+        future_only = future_only_response.json()
+        self.assertEqual(future_only["status"], "no_match")
+        self.assertEqual(
+            future_only["plan"]["causal_search_scope"]["time_boundary"],
+            "2020-01-01T00:00:00+00:00",
+        )
 
     def test_staged_document_is_invisible_until_two_different_approvals(self) -> None:
         candidate = self.ingest()
@@ -164,6 +244,10 @@ class KnowledgeAPIIntegrationTest(unittest.TestCase):
                 "$ref"
             ].endswith("KnowledgeLookupResponse")
         )
+        request_schema = schema["components"]["schemas"]["KnowledgeLookupRequest"]
+        self.assertIn("explicit_module_limit", request_schema["properties"])
+        response_schema = schema["components"]["schemas"]["KnowledgeLookupPlanResponse"]
+        self.assertIn("causal_search_scope", response_schema["properties"])
         ingestion = schema["paths"]["/knowledge/ingestions"]["post"]
         self.assertTrue(
             ingestion["responses"]["201"]["content"]["application/json"]["schema"][

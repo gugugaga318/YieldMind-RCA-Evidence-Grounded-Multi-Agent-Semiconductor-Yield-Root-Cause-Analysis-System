@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
+from yield_rca_core.causal_scope import explicit_module_limit_requested
 from yield_rca_core.evidence_collection import EvidenceCollection
 from yield_rca_core.improvement_agent import ImprovementAgent
 from yield_rca_core.investigation_models import (
@@ -369,6 +370,64 @@ def _knowledge_query(
     )
     query = " ".join(item for item in terms if item).strip() or state.job.user_query
     return query, module, equipment_type
+
+
+def _knowledge_observation_context(
+    state: RCAState,
+    findings: list[AgentFinding],
+) -> dict[str, Any]:
+    """Project trusted operational findings into non-causal observation facts."""
+
+    mes_finding = _finding_for_agent(findings, AgentKind.MES.value, state=state)
+    defect_finding = _finding_for_agent(
+        findings,
+        AgentKind.DEFECT_WAT.value,
+        state=state,
+    )
+    raw_commonality = mes_finding.details.get("target_commonality", {})
+    commonality = raw_commonality if isinstance(raw_commonality, dict) else {}
+    defect_counts = defect_finding.details.get("defect_counts", {})
+    symptom_types = (
+        tuple(str(item) for item in defect_counts)
+        if isinstance(defect_counts, dict)
+        else ()
+    )
+    detected_at = max(
+        (
+            item.timestamp
+            for item in defect_finding.evidence
+            if item.timestamp is not None
+        ),
+        default="",
+    )
+    return {
+        "source_lot_id": state.job.source_lot_id or "",
+        "product_id": state.job.product_id or "",
+        "detected_operation": str(
+            mes_finding.details.get("target_operation_no", "")
+        ),
+        "detected_equipment_id": str(commonality.get("equipment_id", "")),
+        "detected_at": detected_at,
+        "symptom_types": symptom_types,
+    }
+
+
+def _knowledge_explicit_module_limit(
+    state: RCAState,
+    module: str,
+    action_inputs: dict[str, Any] | None = None,
+) -> bool:
+    """Validate, rather than trust, a Planner-proposed Module restriction."""
+
+    if action_inputs is not None and not isinstance(
+        action_inputs.get("explicit_module_limit", False),
+        bool,
+    ):
+        return False
+    return explicit_module_limit_requested(
+        state.job.user_query,
+        module,
+    )
 
 
 def _legacy_preliminary_candidates(
@@ -989,11 +1048,18 @@ class Supervisor:
                 state,
                 selected_findings,
             )
+            observation = _knowledge_observation_context(state, selected_findings)
             context.update(
                 {
                     "query": query,
                     "module": module,
                     "equipment_type": equipment_type,
+                    **observation,
+                    "explicit_module_limit": _knowledge_explicit_module_limit(
+                        state,
+                        module,
+                        action.inputs,
+                    ),
                 }
             )
         else:
@@ -1126,11 +1192,23 @@ class Supervisor:
                 state,
                 selected_findings,
             )
+            observation = _knowledge_observation_context(state, selected_findings)
             finding = self.knowledge_agent.analyze(
                 request_id=request_id,
                 query=query,
                 module=module,
                 equipment_type=equipment_type,
+                source_lot_id=str(observation["source_lot_id"]),
+                product_id=str(observation["product_id"]),
+                detected_operation=str(observation["detected_operation"]),
+                detected_equipment_id=str(observation["detected_equipment_id"]),
+                detected_at=str(observation["detected_at"]),
+                symptom_types=tuple(observation["symptom_types"]),
+                explicit_module_limit=_knowledge_explicit_module_limit(
+                    state,
+                    module,
+                    action.inputs,
+                ),
             )
             return _review_specialist_finding(
                 finding,
@@ -1412,6 +1490,7 @@ class Supervisor:
         if task.agent == AgentKind.KNOWLEDGE.value:
             input_findings = _input_findings(state, task)
             query, module, equipment_type = _knowledge_query(state, input_findings)
+            observation = _knowledge_observation_context(state, input_findings)
             if task.finding_kind == FindingKind.KNOWLEDGE_VALIDATION.value:
                 finding = self.knowledge_agent.validate_preliminary_candidates(
                     request_id=request_id,
@@ -1421,6 +1500,15 @@ class Supervisor:
                     ),
                     module=module,
                     equipment_type=equipment_type,
+                    source_lot_id=str(observation["source_lot_id"]),
+                    product_id=str(observation["product_id"]),
+                    detected_operation=str(observation["detected_operation"]),
+                    detected_equipment_id=str(observation["detected_equipment_id"]),
+                    detected_at=str(observation["detected_at"]),
+                    explicit_module_limit=_knowledge_explicit_module_limit(
+                        state,
+                        module,
+                    ),
                 )
             else:
                 finding = self.knowledge_agent.analyze(
@@ -1428,6 +1516,16 @@ class Supervisor:
                     query=query,
                     module=module,
                     equipment_type=equipment_type,
+                    source_lot_id=str(observation["source_lot_id"]),
+                    product_id=str(observation["product_id"]),
+                    detected_operation=str(observation["detected_operation"]),
+                    detected_equipment_id=str(observation["detected_equipment_id"]),
+                    detected_at=str(observation["detected_at"]),
+                    symptom_types=tuple(observation["symptom_types"]),
+                    explicit_module_limit=_knowledge_explicit_module_limit(
+                        state,
+                        module,
+                    ),
                 )
             return _review_specialist_finding(
                 finding,

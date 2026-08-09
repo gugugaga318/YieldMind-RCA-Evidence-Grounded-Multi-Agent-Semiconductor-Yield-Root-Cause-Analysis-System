@@ -859,6 +859,11 @@ def create_app(
                 operation=request.operation,
                 defect_type=request.defect_type,
                 tags=request.tags,
+                source_lot_id=request.source_lot_id,
+                product_id=request.product_id,
+                detected_at=request.detected_at,
+                symptom_types=request.symptom_types,
+                explicit_module_limit=request.explicit_module_limit,
                 top_k=request.top_k,
             )
         except KnowledgeIngestionError as exc:

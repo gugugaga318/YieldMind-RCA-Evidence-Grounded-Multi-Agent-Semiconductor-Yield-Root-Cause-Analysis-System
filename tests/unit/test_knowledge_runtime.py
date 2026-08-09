@@ -3,10 +3,12 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "core"))
 
+from yield_rca_core.causal_retrieval import CausalLaneKnowledgeRetriever  # noqa: E402
 from yield_rca_core.hybrid_retrieval import (  # noqa: E402
     DeterministicHashEmbeddingBackend,
     ExactVectorCandidateSource,
@@ -61,6 +63,51 @@ class KnowledgeRuntimeTest(unittest.TestCase):
         self.assertIsInstance(reranked, RerankedKnowledgeRetriever)
         assert isinstance(hybrid, HybridDocumentChunkRetriever)
         self.assertIsNone(hybrid.vector_source.embedding_backend._model)
+
+    def test_causal_scope_is_off_by_default_and_wraps_before_reranking(self) -> None:
+        default = build_knowledge_retriever(
+            self.store,
+            settings=KnowledgeRetrievalSettings(),
+        )
+        causal = build_knowledge_retriever(
+            self.store,
+            settings=KnowledgeRetrievalSettings(causal_scope_enabled=True),
+        )
+        reranked = build_knowledge_retriever(
+            self.store,
+            settings=KnowledgeRetrievalSettings(
+                mode="hybrid",
+                causal_scope_enabled=True,
+                reranker_enabled=True,
+            ),
+        )
+
+        self.assertIsInstance(default, DocumentChunkKeywordRetriever)
+        self.assertIsInstance(causal, CausalLaneKnowledgeRetriever)
+        self.assertIsInstance(reranked, RerankedKnowledgeRetriever)
+        assert isinstance(reranked, RerankedKnowledgeRetriever)
+        self.assertIsInstance(reranked.base_retriever, CausalLaneKnowledgeRetriever)
+
+    def test_causal_scope_environment_defaults_and_bounds_are_typed(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "YIELD_RCA_CAUSAL_SCOPE_ENABLED": "1",
+                "YIELD_RCA_CAUSAL_SCOPE_CANDIDATE_BUDGET": "24",
+                "YIELD_RCA_CAUSAL_SCOPE_LANE_MINIMUM": "2",
+            },
+            clear=False,
+        ):
+            settings = KnowledgeRetrievalSettings.from_env()
+
+        self.assertTrue(settings.causal_scope_enabled)
+        self.assertEqual(settings.causal_candidate_budget, 24)
+        self.assertEqual(settings.causal_lane_minimum, 2)
+        with self.assertRaisesRegex(
+            HybridRetrievalConfigurationError,
+            "CAUSAL_SCOPE_CANDIDATE_BUDGET",
+        ):
+            KnowledgeRetrievalSettings(causal_candidate_budget=3)
 
     def test_reranker_cannot_be_enabled_on_keyword_mode(self) -> None:
         with self.assertRaisesRegex(

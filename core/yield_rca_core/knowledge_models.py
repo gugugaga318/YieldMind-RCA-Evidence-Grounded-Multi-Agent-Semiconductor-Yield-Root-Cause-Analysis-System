@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Self
 
+from yield_rca_core.causal_scope import CausalLane, CausalSearchScope, ObservationScope
 from yield_rca_core.memory_models import ApprovalDecision, EngineerRole
 from yield_rca_core.models import SCHEMA_VERSION, ModelValidationError
 
@@ -480,6 +481,9 @@ class KnowledgeLookupPlan:
     operation: str = ""
     defect_type: str = ""
     tags: tuple[str, ...] = ()
+    observation_scope: ObservationScope | None = None
+    causal_search_scope: CausalSearchScope | None = None
+    explicit_module_limit: bool = False
     top_k: int = 5
 
     def __post_init__(self) -> None:
@@ -490,6 +494,8 @@ class KnowledgeLookupPlan:
             raise ModelValidationError("question kind and document-type scope do not match")
         _required(self.query, "query")
         _required(self.reason, "reason")
+        if not isinstance(self.explicit_module_limit, bool):
+            raise ModelValidationError("explicit_module_limit must be a boolean")
         if not 1 <= self.top_k <= 20:
             raise ModelValidationError("top_k must be between 1 and 20")
 
@@ -510,8 +516,46 @@ class KnowledgeLookupPlan:
             "operation": self.operation,
             "defect_type": self.defect_type,
             "tags": list(self.tags),
+            "observation_scope": (
+                self.observation_scope.to_dict() if self.observation_scope else None
+            ),
+            "causal_search_scope": (
+                self.causal_search_scope.to_dict() if self.causal_search_scope else None
+            ),
+            "explicit_module_limit": self.explicit_module_limit,
             "top_k": self.top_k,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        observation = data.get("observation_scope")
+        causal_scope = data.get("causal_search_scope")
+        return cls(
+            intent=str(data["intent"]),
+            question_kind=str(data["question_kind"]),
+            query=str(data["query"]),
+            allowed_document_types=tuple(
+                str(item) for item in data["allowed_document_types"]
+            ),
+            reason=str(data["reason"]),
+            module=str(data.get("module", "")),
+            equipment_type=str(data.get("equipment_type", "")),
+            operation=str(data.get("operation", "")),
+            defect_type=str(data.get("defect_type", "")),
+            tags=tuple(str(item) for item in data.get("tags", [])),
+            observation_scope=(
+                ObservationScope.from_dict(dict(observation))
+                if isinstance(observation, dict)
+                else None
+            ),
+            causal_search_scope=(
+                CausalSearchScope.from_dict(dict(causal_scope))
+                if isinstance(causal_scope, dict)
+                else None
+            ),
+            explicit_module_limit=data.get("explicit_module_limit", False),
+            top_k=int(data.get("top_k", 5)),
+        )
 
 
 @dataclass(frozen=True)
@@ -527,6 +571,11 @@ class KnowledgeLookupHit:
     score_components: dict[str, float] = field(default_factory=dict)
     calibrated_relevance: float | None = None
     source_confidence: float | None = None
+    candidate_lanes: tuple[str, ...] = ()
+    scope_reasons: tuple[str, ...] = ()
+    route_distance: int | None = None
+    shared_resource_types: tuple[str, ...] = ()
+    scope_fusion_score: float | None = None
 
     def __post_init__(self) -> None:
         if self.rank < 1:
@@ -547,6 +596,19 @@ class KnowledgeLookupHit:
             raise ModelValidationError("calibrated_relevance must be between 0 and 1")
         if self.source_confidence is not None and not 0 <= self.source_confidence <= 1:
             raise ModelValidationError("source_confidence must be between 0 and 1")
+        if self.route_distance is not None and self.route_distance < 0:
+            raise ModelValidationError("route_distance must be non-negative")
+        if self.scope_fusion_score is not None and not 0 <= self.scope_fusion_score <= 1:
+            raise ModelValidationError("scope_fusion_score must be between 0 and 1")
+        for name in ("candidate_lanes", "scope_reasons", "shared_resource_types"):
+            values = getattr(self, name)
+            if not isinstance(values, tuple) or any(not item.strip() for item in values):
+                raise ModelValidationError(f"{name} must contain non-empty strings")
+        for lane in self.candidate_lanes:
+            try:
+                CausalLane(lane)
+            except ValueError as exc:
+                raise ModelValidationError(f"unknown candidate lane: {lane}") from exc
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -561,6 +623,11 @@ class KnowledgeLookupHit:
             "score_components": dict(self.score_components),
             "calibrated_relevance": self.calibrated_relevance,
             "source_confidence": self.source_confidence,
+            "candidate_lanes": list(self.candidate_lanes),
+            "scope_reasons": list(self.scope_reasons),
+            "route_distance": self.route_distance,
+            "shared_resource_types": list(self.shared_resource_types),
+            "scope_fusion_score": self.scope_fusion_score,
         }
 
 

@@ -16,10 +16,13 @@ import {
   listKnowledgeIngestions,
 } from "../api";
 import type {
+  CausalSearchScope,
   EngineerRole,
   KnowledgeDocumentType,
   KnowledgeIngestionCandidate,
   KnowledgeLookupResult,
+  ObservationScope,
+  ScopeFilters,
 } from "../types";
 
 interface KnowledgeWorkspaceProps {
@@ -280,7 +283,112 @@ export function KnowledgeWorkspace({ result }: KnowledgeWorkspaceProps) {
   );
 }
 
-function KnowledgeResults({ result }: { result: KnowledgeLookupResult | null }) {
+function readableScopeName(value: string) {
+  return value.replaceAll("_", " ");
+}
+
+function filterFacts(filters: ScopeFilters) {
+  return [
+    filters.module && `module=${filters.module}`,
+    filters.equipment_type && `equipment=${filters.equipment_type}`,
+    filters.operation && `operation=${filters.operation}`,
+    filters.defect_type && `defect=${filters.defect_type}`,
+    ...filters.tags.map((tag) => `tag=${tag}`),
+  ].filter((item): item is string => Boolean(item));
+}
+
+function observationFacts(observation: ObservationScope | null) {
+  if (!observation) return [];
+  return [
+    observation.source_lot_id && `lot=${observation.source_lot_id}`,
+    observation.product_id && `product=${observation.product_id}`,
+    observation.detected_module && `module=${observation.detected_module}`,
+    observation.detected_operation && `operation=${observation.detected_operation}`,
+    observation.detected_equipment_id &&
+      `equipment=${observation.detected_equipment_id}`,
+    observation.detected_at && `time=${observation.detected_at}`,
+    ...observation.symptom_types.map((symptom) => `symptom=${symptom}`),
+  ].filter((item): item is string => Boolean(item));
+}
+
+function CausalScopeSummary({
+  scope,
+  observation,
+}: {
+  scope: CausalSearchScope | null;
+  observation: ObservationScope | null;
+}) {
+  if (!scope) {
+    return (
+      <div className="knowledge-scope-legacy">
+        <strong>Compatibility scope</strong>
+        <span>
+          Causal Scope is disabled; the existing metadata-filter behavior remains active.
+        </span>
+      </div>
+    );
+  }
+  const observed = observationFacts(observation);
+  const hard = [
+    ...filterFacts(scope.hard_constraints),
+    ...scope.explicit_user_limits,
+    scope.time_boundary && `created_at<=${scope.time_boundary}`,
+  ].filter((item): item is string => Boolean(item));
+  const soft = filterFacts(scope.soft_hints);
+  return (
+    <section className="knowledge-scope-card" aria-label="Causal search scope">
+      <div className="knowledge-scope-heading">
+        <div>
+          <span className="section-kicker">Python-owned causal scope</span>
+          <strong>{readableScopeName(scope.mode)}</strong>
+        </div>
+        <span>
+          budget {scope.candidate_budget} · minimum {scope.lane_minimum} per lane
+        </span>
+      </div>
+      <p>{scope.scope_reason}</p>
+      <div className="knowledge-scope-facts">
+        <div>
+          <b>Observed at</b>
+          <span>{observed.length ? observed.join(" · ") : "No operational context supplied"}</span>
+        </div>
+        <div>
+          <b>Hard constraints</b>
+          <span>{hard.length ? hard.join(" · ") : "Approval and document type only"}</span>
+        </div>
+        <div>
+          <b>Soft hints</b>
+          <span>{soft.length ? soft.join(" · ") : "None"}</span>
+        </div>
+      </div>
+      <div className="knowledge-lane-grid">
+        {scope.expansion_lanes.map((lane) => (
+          <article
+            className={lane.available ? "lane-available" : "lane-unavailable"}
+            key={lane.lane}
+          >
+            {lane.available ? (
+              <CheckCircle2 size={15} aria-hidden="true" />
+            ) : (
+              <XCircle size={15} aria-hidden="true" />
+            )}
+            <div>
+              <strong>{readableScopeName(lane.lane)}</strong>
+              <span>{lane.reason}</span>
+              {(lane.modules.length > 0 || lane.equipment_types.length > 0) && (
+                <small>
+                  {[...lane.modules, ...lane.equipment_types].join(" · ")}
+                </small>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function KnowledgeResults({ result }: { result: KnowledgeLookupResult | null }) {
   if (!result) {
     return (
       <div className="empty-state knowledge-empty-state">
@@ -312,6 +420,10 @@ function KnowledgeResults({ result }: { result: KnowledgeLookupResult | null }) 
         <p>{result.agent_trace[0]?.execution_reason}</p>
         <span>{result.agent_trace[0]?.stop_reason}</span>
       </div>
+      <CausalScopeSummary
+        scope={result.plan.causal_search_scope}
+        observation={result.plan.observation_scope}
+      />
       {result.status === "no_match" ? (
         <div className="knowledge-no-match">
           <SearchX size={24} aria-hidden="true" />
@@ -337,6 +449,28 @@ function KnowledgeResults({ result }: { result: KnowledgeLookupResult | null }) 
                   <span>ranking score {hit.score.toFixed(3)}</span>
                   <code>{hit.evidence_id}</code>
                 </div>
+                {hit.candidate_lanes?.length > 0 && (
+                  <div className="knowledge-hit-scope">
+                    <strong>Candidate lanes</strong>
+                    <div>
+                      {hit.candidate_lanes.map((lane) => (
+                        <span key={lane}>{readableScopeName(lane)}</span>
+                      ))}
+                      {hit.route_distance !== null && (
+                        <span>route distance {hit.route_distance}</span>
+                      )}
+                      {hit.shared_resource_types.map((resource) => (
+                        <span key={resource}>shared {resource}</span>
+                      ))}
+                      {hit.scope_fusion_score !== null && (
+                        <span>scope fusion {hit.scope_fusion_score.toFixed(3)}</span>
+                      )}
+                    </div>
+                    {hit.scope_reasons.map((reason) => (
+                      <small key={reason}>{reason}</small>
+                    ))}
+                  </div>
+                )}
                 <div className="knowledge-score-grid" aria-label="Retrieval score stages">
                   {Object.entries(hit.score_components).map(([name, score]) => (
                     <span key={name}>

@@ -8,7 +8,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from uuid import uuid4
 
-from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
+from yield_rca_core.causal_retrieval import prepare_causal_plan
+from yield_rca_core.causal_scope import (
+    ObservationScope,
+    explicit_module_limit_requested,
+)
+from yield_rca_core.hybrid_retrieval import (
+    KnowledgeLookupRetriever,
+    document_in_scope,
+)
 from yield_rca_core.knowledge_ingestion import KnowledgeIngestionError, KnowledgeStore
 from yield_rca_core.knowledge_models import (
     KnowledgeAgentTrace,
@@ -205,17 +213,7 @@ class DocumentChunkKeywordRetriever:
 
     @staticmethod
     def _document_in_scope(document: KnowledgeDocument, plan: KnowledgeLookupPlan) -> bool:
-        if not _matches_filter(document.module, plan.module):
-            return False
-        if not _matches_filter(document.equipment_type, plan.equipment_type):
-            return False
-        if not _matches_filter(document.operation, plan.operation):
-            return False
-        if not _matches_filter(document.defect_type, plan.defect_type):
-            return False
-        expected_tags = {item.casefold() for item in plan.tags}
-        actual_tags = {item.casefold() for item in document.tags}
-        return expected_tags <= actual_tags
+        return document_in_scope(document, plan)
 
     @staticmethod
     def _metadata_bonus(document: KnowledgeDocument, plan: KnowledgeLookupPlan) -> float:
@@ -234,7 +232,7 @@ class DocumentChunkKeywordRetriever:
 
 
 class KnowledgeLookupService:
-    """Plan one hard-scoped Knowledge Action and return reference-only results."""
+    """Plan one governed Knowledge Action and return reference-only results."""
 
     def __init__(
         self,
@@ -255,6 +253,11 @@ class KnowledgeLookupService:
         operation: str = "",
         defect_type: str = "",
         tags: Iterable[str] = (),
+        source_lot_id: str = "",
+        product_id: str = "",
+        detected_at: str = "",
+        symptom_types: Iterable[str] = (),
+        explicit_module_limit: bool = False,
         top_k: int = 5,
     ) -> KnowledgeLookupResult:
         try:
@@ -270,6 +273,26 @@ class KnowledgeLookupService:
                 "QUESTION_DOCUMENT_TYPE_MISMATCH",
                 f"{kind.value} can only retrieve {kind.document_type}",
             )
+        normalized_tags = tuple(
+            dict.fromkeys(item.strip() for item in tags if item.strip())
+        )
+        normalized_symptoms = tuple(
+            dict.fromkeys(item.strip() for item in symptom_types if item.strip())
+        )
+        observation = ObservationScope(
+            source_lot_id=source_lot_id.strip(),
+            product_id=product_id.strip(),
+            detected_module=module.strip(),
+            detected_operation=operation.strip(),
+            detected_equipment_type=equipment_type.strip(),
+            detected_at=detected_at.strip(),
+            symptom_types=normalized_symptoms or normalized_tags,
+            known_defect_attributes=((defect_type.strip(),) if defect_type.strip() else ()),
+        )
+        validated_module_limit = explicit_module_limit or explicit_module_limit_requested(
+            query,
+            module,
+        )
         plan = KnowledgeLookupPlan(
             intent=KnowledgeLookupIntent.KNOWLEDGE_LOOKUP.value,
             question_kind=kind.value,
@@ -277,15 +300,19 @@ class KnowledgeLookupService:
             allowed_document_types=(kind.document_type,),
             reason=(
                 f"User requested {kind.value}; Python capability mapping restricts "
-                f"the Knowledge Agent to {kind.action} over {kind.document_type}."
+                f"the Knowledge Agent to approved {kind.document_type} while causal "
+                "Scope policy determines whether observed metadata is hard or soft."
             ),
             module=module.strip(),
             equipment_type=equipment_type.strip(),
             operation=operation.strip(),
             defect_type=defect_type.strip(),
-            tags=tuple(dict.fromkeys(item.strip() for item in tags if item.strip())),
+            tags=normalized_tags,
+            observation_scope=observation,
+            explicit_module_limit=validated_module_limit,
             top_k=top_k,
         )
+        plan = prepare_causal_plan(self.retriever, plan)
         lookup_id = f"KLOOK_{uuid4().hex.upper()}"
         hits = self.retriever.retrieve(plan, lookup_id=lookup_id)
         status = "completed" if hits else "no_match"
@@ -307,6 +334,15 @@ class KnowledgeLookupService:
                 "operation": plan.operation,
                 "defect_type": plan.defect_type,
                 "tags": list(plan.tags),
+                "observation_scope": (
+                    plan.observation_scope.to_dict() if plan.observation_scope else None
+                ),
+                "causal_search_scope": (
+                    plan.causal_search_scope.to_dict()
+                    if plan.causal_search_scope
+                    else None
+                ),
+                "explicit_module_limit": plan.explicit_module_limit,
                 "top_k": plan.top_k,
             },
             output_evidence_ids=tuple(item.evidence_id for item in hits),

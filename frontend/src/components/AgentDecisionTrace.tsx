@@ -15,6 +15,7 @@ import {
   selectAgentTrace,
 } from "../selectors";
 import type {
+  AgentFinding,
   AgentTraceEvaluationStatus,
   AgentTraceNodeViewModel,
   InvestigationQuestion,
@@ -121,6 +122,144 @@ function formatValue(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringValues(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter(
+        (item): item is string =>
+          typeof item === "string" && item.trim().length > 0,
+      )
+    : [];
+}
+
+function compactRecord(value: unknown, emptyText: string): string {
+  const record = recordValue(value);
+  if (!record) return emptyText;
+  const facts = Object.entries(record).flatMap(([key, item]) => {
+    if (typeof item === "string" && item.trim()) {
+      return [`${formatTraceLabel(key)}=${item}`];
+    }
+    const values = stringValues(item);
+    return values.map((entry) => `${formatTraceLabel(key)}=${entry}`);
+  });
+  return facts.length > 0 ? facts.join(" · ") : emptyText;
+}
+
+function KnowledgeCausalScopeTrace({ findings }: { findings: AgentFinding[] }) {
+  const finding = findings.find(
+    (item) =>
+      item.agent === "knowledge" &&
+      recordValue(item.details.causal_search_scope) !== null,
+  );
+  if (!finding) return null;
+  const scope = recordValue(finding.details.causal_search_scope);
+  if (!scope) return null;
+  const observation = finding.details.observation_scope;
+  const lanes: Array<Record<string, unknown> & { lane: string }> = Array.isArray(
+    scope.expansion_lanes,
+  )
+    ? scope.expansion_lanes.flatMap((item) => {
+        const lane = recordValue(item);
+        const name = lane && typeof lane.lane === "string" ? lane.lane : null;
+        return name && lane ? [{ ...lane, lane: name }] : [];
+      })
+    : [];
+  const selectedLanes = stringValues(finding.details.candidate_lanes);
+  const scopeReasons = stringValues(finding.details.scope_reasons);
+  const baseHardConstraints = compactRecord(
+    scope.hard_constraints,
+    "Governance constraints only",
+  );
+  const timeBoundary =
+    typeof scope.time_boundary === "string" && scope.time_boundary
+      ? `Created At<=${scope.time_boundary}`
+      : null;
+  const explicitLimits = stringValues(scope.explicit_user_limits);
+  const hardConstraints = [
+    ...(baseHardConstraints === "Governance constraints only"
+      ? []
+      : [baseHardConstraints]),
+    ...explicitLimits,
+    ...(timeBoundary ? [timeBoundary] : []),
+  ];
+  return (
+    <section className="agent-trace-causal-scope" aria-label="Knowledge causal scope">
+      <div className="agent-trace-causal-heading">
+        <DatabaseZap size={15} aria-hidden="true" />
+        <div>
+          <span>Python-owned Scope provenance</span>
+          <strong>{formatTraceLabel(String(scope.mode ?? "causal search"))}</strong>
+        </div>
+      </div>
+      <dl>
+        <div>
+          <dt>Observed at</dt>
+          <dd>{compactRecord(observation, "No observation context supplied")}</dd>
+        </div>
+        <div>
+          <dt>Search lanes considered</dt>
+          <dd>
+            {lanes.length > 0
+              ? lanes
+                  .map(
+                    (lane) =>
+                      `${formatTraceLabel(lane.lane)} (${
+                        lane.available === true ? "available" : "unavailable"
+                      })`,
+                  )
+                  .join(" · ")
+              : "No causal lanes recorded"}
+          </dd>
+        </div>
+        <div>
+          <dt>Hard constraints</dt>
+          <dd>
+            {hardConstraints.length > 0
+              ? hardConstraints.join(" · ")
+              : "Governance constraints only"}
+          </dd>
+        </div>
+        <div>
+          <dt>Soft hints</dt>
+          <dd>{compactRecord(scope.soft_hints, "None")}</dd>
+        </div>
+        <div>
+          <dt>Selected candidate lane</dt>
+          <dd>
+            {selectedLanes.length > 0
+              ? selectedLanes.map(formatTraceLabel).join(" · ")
+              : "No Knowledge candidate selected"}
+          </dd>
+        </div>
+        <div>
+          <dt>Scope reason</dt>
+          <dd>
+            {scopeReasons.length > 0
+              ? scopeReasons.join(" · ")
+              : String(scope.scope_reason ?? "No reason recorded")}
+          </dd>
+        </div>
+      </dl>
+      {lanes
+        .filter((lane) => lane.available !== true && typeof lane.reason === "string")
+        .map((lane) => (
+          <p key={lane.lane}>
+            <strong>{formatTraceLabel(lane.lane)} unavailable:</strong>{" "}
+            {String(lane.reason)}
+          </p>
+        ))}
+      <small>
+        Candidate provenance and retrieval relevance do not establish current-Lot root cause.
+      </small>
+    </section>
+  );
 }
 
 function originLabel(origin: AgentTraceNodeViewModel["origin"]): string {
@@ -844,6 +983,8 @@ function ActionNode({
             <p>{observation}</p>
           </div>
         </div>
+
+        <KnowledgeCausalScopeTrace findings={node.findings} />
 
         {node.specialistTraces
           .filter((trace) => trace.engineeringInterpretation)

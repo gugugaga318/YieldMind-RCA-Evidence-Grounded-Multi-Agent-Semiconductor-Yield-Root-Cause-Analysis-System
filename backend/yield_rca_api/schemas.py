@@ -499,7 +499,7 @@ class MemoryCandidateResponse(APIModel):
 
 
 class KnowledgeLookupRequest(APIModel):
-    """One independent, hard-scoped Knowledge Agent query."""
+    """One independent governed Knowledge Agent query."""
 
     query: str = Field(min_length=1, max_length=4000)
     question_kind: Literal[
@@ -513,6 +513,11 @@ class KnowledgeLookupRequest(APIModel):
     operation: str = Field(default="", max_length=200)
     defect_type: str = Field(default="", max_length=200)
     tags: list[str] = Field(default_factory=list, max_length=20)
+    source_lot_id: str = Field(default="", max_length=100)
+    product_id: str = Field(default="", max_length=100)
+    detected_at: str = Field(default="", max_length=100)
+    symptom_types: list[str] = Field(default_factory=list, max_length=20)
+    explicit_module_limit: bool = False
     top_k: int = Field(default=5, ge=1, le=20)
 
     @field_validator("query")
@@ -523,7 +528,15 @@ class KnowledgeLookupRequest(APIModel):
             raise ValueError("lookup query must not be blank")
         return stripped
 
-    @field_validator("module", "equipment_type", "operation", "defect_type")
+    @field_validator(
+        "module",
+        "equipment_type",
+        "operation",
+        "defect_type",
+        "source_lot_id",
+        "product_id",
+        "detected_at",
+    )
     @classmethod
     def strip_lookup_filter(cls, value: str) -> str:
         return value.strip()
@@ -534,6 +547,14 @@ class KnowledgeLookupRequest(APIModel):
         normalized = list(dict.fromkeys(item.strip() for item in value if item.strip()))
         if any(len(item) > 100 for item in normalized):
             raise ValueError("knowledge tags must not exceed 100 characters")
+        return normalized
+
+    @field_validator("symptom_types")
+    @classmethod
+    def normalize_symptom_types(cls, value: list[str]) -> list[str]:
+        normalized = list(dict.fromkeys(item.strip() for item in value if item.strip()))
+        if any(len(item) > 100 for item in normalized):
+            raise ValueError("symptom types must not exceed 100 characters")
         return normalized
 
 
@@ -570,6 +591,9 @@ class KnowledgeLookupPlanResponse(APIModel):
     operation: str
     defect_type: str
     tags: list[str]
+    observation_scope: dict[str, Any] | None
+    causal_search_scope: dict[str, Any] | None
+    explicit_module_limit: bool
     top_k: int
 
 
@@ -585,6 +609,11 @@ class KnowledgeLookupHitResponse(APIModel):
     score_components: dict[str, float]
     calibrated_relevance: float | None
     source_confidence: float | None
+    candidate_lanes: list[str]
+    scope_reasons: list[str]
+    route_distance: int | None
+    shared_resource_types: list[str]
+    scope_fusion_score: float | None
 
 
 class KnowledgeAgentTraceResponse(APIModel):

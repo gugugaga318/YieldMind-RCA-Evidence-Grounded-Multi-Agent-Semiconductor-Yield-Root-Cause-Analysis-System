@@ -11,6 +11,7 @@ import re
 from collections import Counter, defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from hashlib import sha256
 from importlib import import_module
 from math import log, sqrt
@@ -89,6 +90,21 @@ def document_in_scope(document: KnowledgeDocument, plan: KnowledgeLookupPlan) ->
         return False
     if document.document_type not in plan.allowed_document_types:
         return False
+    time_boundary = (
+        plan.causal_search_scope.time_boundary
+        if plan.causal_search_scope is not None
+        else ""
+    )
+    if time_boundary:
+        try:
+            created_at = datetime.fromisoformat(
+                document.created_at.replace("Z", "+00:00")
+            )
+            boundary = datetime.fromisoformat(time_boundary.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if created_at.tzinfo is None or boundary.tzinfo is None or created_at > boundary:
+            return False
     for actual, expected in (
         (document.module, plan.module),
         (document.equipment_type, plan.equipment_type),

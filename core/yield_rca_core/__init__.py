@@ -2,6 +2,23 @@
 
 from __future__ import annotations
 
+from yield_rca_core.causal_retrieval import (
+    CausalLaneKnowledgeRetriever,
+    prepare_causal_plan,
+)
+from yield_rca_core.causal_scope import (
+    CAUSAL_SCOPE_POLICY_REGISTRY,
+    CausalLane,
+    CausalLaneContext,
+    CausalScopeMode,
+    CausalScopePolicy,
+    CausalSearchScope,
+    ObservationScope,
+    RepositoryCausalContextProvider,
+    ScopeFilters,
+    build_causal_search_scope,
+    explicit_module_limit_requested,
+)
 from yield_rca_core.evidence_builder import EvidenceBuilder, LegacyEvidenceAdapter
 from yield_rca_core.evidence_collection import EvidenceCollection
 from yield_rca_core.evidence_models import (
@@ -203,6 +220,13 @@ __all__ = [
     "DEFAULT_PLANNABLE_AGENTS",
     "DecisionEvaluation",
     "CapabilityNotice",
+    "CAUSAL_SCOPE_POLICY_REGISTRY",
+    "CausalLane",
+    "CausalLaneContext",
+    "CausalLaneKnowledgeRetriever",
+    "CausalScopeMode",
+    "CausalScopePolicy",
+    "CausalSearchScope",
     "DecisionType",
     "EVIDENCE_SCHEMA_VERSION",
     "Evidence",
@@ -261,6 +285,7 @@ __all__ = [
     "MemoryCandidate",
     "MemoryCandidateStatus",
     "ModelValidationError",
+    "ObservationScope",
     "PlannerAgent",
     "PlannerAttemptDiagnostic",
     "PlannerAttemptOutcome",
@@ -312,11 +337,13 @@ __all__ = [
     "Report",
     "ReportGenerationError",
     "ReportGenerator",
+    "RepositoryCausalContextProvider",
     "ScoreCalibrationArtifact",
     "SentenceTransformerRerankerBackend",
     "fit_platt_score_calibration",
     "PlattScoreCalibrator",
     "RunEvaluation",
+    "ScopeFilters",
     "SCHEMA_VERSION",
     "Severity",
     "SentenceTransformerEmbeddingBackend",
@@ -340,6 +367,8 @@ __all__ = [
     "build_postgres_workflow",
     "build_workflow",
     "build_knowledge_retriever",
+    "build_causal_search_scope",
+    "explicit_module_limit_requested",
     "calculate_imr",
     "calculate_p_chart",
     "calculate_xbar",
@@ -347,6 +376,7 @@ __all__ = [
     "review_question_updates",
     "review_qwen_planner_output",
     "reciprocal_rank_fusion",
+    "prepare_causal_plan",
     "__version__",
 ]
 

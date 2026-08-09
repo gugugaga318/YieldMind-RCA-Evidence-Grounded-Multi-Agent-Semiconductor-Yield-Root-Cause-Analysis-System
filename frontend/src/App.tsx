@@ -68,6 +68,8 @@ function App() {
   const [knowledgeQuestionKind, setKnowledgeQuestionKind] =
     useState<KnowledgeQuestionKind>("historical_match");
   const [knowledgeModule, setKnowledgeModule] = useState("Cu CMP");
+  const [knowledgeExplicitModuleLimit, setKnowledgeExplicitModuleLimit] =
+    useState(false);
   const [lotId, setLotId] = useState("LOT_A_001");
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
   const [job, setJob] = useState<RCAJobCreated | null>(null);
@@ -116,6 +118,7 @@ function App() {
           query: knowledgeQuery,
           question_kind: knowledgeQuestionKind,
           module: knowledgeModule,
+          explicit_module_limit: knowledgeExplicitModuleLimit,
           top_k: 5,
         });
         setKnowledgeResult(result);
@@ -182,6 +185,8 @@ function App() {
           onKnowledgeQuestionKindChange={setKnowledgeQuestionKind}
           knowledgeModule={knowledgeModule}
           onKnowledgeModuleChange={setKnowledgeModule}
+          knowledgeExplicitModuleLimit={knowledgeExplicitModuleLimit}
+          onKnowledgeExplicitModuleLimitChange={setKnowledgeExplicitModuleLimit}
           onSubmit={runInvestigation}
           loading={loading}
           currentJob={workspaceMode === "knowledge" ? null : job}

@@ -660,6 +660,78 @@ describe("AgentDecisionTrace server rendering", () => {
     );
   });
 
+  it("shows Python-owned causal Scope provenance on a Knowledge action", () => {
+    const state = populatedTraceState();
+    const knowledgeAction = action(
+      "ACTION_KNOWLEDGE",
+      "validate_historical_case",
+      "knowledge",
+    );
+    state.planner_decisions = [
+      actDecision("DECISION_KNOWLEDGE", knowledgeAction),
+      state.planner_decisions?.[1] as PlannerDecision,
+      state.planner_decisions?.[2] as PlannerDecision,
+    ];
+    state.action_history = [
+      actionRecord(
+        knowledgeAction,
+        "FINDING_KNOWLEDGE",
+        "The cross-Module candidate remained historical context only.",
+      ),
+      state.action_history?.[1] as ActionRecord,
+    ];
+    state.findings = [
+      {
+        finding_id: "FINDING_KNOWLEDGE",
+        agent: "knowledge",
+        finding_kind: "knowledge_discovery",
+        summary: "An upstream historical candidate was retrieved.",
+        confidence: 0.72,
+        evidence_ids: ["EV_DEFECT_01"],
+        details: {
+          observation_scope: {
+            source_lot_id: "LOT_A_001",
+            detected_module: "Cu CMP",
+            symptom_types: ["scratch"],
+          },
+          causal_search_scope: {
+            mode: "causal_wide",
+            hard_constraints: {},
+            soft_hints: { module: "Cu CMP", tags: ["scratch"] },
+            expansion_lanes: [
+              {
+                lane: "upstream_route",
+                available: true,
+                reason: "Earlier source-Lot route operations are available.",
+              },
+              {
+                lane: "shared_resource",
+                available: false,
+                reason: "Configured shared-resource context is unavailable.",
+              },
+            ],
+            scope_reason: "Observed Module remains a soft hint.",
+          },
+          candidate_lanes: ["upstream_route", "global_semantic"],
+          scope_reasons: ["Recovered through an upstream route candidate."],
+        },
+        warnings: [],
+      },
+      state.findings[1],
+    ];
+
+    const html = renderToStaticMarkup(<AgentDecisionTrace state={state} />);
+
+    expect(html).toContain("Python-owned Scope provenance");
+    expect(html).toContain("Observed at");
+    expect(html).toContain("Detected Module=Cu CMP");
+    expect(html).toContain("Upstream Route (available)");
+    expect(html).toContain("Shared Resource (unavailable)");
+    expect(html).toContain("Selected candidate lane");
+    expect(html).toContain("Upstream Route · Global Semantic");
+    expect(html).toContain("do not establish current-Lot root cause");
+  });
+
   it("renders a completed legacy autonomous snapshot without evaluation neutrally", () => {
     const state = populatedTraceState();
     state.run_evaluation = null;

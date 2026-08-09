@@ -123,6 +123,22 @@ without Recall@5, hard-negative, no-answer, or approval-leakage regression.
 Without a model-matched calibration artifact, `calibrated_relevance` is
 deliberately `null`; the service does not label a sigmoid as calibration.
 
+Evaluation V2 causal Scope is a separate, compatibility-safe switch:
+
+```text
+YIELD_RCA_CAUSAL_SCOPE_ENABLED=1
+YIELD_RCA_CAUSAL_SCOPE_CANDIDATE_BUDGET=20
+YIELD_RCA_CAUSAL_SCOPE_LANE_MINIMUM=1
+```
+
+The default is `0`, which preserves the existing metadata-filter behavior. When
+enabled, historical RCA retrieval treats the observed Module as a ranking hint
+and creates bounded candidates from `same_step`, `upstream_route`,
+`shared_resource`, and `global_semantic`. A user-selected explicit Module limit
+and the existing approval, document-type, time, and permission boundaries remain
+hard constraints. Missing route or resource context is reported as unavailable;
+it is never inferred by the LLM.
+
 Migration `005_runtime_resilience` adds durable `rca_job_state` storage. In
 PostgreSQL mode, job state and reports therefore survive backend restarts and
 are shared by multiple API workers. The backend readiness probe checks this

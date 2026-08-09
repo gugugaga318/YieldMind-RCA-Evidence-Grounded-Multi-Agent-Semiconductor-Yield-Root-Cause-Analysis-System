@@ -82,6 +82,13 @@ Evidence that supports the overall Goal but does not answer this specific Questi
 cannot close it. If the proposed answer says the requested records or data are
 missing, absent, not present, or unavailable, use status unavailable with answer
 null instead of status closed.
+
+When a Knowledge Finding contains `observation_scope`, `causal_search_scope`, or
+`candidate_lanes`, treat them as Python-owned provenance. The observed Module is not
+the proven causal Module. A candidate lane only explains how a reference entered the
+bounded candidate set; it is not current-Lot causal Evidence. You may choose a legal
+follow-up Action or explain the candidate, but you may not change hard constraints,
+invent an unavailable lane, or use Knowledge relevance as root-cause confidence.
 Question updates are terminal deltas: status must be closed or unavailable, never
 open. Do not copy or rewrite goal_id, question, rationale, or scope. When evidence
 only provides partial progress, return question_updates=[] and preserve that

@@ -3025,6 +3025,28 @@ class RetrieveSimilarCaseTool(BaseTool):
             raise ModelValidationError("query must be a non-empty string")
         module = str(tool_input.parameters.get("module", "")).lower()
         equipment_type = str(tool_input.parameters.get("equipment_type", "")).lower()
+        source_lot_id = str(tool_input.parameters.get("source_lot_id", "")).strip().upper()
+        product_id = str(tool_input.parameters.get("product_id", "")).strip()
+        detected_operation = str(
+            tool_input.parameters.get("detected_operation", "")
+        ).strip()
+        detected_equipment_id = str(
+            tool_input.parameters.get("detected_equipment_id", "")
+        ).strip()
+        detected_at = str(tool_input.parameters.get("detected_at", "")).strip()
+        raw_symptom_types = tool_input.parameters.get("symptom_types", [])
+        if not isinstance(raw_symptom_types, list):
+            raise ModelValidationError("symptom_types must be a list")
+        symptom_types = tuple(
+            dict.fromkeys(
+                str(item).strip() for item in raw_symptom_types if str(item).strip()
+            )
+        )
+        explicit_module_limit = tool_input.parameters.get(
+            "explicit_module_limit", False
+        )
+        if not isinstance(explicit_module_limit, bool):
+            raise ModelValidationError("explicit_module_limit must be a boolean")
         match_evidence_id = str(
             tool_input.parameters.get("match_evidence_id", "EV_KNOWLEDGE_MATCH")
         )
@@ -3036,7 +3058,28 @@ class RetrieveSimilarCaseTool(BaseTool):
         )
 
         retrieval_result = self.retriever.retrieve(
-            RetrievalQuery(query=query, module=module, equipment_type=equipment_type)
+            RetrievalQuery(
+                query=query,
+                module=module,
+                equipment_type=equipment_type,
+                source_lot_id=source_lot_id,
+                product_id=product_id,
+                detected_operation=detected_operation,
+                detected_equipment_id=detected_equipment_id,
+                detected_at=detected_at,
+                symptom_types=symptom_types,
+                explicit_module_limit=explicit_module_limit,
+            )
+        )
+        observation_scope = (
+            retrieval_result.observation_scope.to_dict()
+            if retrieval_result.observation_scope
+            else None
+        )
+        causal_search_scope = (
+            retrieval_result.causal_search_scope.to_dict()
+            if retrieval_result.causal_search_scope
+            else None
         )
         cases = [hit.to_legacy_case() for hit in retrieval_result.hits]
         if not cases:
@@ -3073,6 +3116,13 @@ class RetrieveSimilarCaseTool(BaseTool):
                     "calibrated_relevance": None,
                     "source_confidence": None,
                     "matched_chunk_ids": [],
+                    "candidate_lanes": [],
+                    "scope_reasons": [],
+                    "route_distance": None,
+                    "shared_resource_types": [],
+                    "scope_fusion_score": None,
+                    "observation_scope": observation_scope,
+                    "causal_search_scope": causal_search_scope,
                 },
                 [missing_evidence],
                 [
@@ -3144,6 +3194,13 @@ class RetrieveSimilarCaseTool(BaseTool):
                     "calibrated_relevance": best_hit.calibrated_relevance,
                     "source_confidence": best_hit.source_confidence,
                     "matched_chunk_ids": list(best_hit.matched_chunk_ids),
+                    "candidate_lanes": list(best_hit.candidate_lanes),
+                    "scope_reasons": list(best_hit.scope_reasons),
+                    "route_distance": best_hit.route_distance,
+                    "shared_resource_types": list(best_hit.shared_resource_types),
+                    "scope_fusion_score": best_hit.scope_fusion_score,
+                    "observation_scope": observation_scope,
+                    "causal_search_scope": causal_search_scope,
                 },
             )
         ]
@@ -3159,6 +3216,13 @@ class RetrieveSimilarCaseTool(BaseTool):
                 "calibrated_relevance": best_hit.calibrated_relevance,
                 "source_confidence": best_hit.source_confidence,
                 "matched_chunk_ids": list(best_hit.matched_chunk_ids),
+                "candidate_lanes": list(best_hit.candidate_lanes),
+                "scope_reasons": list(best_hit.scope_reasons),
+                "route_distance": best_hit.route_distance,
+                "shared_resource_types": list(best_hit.shared_resource_types),
+                "scope_fusion_score": best_hit.scope_fusion_score,
+                "observation_scope": observation_scope,
+                "causal_search_scope": causal_search_scope,
             },
             evidence,
         )

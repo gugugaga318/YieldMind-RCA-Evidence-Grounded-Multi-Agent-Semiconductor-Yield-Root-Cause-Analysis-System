@@ -611,7 +611,62 @@ export interface KnowledgeLookupRequest {
   operation?: string;
   defect_type?: string;
   tags?: string[];
+  source_lot_id?: string;
+  product_id?: string;
+  detected_at?: string;
+  symptom_types?: string[];
+  explicit_module_limit?: boolean;
   top_k?: number;
+}
+
+export type CausalLane =
+  | "same_step"
+  | "upstream_route"
+  | "shared_resource"
+  | "global_semantic";
+
+export interface ScopeFilters {
+  module: string;
+  equipment_type: string;
+  operation: string;
+  defect_type: string;
+  tags: string[];
+}
+
+export interface ObservationScope {
+  source_lot_id: string;
+  product_id: string;
+  detected_module: string;
+  detected_operation: string;
+  detected_equipment_id: string;
+  detected_equipment_type: string;
+  detected_at: string;
+  symptom_types: string[];
+  known_measurements: string[];
+  known_defect_attributes: string[];
+}
+
+export interface CausalLaneContext {
+  lane: CausalLane;
+  available: boolean;
+  reason: string;
+  modules: string[];
+  equipment_types: string[];
+  route_distance: number | null;
+  shared_resource_types: string[];
+}
+
+export interface CausalSearchScope {
+  mode: "legacy_hard" | "causal_wide" | "explicit_hard";
+  hard_constraints: ScopeFilters;
+  soft_hints: ScopeFilters;
+  expansion_lanes: CausalLaneContext[];
+  available_lanes: CausalLane[];
+  explicit_user_limits: string[];
+  time_boundary: string;
+  candidate_budget: number;
+  lane_minimum: number;
+  scope_reason: string;
 }
 
 export interface KnowledgeDocument {
@@ -649,6 +704,11 @@ export interface KnowledgeLookupHit {
   >;
   calibrated_relevance: number | null;
   source_confidence: number | null;
+  candidate_lanes: CausalLane[];
+  scope_reasons: string[];
+  route_distance: number | null;
+  shared_resource_types: string[];
+  scope_fusion_score: number | null;
 }
 
 export interface KnowledgeAgentTrace {
@@ -677,6 +737,9 @@ export interface KnowledgeLookupResult {
     operation: string;
     defect_type: string;
     tags: string[];
+    observation_scope: ObservationScope | null;
+    causal_search_scope: CausalSearchScope | null;
+    explicit_module_limit: boolean;
     top_k: number;
   };
   hits: KnowledgeLookupHit[];
