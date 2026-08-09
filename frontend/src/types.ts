@@ -647,6 +647,8 @@ export interface KnowledgeLookupHit {
   score_components: Partial<
     Record<"keyword" | "lexical" | "vector" | "fusion" | "reranker", number>
   >;
+  calibrated_relevance: number | null;
+  source_confidence: number | null;
 }
 
 export interface KnowledgeAgentTrace {

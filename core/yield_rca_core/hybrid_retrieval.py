@@ -116,7 +116,7 @@ def _metadata_bonus(document: KnowledgeDocument, plan: KnowledgeLookupPlan) -> f
     return min(0.12, matched * 0.025 + len(plan.tags) * 0.01)
 
 
-def _searchable_text(document: KnowledgeDocument, chunk: KnowledgeChunk) -> str:
+def knowledge_chunk_text(document: KnowledgeDocument, chunk: KnowledgeChunk) -> str:
     return " ".join(
         (
             document.title,
@@ -215,7 +215,7 @@ class PythonBM25CandidateSource:
             ):
                 continue
             frequencies = Counter(
-                tokenize_knowledge_text(_searchable_text(documents[chunk.document_id], chunk))
+                tokenize_knowledge_text(knowledge_chunk_text(documents[chunk.document_id], chunk))
             )
             rows.append((documents[chunk.document_id], chunk, frequencies))
             document_frequency.update(set(frequencies))
@@ -386,7 +386,7 @@ class PostgresBM25CandidateSource:
                     matched_tokens=tuple(
                         sorted(
                             set(query_terms)
-                            & set(tokenize_knowledge_text(_searchable_text(document, chunk)))
+                            & set(tokenize_knowledge_text(knowledge_chunk_text(document, chunk)))
                         )
                     ),
                 )
@@ -592,7 +592,7 @@ class ExactVectorCandidateSource:
         missing: list[tuple[KnowledgeDocument, KnowledgeChunk, str]] = []
         vectors: dict[str, tuple[float, ...]] = {}
         for document, chunk in rows:
-            text = _searchable_text(document, chunk)
+            text = knowledge_chunk_text(document, chunk)
             fingerprint = sha256(text.encode("utf-8")).hexdigest()
             cached = self._embedding_cache.get(chunk.chunk_id)
             if cached is not None and cached[0] == fingerprint:
@@ -624,7 +624,7 @@ class ExactVectorCandidateSource:
                     matched_tokens=tuple(
                         sorted(
                             query_terms
-                            & set(tokenize_knowledge_text(_searchable_text(document, chunk)))
+                            & set(tokenize_knowledge_text(knowledge_chunk_text(document, chunk)))
                         )
                     ),
                 )
@@ -743,6 +743,7 @@ def _aggregate_hits(
                 relevance_reason=explanation,
                 retrieval_strategy=strategy,
                 score_components=components,
+                source_confidence=best.document.source_confidence,
             )
         )
     return tuple(hits)
@@ -773,7 +774,7 @@ class BM25DocumentChunkRetriever:
 class VectorDocumentChunkRetriever:
     """Logical-asset Retriever using exact cosine search."""
 
-    def __init__(self, source: ExactVectorCandidateSource, *, candidate_k: int = 80) -> None:
+    def __init__(self, source: ChunkCandidateSource, *, candidate_k: int = 80) -> None:
         self.source = source
         self.candidate_k = candidate_k
 
@@ -798,7 +799,7 @@ class HybridDocumentChunkRetriever:
     def __init__(
         self,
         lexical_source: ChunkCandidateSource,
-        vector_source: ExactVectorCandidateSource,
+        vector_source: ChunkCandidateSource,
         *,
         candidate_k: int = 80,
         rrf_k: int = 60,

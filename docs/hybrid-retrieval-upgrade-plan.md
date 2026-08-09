@@ -58,6 +58,8 @@ Status: implemented in Long Task 3. See `docs/hybrid-retrieval.md`.
 
 ### 4. pgvector, Reranker, Agent Cutover, and Final Evaluation
 
+Status: implemented and evaluated. See `docs/pgvector-reranker-cutover.md`.
+
 - pgvector storage and migrations without premature IVFFlat tuning.
 - Feature-flagged multilingual Cross-Encoder reranker.
 - Separate lexical, vector, fusion, reranker, calibrated relevance, and source

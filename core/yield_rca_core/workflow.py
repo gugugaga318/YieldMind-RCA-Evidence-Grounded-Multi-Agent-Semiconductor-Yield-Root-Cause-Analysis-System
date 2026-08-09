@@ -8,9 +8,14 @@ from pathlib import Path
 from time import perf_counter
 
 from yield_rca_core.decision_evaluation import evaluate as evaluate_agent_decisions
+from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
 from yield_rca_core.improvement_agent import ImprovementAgent
 from yield_rca_core.intent_planner import QwenIntentPlanner, QwenIntentPlannerError
 from yield_rca_core.investigation_models import OrchestrationMode
+from yield_rca_core.knowledge_retrieval import (
+    KnowledgeAssetRepository,
+    TypedKnowledgeRetrieverAdapter,
+)
 from yield_rca_core.llm_gateway import (
     LLMCallError,
     LLMClient,
@@ -276,6 +281,8 @@ def build_workflow(
     llm_settings: LLMSettings | None = None,
     llm_client: LLMClient | None = None,
     orchestration_mode: str | None = None,
+    knowledge_retriever: KnowledgeLookupRetriever | None = None,
+    knowledge_asset_repository: KnowledgeAssetRepository | None = None,
 ) -> PurePythonRCAWorkflow:
     """Assemble Tools, Agents, Supervisor, and Planner around a Repository."""
 
@@ -307,7 +314,22 @@ def build_workflow(
     find_ooc_events_tool = FindOocEventsTool(repository)
     perform_basic_spc_analysis_tool = PerformBasicSpcAnalysisTool(repository)
     summarize_defect_wat_tool = SummarizeDefectWatTool(repository)
-    retrieve_similar_case_tool = RetrieveSimilarCaseTool(repository)
+    retrieve_similar_case_tool = RetrieveSimilarCaseTool(
+        repository,
+        retriever=(
+            TypedKnowledgeRetrieverAdapter(
+                repository,
+                knowledge_retriever,
+                additional_asset_repositories=(
+                    (knowledge_asset_repository,)
+                    if knowledge_asset_repository is not None
+                    else ()
+                ),
+            )
+            if knowledge_retriever is not None
+            else None
+        ),
+    )
     advanced_spc_tool = (
         AnalyzeSpcEvidenceTool(repository) if repository.rows("spc_baseline_profile") else None
     )
@@ -392,6 +414,8 @@ def build_csv_workflow(
     llm_settings: LLMSettings | None = None,
     llm_client: LLMClient | None = None,
     orchestration_mode: str | None = None,
+    knowledge_retriever: KnowledgeLookupRetriever | None = None,
+    knowledge_asset_repository: KnowledgeAssetRepository | None = None,
 ) -> PurePythonRCAWorkflow:
     """Build a workflow over an existing offline seed dataset."""
 
@@ -400,6 +424,8 @@ def build_csv_workflow(
         llm_settings=llm_settings,
         llm_client=llm_client,
         orchestration_mode=orchestration_mode,
+        knowledge_retriever=knowledge_retriever,
+        knowledge_asset_repository=knowledge_asset_repository,
     )
 
 
@@ -409,6 +435,8 @@ def build_postgres_workflow(
     llm_settings: LLMSettings | None = None,
     llm_client: LLMClient | None = None,
     orchestration_mode: str | None = None,
+    knowledge_retriever: KnowledgeLookupRetriever | None = None,
+    knowledge_asset_repository: KnowledgeAssetRepository | None = None,
 ) -> PurePythonRCAWorkflow:
     """Build a workflow over a previously seeded PostgreSQL database."""
 
@@ -417,4 +445,6 @@ def build_postgres_workflow(
         llm_settings=llm_settings,
         llm_client=llm_client,
         orchestration_mode=orchestration_mode,
+        knowledge_retriever=knowledge_retriever,
+        knowledge_asset_repository=knowledge_asset_repository,
     )

@@ -333,8 +333,33 @@ function KnowledgeResults({ result }: { result: KnowledgeLookupResult | null }) 
                 <div className="knowledge-hit-metadata">
                   <span>{hit.document.module || "All modules"}</span>
                   {hit.document.equipment_type && <span>{hit.document.equipment_type}</span>}
-                  <span>keyword score {hit.score.toFixed(3)}</span>
+                  <span>strategy {hit.retrieval_strategy}</span>
+                  <span>ranking score {hit.score.toFixed(3)}</span>
                   <code>{hit.evidence_id}</code>
+                </div>
+                <div className="knowledge-score-grid" aria-label="Retrieval score stages">
+                  {Object.entries(hit.score_components).map(([name, score]) => (
+                    <span key={name}>
+                      <b>{name}</b>
+                      {score?.toFixed(3)}
+                    </span>
+                  ))}
+                  <span>
+                    <b>calibrated relevance</b>
+                    {hit.calibrated_relevance === null
+                      ? "not calibrated"
+                      : hit.calibrated_relevance.toFixed(3)}
+                  </span>
+                  <span>
+                    <b>source confidence</b>
+                    {hit.source_confidence === null
+                      ? "unknown"
+                      : hit.source_confidence.toFixed(3)}
+                  </span>
+                </div>
+                <div className="knowledge-score-boundary">
+                  Retrieval relevance and source governance only — neither value is RCA
+                  conclusion confidence.
                 </div>
                 <small>{hit.relevance_reason}</small>
               </div>

@@ -235,6 +235,47 @@ class RetrievalGroundTruth:
                         f"unknown hard-negative asset {asset_id} for {query.query_id}"
                     )
 
+    def subset(self, query_ids: set[str]) -> RetrievalGroundTruth:
+        """Create an independently validated fixed evaluation partition."""
+
+        known_ids = {query.query_id for query in self.queries}
+        unknown = query_ids - known_ids
+        if unknown:
+            raise RetrievalEvaluationError(
+                f"retrieval split contains unknown query IDs: {sorted(unknown)}"
+            )
+        if not query_ids:
+            raise RetrievalEvaluationError("retrieval split must not be empty")
+        return RetrievalGroundTruth.from_dict(
+            {
+                "schema_version": self.schema_version,
+                "corpus_version": self.corpus_version,
+                "relevance_threshold": self.relevance_threshold,
+                "queries": [
+                    {
+                        "query_id": query.query_id,
+                        "text": query.text,
+                        "language": query.language,
+                        "question_kind": query.question_kind,
+                        "module": query.module,
+                        "equipment_type": query.equipment_type,
+                        "cross_language": query.cross_language,
+                        "no_answer": query.no_answer,
+                        "hard_negative_asset_ids": list(query.hard_negative_asset_ids),
+                    }
+                    for query in self.queries
+                    if query.query_id in query_ids
+                ],
+                "qrels": {
+                    query_id: [
+                        {"asset_id": item.asset_id, "relevance": item.relevance}
+                        for item in self.qrels[query_id]
+                    ]
+                    for query_id in query_ids
+                },
+            }
+        )
+
 
 @dataclass(frozen=True)
 class RankedRetrievalAsset:
@@ -741,9 +782,9 @@ def render_retrieval_ablation_report(ablation: dict[str, Any]) -> str:
             "ranks with Reciprocal Rank Fusion; it does not ask an LLM to decide relevance. "
             "Document type, approval visibility, metadata scope, and qrels remain Python-owned.",
             "",
-            "The exact-vector implementation is intentional for this small corpus. pgvector "
-            "storage, Cross-Encoder reranking, online Agent cutover, and calibrated relevance "
-            "remain Long Task 4 work.",
+            "The exact-vector implementation is intentional for this small corpus. Long Task "
+            "4 adds pgvector persistence, evaluates Cross-Encoder reranking, and applies the "
+            "online Agent cutover behind measured Feature Flags.",
             "",
             "The Legacy Case Keyword row is a compatibility baseline, not a fair algorithm-only "
             "comparison because it cannot retrieve independent SOP or Engineering Note assets. "

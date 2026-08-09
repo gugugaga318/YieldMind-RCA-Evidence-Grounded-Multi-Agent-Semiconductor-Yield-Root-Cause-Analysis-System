@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
 from yield_rca_core.knowledge_ingestion import (
     KnowledgeCandidateNotFoundError,
     KnowledgeIngestionConflictError,
@@ -21,6 +22,8 @@ from yield_rca_core.knowledge_ingestion import (
     KnowledgeStore,
 )
 from yield_rca_core.knowledge_lookup import KnowledgeLookupService
+from yield_rca_core.knowledge_retrieval import KnowledgeAssetRepository
+from yield_rca_core.knowledge_runtime import build_knowledge_retriever
 from yield_rca_core.knowledge_store import (
     InMemoryKnowledgeStore,
     PostgresKnowledgeStore,
@@ -29,6 +32,7 @@ from yield_rca_core.knowledge_store import (
 from yield_rca_core.llm_gateway import LLMCallError, LLMOutputValidationError
 from yield_rca_core.models import RCAJob, RCAState, TaskStatus
 from yield_rca_core.question_capability import QUESTION_CAPABILITY_REGISTRY
+from yield_rca_core.repositories import CsvFabRepository
 from yield_rca_core.supervisor import SupervisorExecutionError
 from yield_rca_core.workflow import (
     PurePythonRCAWorkflow,
@@ -219,16 +223,28 @@ def _llm_log_context(error: BaseException) -> dict[str, str]:
     return context
 
 
-def _default_workflow() -> PurePythonRCAWorkflow:
+def _default_workflow(
+    *,
+    knowledge_retriever: KnowledgeLookupRetriever | None = None,
+) -> PurePythonRCAWorkflow:
     database_url = os.getenv("YIELD_RCA_DATABASE_URL", "").strip()
     if database_url:
-        return build_postgres_workflow(database_url)
+        return build_postgres_workflow(
+            database_url,
+            knowledge_retriever=knowledge_retriever,
+        )
 
     configured_seed_dir = os.getenv("YIELD_RCA_SEED_DIR", "").strip()
     seed_dir = Path(configured_seed_dir) if configured_seed_dir else DEFAULT_SEED_DIR
     if not seed_dir.is_absolute():
         seed_dir = PROJECT_ROOT / seed_dir
-    return build_csv_workflow(seed_dir.resolve())
+    return build_csv_workflow(
+        seed_dir.resolve(),
+        knowledge_retriever=knowledge_retriever,
+        knowledge_asset_repository=KnowledgeAssetRepository(
+            CsvFabRepository(DEFAULT_KNOWLEDGE_CORPUS.parent)
+        ),
+    )
 
 
 def _default_audit_sink() -> AuditSink:
@@ -297,20 +313,31 @@ def create_app(
     audit_sink: AuditSink | None = None,
     memory_store: MemoryStore | None = None,
     knowledge_store: KnowledgeStore | None = None,
+    knowledge_retriever: KnowledgeLookupRetriever | None = None,
     metrics: RCAMetrics | None = None,
     runtime_dataset: str | None = None,
 ) -> FastAPI:
     """Create the HTTP adapter with injectable workflow and job storage."""
 
-    rca_workflow = workflow or _default_workflow()
+    governed_knowledge_store = knowledge_store or _default_knowledge_store()
+    database_url = os.getenv("YIELD_RCA_DATABASE_URL", "").strip()
+    active_knowledge_retriever = knowledge_retriever or build_knowledge_retriever(
+        governed_knowledge_store,
+        database_url=database_url,
+    )
+    rca_workflow = workflow or _default_workflow(
+        knowledge_retriever=active_knowledge_retriever,
+    )
     job_store = store or _default_job_store()
     event_sink = audit_sink or _default_audit_sink()
-    governed_knowledge_store = knowledge_store or _default_knowledge_store()
     memory_service = MemoryApprovalService(
         memory_store or _default_memory_store(governed_knowledge_store)
     )
     knowledge_ingestion_service = KnowledgeIngestionService(governed_knowledge_store)
-    knowledge_lookup_service = KnowledgeLookupService(governed_knowledge_store)
+    knowledge_lookup_service = KnowledgeLookupService(
+        governed_knowledge_store,
+        active_knowledge_retriever,
+    )
     app_metrics = metrics or RCAMetrics()
     dataset_name = runtime_dataset or _default_runtime_dataset()
     configure_logging()
@@ -326,6 +353,7 @@ def create_app(
     application.state.knowledge_store = governed_knowledge_store
     application.state.knowledge_ingestion_service = knowledge_ingestion_service
     application.state.knowledge_lookup_service = knowledge_lookup_service
+    application.state.knowledge_retriever = active_knowledge_retriever
     application.state.metrics = app_metrics
     application.state.runtime_dataset = dataset_name
 

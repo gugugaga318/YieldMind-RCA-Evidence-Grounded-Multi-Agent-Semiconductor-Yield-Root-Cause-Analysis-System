@@ -16,6 +16,7 @@ from yield_rca_core.hybrid_retrieval import (
     ExactVectorCandidateSource,
     HybridDocumentChunkRetriever,
     HybridRetrievalConfigurationError,
+    KnowledgeLookupRetriever,
     PostgresBM25CandidateSource,
     PythonBM25CandidateSource,
     SentenceTransformerEmbeddingBackend,
@@ -64,6 +65,16 @@ from yield_rca_core.knowledge_retrieval import (
     RetrievalQuery,
     RetrievalResult,
     Retriever,
+    TypedKnowledgeRetrieverAdapter,
+)
+from yield_rca_core.knowledge_runtime import (
+    KnowledgeRetrievalSettings,
+    build_knowledge_retriever,
+)
+from yield_rca_core.knowledge_vector_store import (
+    PGVECTOR_DIMENSIONS,
+    PostgresExactVectorCandidateSource,
+    PostgresKnowledgeEmbeddingIndexer,
 )
 from yield_rca_core.memory_models import (
     ApprovalDecision,
@@ -133,6 +144,13 @@ from yield_rca_core.question_update_review import (
 from yield_rca_core.rca_reasoning_agent import SPECIALIST_AGENTS, RCAReasoningAgent
 from yield_rca_core.report_generator import ReportGenerationError, ReportGenerator
 from yield_rca_core.repositories import CsvFabRepository, FabRepository, PostgresFabRepository
+from yield_rca_core.reranking import (
+    PlattScoreCalibrator,
+    RerankedKnowledgeRetriever,
+    ScoreCalibrationArtifact,
+    SentenceTransformerRerankerBackend,
+    fit_platt_score_calibration,
+)
 from yield_rca_core.spc_engine import (
     calculate_imr,
     calculate_p_chart,
@@ -218,11 +236,14 @@ __all__ = [
     "InvestigationQuestion",
     "InvestigationValidationError",
     "KnowledgeAgent",
+    "KnowledgeLookupRetriever",
+    "KnowledgeRetrievalSettings",
     "KnowledgeAsset",
     "KnowledgeAssetDocument",
     "KnowledgeAssetRepository",
     "KnowledgeIndexStatus",
     "KeywordRetriever",
+    "TypedKnowledgeRetrieverAdapter",
     "BM25DocumentChunkRetriever",
     "DeterministicHashEmbeddingBackend",
     "ExactVectorCandidateSource",
@@ -270,12 +291,16 @@ __all__ = [
     "PerformBasicSpcAnalysisTool",
     "PostgresFabRepository",
     "PostgresBM25CandidateSource",
+    "PostgresExactVectorCandidateSource",
+    "PostgresKnowledgeEmbeddingIndexer",
     "PythonBM25CandidateSource",
     "PurePythonRCAWorkflow",
+    "PGVECTOR_DIMENSIONS",
     "QwenIntentPlanner",
     "QwenIntentPlannerError",
     "QwenNextActionPlanner",
     "QwenNextActionPlannerError",
+    "RerankedKnowledgeRetriever",
     "RCAJob",
     "RCAReasoningAgent",
     "RCAState",
@@ -287,6 +312,10 @@ __all__ = [
     "Report",
     "ReportGenerationError",
     "ReportGenerator",
+    "ScoreCalibrationArtifact",
+    "SentenceTransformerRerankerBackend",
+    "fit_platt_score_calibration",
+    "PlattScoreCalibrator",
     "RunEvaluation",
     "SCHEMA_VERSION",
     "Severity",
@@ -310,6 +339,7 @@ __all__ = [
     "build_csv_workflow",
     "build_postgres_workflow",
     "build_workflow",
+    "build_knowledge_retriever",
     "calculate_imr",
     "calculate_p_chart",
     "calculate_xbar",

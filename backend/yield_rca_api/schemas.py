@@ -583,6 +583,8 @@ class KnowledgeLookupHitResponse(APIModel):
     relevance_reason: str
     retrieval_strategy: str
     score_components: dict[str, float]
+    calibrated_relevance: float | None
+    source_confidence: float | None
 
 
 class KnowledgeAgentTraceResponse(APIModel):

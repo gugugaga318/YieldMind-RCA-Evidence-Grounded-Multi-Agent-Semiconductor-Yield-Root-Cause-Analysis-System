@@ -24,6 +24,20 @@ EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "yield_rca_api.app:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000"]
 
 
+FROM base AS retrieval-base
+
+USER root
+RUN python -m pip install --no-cache-dir ".[retrieval]"
+USER app
+
+
+FROM retrieval-base AS retrieval-runtime
+
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "yield_rca_api.app:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000"]
+
+
 FROM base AS seed
 
 COPY --chown=app:app scripts/seed_database.py ./scripts/seed_database.py
@@ -32,3 +46,10 @@ COPY --chown=app:app data/seeds ./data/seeds
 COPY --chown=app:app data/knowledge ./data/knowledge
 
 ENTRYPOINT ["python", "scripts/seed_database.py"]
+
+
+FROM retrieval-base AS knowledge-index
+
+COPY --chown=app:app scripts/index_knowledge_embeddings.py ./scripts/index_knowledge_embeddings.py
+
+ENTRYPOINT ["python", "scripts/index_knowledge_embeddings.py"]

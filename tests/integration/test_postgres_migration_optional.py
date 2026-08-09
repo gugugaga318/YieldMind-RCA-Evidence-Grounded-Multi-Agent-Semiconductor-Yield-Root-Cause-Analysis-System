@@ -28,11 +28,13 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 "006_memory_snapshot_index_update.up.sql",
                 "007_knowledge_ingestion.up.sql",
                 "008_hybrid_retrieval.up.sql",
+                "009_pgvector_knowledge_index.up.sql",
             )
         ]
         down_sql = [
             (ROOT / "db" / "migrations" / name).read_text(encoding="utf-8")
             for name in (
+                "009_pgvector_knowledge_index.down.sql",
                 "008_hybrid_retrieval.down.sql",
                 "007_knowledge_ingestion.down.sql",
                 "006_memory_snapshot_index_update.down.sql",
@@ -75,6 +77,14 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                     "WHERE table_name = 'knowledge_chunk' AND column_name = 'search_vector'"
                 )
                 self.assertEqual(cursor.fetchone()[0], "ALWAYS")
+                cursor.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+                self.assertIsNotNone(cursor.fetchone())
+                cursor.execute(
+                    "SELECT data_type, udt_name FROM information_schema.columns "
+                    "WHERE table_name = 'knowledge_chunk' AND column_name = 'embedding'"
+                )
+                embedding_column = cursor.fetchone()
+                self.assertEqual(embedding_column[1], "vector")
                 cursor.execute(
                     """
                     INSERT INTO audit_event (
@@ -125,6 +135,8 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 self.assertEqual(cursor.fetchone()[0], "active_knowledge_chunk")
                 cursor.execute("SELECT to_regclass('public.idx_knowledge_chunk_search_vector')")
                 self.assertEqual(cursor.fetchone()[0], "idx_knowledge_chunk_search_vector")
+                cursor.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+                self.assertIsNotNone(cursor.fetchone())
                 for statement in down_sql:
                     cursor.execute(statement)
             connection.commit()

@@ -7,9 +7,18 @@ asset normalization and ranking.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Any, Protocol
 
+from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
+from yield_rca_core.knowledge_models import (
+    KnowledgeDocumentType,
+    KnowledgeLookupIntent,
+    KnowledgeLookupPlan,
+    KnowledgeQuestionKind,
+)
 from yield_rca_core.repositories import FabRepository, Row
 
 
@@ -112,6 +121,11 @@ class RetrievalHit:
 
     asset: KnowledgeAsset
     score: float
+    retrieval_strategy: str = "keyword"
+    score_components: dict[str, float] = field(default_factory=dict)
+    calibrated_relevance: float | None = None
+    source_confidence: float | None = None
+    matched_chunk_ids: tuple[str, ...] = ()
 
     def to_legacy_case(self) -> dict[str, Any]:
         return self.asset.to_legacy_case(similarity=self.score)
@@ -197,3 +211,68 @@ class KeywordRetriever:
 
         hits = sorted(hits, key=lambda item: item.score, reverse=True)
         return RetrievalResult(query=query, hits=hits[: query.top_k])
+
+
+class TypedKnowledgeRetrieverAdapter:
+    """Expose typed logical-asset retrieval to the legacy RCA Knowledge Tool.
+
+    The adapter deliberately resolves only approved ``RCA_CASE`` assets. SOPs
+    and Engineering Notes remain available through the independent Knowledge
+    lookup intent and cannot be mistaken for historical root-cause evidence.
+    """
+
+    def __init__(
+        self,
+        repository: FabRepository,
+        retriever: KnowledgeLookupRetriever,
+        additional_asset_repositories: Sequence[KnowledgeAssetRepository] = (),
+    ) -> None:
+        self.asset_repositories = (
+            KnowledgeAssetRepository(repository),
+            *additional_asset_repositories,
+        )
+        self.retriever = retriever
+
+    def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
+        plan = KnowledgeLookupPlan(
+            intent=KnowledgeLookupIntent.KNOWLEDGE_LOOKUP.value,
+            question_kind=KnowledgeQuestionKind.HISTORICAL_MATCH.value,
+            query=query.query,
+            allowed_document_types=(KnowledgeDocumentType.RCA_CASE.value,),
+            reason=(
+                "RCA Knowledge Agent requested a historical match; Python restricts "
+                "the action to approved RCA_CASE logical assets."
+            ),
+            module=query.module,
+            equipment_type=query.equipment_type,
+            top_k=query.top_k,
+        )
+        fingerprint = sha256(
+            f"{query.query}|{query.module}|{query.equipment_type}".encode()
+        ).hexdigest()[:16].upper()
+        logical_hits = self.retriever.retrieve(
+            plan,
+            lookup_id=f"KLOOK_AGENT_{fingerprint}",
+        )
+        assets: dict[str, KnowledgeAsset] = {}
+        for repository in self.asset_repositories:
+            for candidate_asset in repository.confirmed_assets():
+                assets.setdefault(candidate_asset.asset_id, candidate_asset)
+        hits: list[RetrievalHit] = []
+        for logical_hit in logical_hits:
+            case_id = logical_hit.document.case_id
+            resolved_asset = assets.get(case_id or "")
+            if resolved_asset is None:
+                continue
+            hits.append(
+                RetrievalHit(
+                    asset=resolved_asset,
+                    score=logical_hit.score,
+                    retrieval_strategy=logical_hit.retrieval_strategy,
+                    score_components=dict(logical_hit.score_components),
+                    calibrated_relevance=logical_hit.calibrated_relevance,
+                    source_confidence=logical_hit.source_confidence,
+                    matched_chunk_ids=logical_hit.matched_chunk_ids,
+                )
+            )
+        return RetrievalResult(query=query, hits=hits)

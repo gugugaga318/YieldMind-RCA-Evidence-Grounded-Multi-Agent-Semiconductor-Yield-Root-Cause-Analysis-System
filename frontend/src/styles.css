@@ -3085,6 +3085,37 @@ p {
   font-size: 10px;
 }
 
+.knowledge-score-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.knowledge-score-grid span {
+  display: inline-flex;
+  gap: 5px;
+  padding: 4px 7px;
+  color: #3f5048;
+  background: #f3f6f4;
+  border: 1px solid #e1e8e4;
+  border-radius: 4px;
+  font-size: 9px;
+}
+
+.knowledge-score-grid b {
+  color: #68756f;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.knowledge-score-boundary {
+  margin-top: 7px;
+  color: #8b642d;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
 .knowledge-no-match {
   display: flex;
   align-items: center;

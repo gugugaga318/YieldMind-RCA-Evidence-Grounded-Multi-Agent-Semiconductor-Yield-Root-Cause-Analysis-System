@@ -198,6 +198,7 @@ class DocumentChunkKeywordRetriever:
                     ),
                     retrieval_strategy="chunk_keyword",
                     score_components={"keyword": best.score},
+                    source_confidence=document.source_confidence,
                 )
             )
         return tuple(hits)

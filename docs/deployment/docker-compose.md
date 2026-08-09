@@ -27,7 +27,7 @@ offline generator (host command, optional)
 ```
 
 Neither `docker compose up` nor FastAPI startup runs a generator, migration, or
-seed operation.
+seed or Embedding-index operation.
 
 ## Prerequisites
 
@@ -89,6 +89,39 @@ database.
 This reset also deletes Step 19 memory candidates and engineer approvals. A
 deployed environment must apply forward migrations without using the demo seed
 reset when approval history must be retained.
+
+Migration `009_pgvector_knowledge_index` enables pgvector and adds a
+`vector(1024)` field for the pinned `BAAI/bge-m3` model. The corpus is small,
+so online search uses exact cosine distance and intentionally creates no
+IVFFlat or HNSW index.
+
+To enable Hybrid retrieval, update `.env` and run the explicit index tool:
+
+```text
+YIELD_RCA_BACKEND_TARGET=retrieval-runtime
+YIELD_RCA_KNOWLEDGE_RETRIEVER_MODE=hybrid
+YIELD_RCA_KNOWLEDGE_RERANKER_ENABLED=0
+```
+
+```powershell
+docker compose --profile tools run --rm knowledge-index
+docker compose up --build -d backend frontend
+```
+
+The indexer reads only `active_knowledge_chunk`, so staged or rejected uploads
+cannot be embedded. It re-embeds a Chunk only when its text hash, model, or
+model revision changes. FastAPI never runs this command during startup.
+
+The optional Cross-Encoder needs the same `retrieval-runtime` image and:
+
+```text
+YIELD_RCA_KNOWLEDGE_RERANKER_ENABLED=1
+```
+
+It remains disabled unless the pinned offline evaluation shows an nDCG gain
+without Recall@5, hard-negative, no-answer, or approval-leakage regression.
+Without a model-matched calibration artifact, `calibrated_relevance` is
+deliberately `null`; the service does not label a sigmoid as calibration.
 
 Migration `005_runtime_resilience` adds durable `rca_job_state` storage. In
 PostgreSQL mode, job state and reports therefore survive backend restarts and
@@ -157,8 +190,12 @@ docker compose down --volumes
 `docker/backend.Dockerfile` has separate targets:
 
 - `runtime` contains the installed Core and FastAPI packages only.
+- `retrieval-runtime` adds sentence-transformers for explicitly enabled Hybrid
+  retrieval and Cross-Encoder reranking.
 - `seed` additionally contains the migration, seed importer, and existing seed
   files.
+- `knowledge-index` is an explicit tool image that embeds only approved Active
+  Index Chunks.
 
 The runtime image does not contain the Synthetic Fab generator or seed script.
 The frontend image is a static Nginx image produced by a separate Node build

@@ -129,6 +129,16 @@ class KnowledgeDocument:
     def evaluation_asset_id(self) -> str:
         return self.case_id or self.document_id
 
+    @property
+    def source_confidence(self) -> float:
+        """Audited source-governance weight, separate from retrieval relevance."""
+
+        return {
+            "DUAL_ENGINEER_APPROVAL": 1.0,
+            "BUILTIN_SYNTHETIC_SEED": 0.8,
+            "LEGACY_CONFIRMED": 0.7,
+        }.get(self.publication_policy, 0.5)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "document_id": self.document_id,
@@ -515,6 +525,8 @@ class KnowledgeLookupHit:
     relevance_reason: str
     retrieval_strategy: str = "keyword"
     score_components: dict[str, float] = field(default_factory=dict)
+    calibrated_relevance: float | None = None
+    source_confidence: float | None = None
 
     def __post_init__(self) -> None:
         if self.rank < 1:
@@ -531,6 +543,10 @@ class KnowledgeLookupHit:
             raise ModelValidationError("lookup hit contains an unknown score component")
         if any(not 0 <= value <= 1 for value in self.score_components.values()):
             raise ModelValidationError("lookup hit score components must be between 0 and 1")
+        if self.calibrated_relevance is not None and not 0 <= self.calibrated_relevance <= 1:
+            raise ModelValidationError("calibrated_relevance must be between 0 and 1")
+        if self.source_confidence is not None and not 0 <= self.source_confidence <= 1:
+            raise ModelValidationError("source_confidence must be between 0 and 1")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -543,6 +559,8 @@ class KnowledgeLookupHit:
             "relevance_reason": self.relevance_reason,
             "retrieval_strategy": self.retrieval_strategy,
             "score_components": dict(self.score_components),
+            "calibrated_relevance": self.calibrated_relevance,
+            "source_confidence": self.source_confidence,
         }
 
 

@@ -3063,7 +3063,17 @@ class RetrieveSimilarCaseTool(BaseTool):
             )
             return _tool_output(
                 tool_input,
-                {"query": query, "cases": [], "top_case": None, "documents": []},
+                {
+                    "query": query,
+                    "cases": [],
+                    "top_case": None,
+                    "documents": [],
+                    "retrieval_strategy": "no_match",
+                    "score_components": {},
+                    "calibrated_relevance": None,
+                    "source_confidence": None,
+                    "matched_chunk_ids": [],
+                },
                 [missing_evidence],
                 [
                     Warning(
@@ -3129,6 +3139,11 @@ class RetrieveSimilarCaseTool(BaseTool):
                     "root_cause": best_case["root_cause"],
                     "validation_status": best_case.get("validation_status", "CONFIRMED"),
                     "documents": documents,
+                    "retrieval_strategy": best_hit.retrieval_strategy,
+                    "score_components": dict(best_hit.score_components),
+                    "calibrated_relevance": best_hit.calibrated_relevance,
+                    "source_confidence": best_hit.source_confidence,
+                    "matched_chunk_ids": list(best_hit.matched_chunk_ids),
                 },
             )
         ]
@@ -3139,6 +3154,11 @@ class RetrieveSimilarCaseTool(BaseTool):
                 "cases": cases,
                 "top_case": best_case,
                 "documents": documents,
+                "retrieval_strategy": best_hit.retrieval_strategy,
+                "score_components": dict(best_hit.score_components),
+                "calibrated_relevance": best_hit.calibrated_relevance,
+                "source_confidence": best_hit.source_confidence,
+                "matched_chunk_ids": list(best_hit.matched_chunk_ids),
             },
             evidence,
         )
