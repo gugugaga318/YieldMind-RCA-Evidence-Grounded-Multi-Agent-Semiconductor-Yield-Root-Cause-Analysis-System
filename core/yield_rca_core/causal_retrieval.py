@@ -83,7 +83,7 @@ class CausalLaneKnowledgeRetriever:
         prepared = plan if plan.causal_search_scope is not None else self.prepare_plan(plan)
         scope = prepared.causal_search_scope
         if scope is None or scope.mode == CausalScopeMode.LEGACY_HARD.value:
-            return self.delegate.retrieve(prepared, lookup_id=lookup_id)
+            return tuple(self.delegate.retrieve(prepared, lookup_id=lookup_id))
 
         lane_results: dict[str, tuple[KnowledgeLookupHit, ...]] = {}
         lane_contexts = {
@@ -245,7 +245,10 @@ class CausalLaneKnowledgeRetriever:
                 replace(
                     best,
                     rank=rank,
-                    score=round(scope_score, 6),
+                    # Keep semantic/lexical relevance separate from lane-fusion
+                    # priority.  Treating the normalized lane winner as relevance
+                    # would make every Top-1 score 1.0 and break calibrated abstention.
+                    score=best.score,
                     evidence_id=f"KEV_{lookup_id.removeprefix('KLOOK_')}_{rank:03d}",
                     relevance_reason=(
                         best.relevance_reason

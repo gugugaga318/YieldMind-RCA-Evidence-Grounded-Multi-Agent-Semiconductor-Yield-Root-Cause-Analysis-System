@@ -1,0 +1,21 @@
+{
+  "causal_scope": {
+    "cross_module_strictly_improved": true,
+    "promoted": true,
+    "same_module_non_regressing": true
+  },
+  "hybrid_promoted": false,
+  "reranker": {
+    "enabled": false,
+    "evaluated": false,
+    "ndcg_strictly_improved": false,
+    "primary_metrics_non_regressing": false,
+    "promoted": false,
+    "reason": "Local bge-reranker-v2-m3 weights were unavailable and no strict measured nDCG uplift was established."
+  },
+  "selected_runtime": {
+    "causal_scope_enabled": true,
+    "reranker_enabled": false,
+    "retriever": "chunk_keyword"
+  }
+}

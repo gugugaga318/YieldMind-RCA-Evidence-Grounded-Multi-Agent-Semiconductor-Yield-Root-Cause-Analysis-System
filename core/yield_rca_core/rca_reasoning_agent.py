@@ -78,6 +78,91 @@ def _recommended_actions(findings: list[AgentFinding]) -> list[dict[str, Any]]:
     ]
 
 
+def _unsupported_source_warning(
+    findings: list[AgentFinding],
+    *,
+    supported: bool,
+    ranked_candidates: list[dict[str, Any]],
+) -> Warning | None:
+    """Make an evidence gap explicit without letting Knowledge fill it.
+
+    A typed missing-FDC observation is already a hard signal that a required
+    source is unavailable.  A second, narrower boundary covers an unresolved
+    slurry/material hypothesis when every current-Lot slurry trace is normal:
+    the deployment has no material-batch genealogy capability, so historical
+    similarity cannot silently stand in for that missing source.
+    """
+
+    missing_ids = _unique(
+        [
+            evidence.evidence_id
+            for finding in findings
+            for evidence in finding.evidence
+            if evidence.evidence_id == "EV_FDC_FEATURE_DATA_MISSING"
+        ]
+    )
+    if missing_ids:
+        return Warning(
+            warning_id="WARN_UNSUPPORTED_DATA_SOURCE",
+            message=(
+                "A required operational data source is unavailable; the RCA remains "
+                "bounded by typed DATA_MISSING Evidence."
+            ),
+            evidence_ids=missing_ids,
+        )
+    if supported:
+        return None
+
+    fdc = next((item for item in findings if item.agent == AgentKind.FDC.value), None)
+    if fdc is None:
+        return None
+    parameters = {
+        str(item.get("parameter_name", "")).casefold(): abs(
+            float(item.get("avg_delta_percent", 0.0))
+        )
+        for item in fdc.details.get("parameter_summary", [])
+        if isinstance(item, dict)
+    }
+    material_terms = ("slurry", "chemical", "material", "consumable")
+    normal_material_parameters = {
+        name
+        for name, delta in parameters.items()
+        if any(term in name for term in material_terms) and delta < 5.0
+    }
+    abnormal_material_parameters = {
+        name
+        for name, delta in parameters.items()
+        if any(term in name for term in material_terms) and delta >= 5.0
+    }
+    candidate_needs_material_trace = any(
+        any(term in str(item.get("root_cause", "")).casefold() for term in material_terms)
+        for item in ranked_candidates
+    )
+    if (
+        candidate_needs_material_trace
+        and normal_material_parameters
+        and not abnormal_material_parameters
+    ):
+        evidence_ids = _unique(
+            [
+                evidence.evidence_id
+                for evidence in fdc.evidence
+                if evidence.source_field
+                and str(evidence.source_field).casefold() in normal_material_parameters
+            ]
+        )
+        return Warning(
+            warning_id="WARN_UNSUPPORTED_DATA_SOURCE",
+            message=(
+                "Material or chemical batch genealogy is not configured. Current "
+                "equipment traces are insufficient to confirm the remaining "
+                "material-related hypothesis."
+            ),
+            evidence_ids=evidence_ids,
+        )
+    return None
+
+
 @dataclass(frozen=True)
 class RCAReasoningAgent:
     """Produce the official RCA finding from the Hypothesis Engine only."""
@@ -155,8 +240,8 @@ class RCAReasoningAgent:
                 Warning(
                     warning_id="WARN_RCA_CONFLICTING_EVIDENCE",
                     message=(
-                        "FDC evidence is physically conflicting: slurry flow declines while "
-                        "estimated removal rate increases."
+                        "Independent operational Evidence conflicts with the candidate "
+                        "mechanism, so the root cause cannot be confirmed."
                     ),
                     evidence_ids=root_cause_evidence_ids,
                 )
@@ -213,6 +298,13 @@ class RCAReasoningAgent:
             }
             for candidate in engine_result["candidates"]
         ]
+        unsupported_source = _unsupported_source_warning(
+            findings,
+            supported=supported,
+            ranked_candidates=ranked_candidates,
+        )
+        if unsupported_source is not None:
+            warnings.append(unsupported_source)
         return AgentFinding(
             finding_id=f"{request_id}:rca",
             agent=AgentKind.RCA_REASONING.value,

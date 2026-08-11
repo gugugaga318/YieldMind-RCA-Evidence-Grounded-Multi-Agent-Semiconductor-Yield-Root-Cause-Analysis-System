@@ -131,13 +131,27 @@ YIELD_RCA_CAUSAL_SCOPE_CANDIDATE_BUDGET=20
 YIELD_RCA_CAUSAL_SCOPE_LANE_MINIMUM=1
 ```
 
-The default is `0`, which preserves the existing metadata-filter behavior. When
-enabled, historical RCA retrieval treats the observed Module as a ranking hint
+Evaluation V2 promoted this switch, so `.env.example` and Compose now default it
+to `1`. Set it explicitly to `0` to replay the legacy observed-Module hard-filter
+baseline. When enabled, historical RCA retrieval treats the observed Module as a ranking hint
 and creates bounded candidates from `same_step`, `upstream_route`,
 `shared_resource`, and `global_semantic`. A user-selected explicit Module limit
 and the existing approval, document-type, time, and permission boundaries remain
 hard constraints. Missing route or resource context is reported as unavailable;
 it is never inferred by the LLM.
+
+The measured release combination is:
+
+```text
+YIELD_RCA_KNOWLEDGE_RETRIEVER_MODE=keyword
+YIELD_RCA_CAUSAL_SCOPE_ENABLED=1
+YIELD_RCA_KNOWLEDGE_RERANKER_ENABLED=0
+```
+
+This is intentionally not Hybrid-RRF: on the reviewed Synthetic V2 Test split,
+Hybrid-RRF regressed hard-negative pairwise ranking versus Chunk Keyword. The
+Reranker also remains disabled because no local-model evaluation established a
+strict nDCG uplift without primary-metric regression.
 
 Migration `005_runtime_resilience` adds durable `rca_job_state` storage. In
 PostgreSQL mode, job state and reports therefore survive backend restarts and

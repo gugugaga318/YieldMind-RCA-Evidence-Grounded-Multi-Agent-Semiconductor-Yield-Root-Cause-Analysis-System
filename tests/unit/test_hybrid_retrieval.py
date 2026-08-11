@@ -25,6 +25,7 @@ from yield_rca_core.knowledge_models import (  # noqa: E402
 from yield_rca_core.knowledge_store import load_builtin_knowledge_store  # noqa: E402
 
 CORPUS = ROOT / "data" / "knowledge" / "synthetic_v1" / "corpus.json"
+V2_CORPUS = ROOT / "data" / "knowledge" / "synthetic_v2" / "corpus.json"
 
 
 class RecordingEmbeddingBackend:
@@ -141,6 +142,21 @@ class HybridRetrievalTest(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertEqual(len(first[0]), 128)
+
+    def test_non_rca_documents_preserve_independent_logical_asset_ids(self) -> None:
+        store = load_builtin_knowledge_store(V2_CORPUS)
+        documents = {
+            item.document_id: item for item in store.active_documents()
+        }
+
+        self.assertEqual(
+            documents["DOC_SOP_V2_001"].evaluation_asset_id,
+            "SOP_V2_001",
+        )
+        self.assertEqual(
+            documents["DOC_NOTE_V2_002"].evaluation_asset_id,
+            "NOTE_V2_002",
+        )
 
     def test_exact_vector_source_reuses_query_and_document_embeddings(self) -> None:
         embedding = RecordingEmbeddingBackend()

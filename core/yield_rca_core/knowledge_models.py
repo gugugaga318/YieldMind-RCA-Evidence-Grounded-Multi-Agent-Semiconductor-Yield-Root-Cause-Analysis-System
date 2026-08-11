@@ -95,6 +95,7 @@ class KnowledgeDocument:
     defect_type: str = ""
     tags: tuple[str, ...] = ()
     case_id: str | None = None
+    asset_id: str | None = None
     source_format: str = KnowledgeSourceFormat.TEXT.value
     content_sha256: str = ""
     validation_status: str = KnowledgeValidationStatus.CONFIRMED.value
@@ -116,6 +117,8 @@ class KnowledgeDocument:
             raise ModelValidationError("active KnowledgeDocument must be CONFIRMED")
         if self.case_id is not None:
             _required(self.case_id, "case_id")
+        if self.asset_id is not None:
+            _required(self.asset_id, "asset_id")
         if self.source_candidate_id is not None:
             _required(self.source_candidate_id, "source_candidate_id")
         if not isinstance(self.tags, tuple) or any(not item.strip() for item in self.tags):
@@ -128,7 +131,7 @@ class KnowledgeDocument:
 
     @property
     def evaluation_asset_id(self) -> str:
-        return self.case_id or self.document_id
+        return self.asset_id or self.case_id or self.document_id
 
     @property
     def source_confidence(self) -> float:
@@ -144,6 +147,7 @@ class KnowledgeDocument:
         return {
             "document_id": self.document_id,
             "case_id": self.case_id,
+            "asset_id": self.asset_id,
             "evaluation_asset_id": self.evaluation_asset_id,
             "document_type": self.document_type,
             "title": self.title,
@@ -167,6 +171,15 @@ class KnowledgeDocument:
         return cls(
             document_id=str(data["document_id"]),
             case_id=(str(data["case_id"]) if data.get("case_id") else None),
+            asset_id=(
+                str(data["asset_id"])
+                if data.get("asset_id")
+                else (
+                    str(data["evaluation_asset_id"])
+                    if data.get("evaluation_asset_id")
+                    else None
+                )
+            ),
             document_type=str(data["document_type"]),
             title=str(data["title"]),
             content=str(data["content"]),

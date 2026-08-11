@@ -208,3 +208,49 @@ model with CUDA-first automatic device selection:
 ```
 
 See `docs/hybrid-retrieval.md` for the architecture and interpretation boundary.
+
+## Evaluation V2 fair release ablation
+
+Evaluation V2 is independent from the easier V1 benchmark. It uses reviewed,
+partitioned Queries and qrels, dense in-scope hard negatives, in-scope No-answer
+cases, and Python-owned causal Scope. Run the real pinned embedding evaluation:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_evaluation_v2_retrieval.py `
+  --embedding-backend sentence-transformers `
+  --device auto
+```
+
+The current RTX/CUDA run measured:
+
+| Test metric | Chunk Keyword | Hybrid-RRF |
+|---|---:|---:|
+| Recall@5 | 77.38% | 79.76% |
+| nDCG@10 | 0.6445 | 0.6222 |
+| Hard-negative Pairwise | 59.52% | 57.14% |
+| In-scope No-answer | 0.00% | 100.00% |
+
+Hybrid improves some metrics but fails the non-regression gate because pairwise
+hard-negative ordering declines. It therefore remains implemented behind its
+Feature Flag; the selected Retriever is Chunk Keyword. This is an example of
+why a release decision cannot be based on Recall alone.
+
+The separate Scope ablation is successful:
+
+| Recall@5 slice | Legacy observed-Module hard filter | Causal-wide Scope |
+|---|---:|---:|
+| Same Module | 100.00% | 100.00% |
+| Cross Module | 16.67% | 71.67% |
+
+Causal-wide Scope is promoted because it recovers upstream/global candidates
+without sacrificing same-Module recall. The Reranker remains disabled: local
+`bge-reranker-v2-m3` weights were unavailable and no strict measured nDCG uplift
+was established.
+
+Artifacts are written to:
+
+```text
+outputs/evaluation_v2_release/retrieval/results.json
+outputs/evaluation_v2_release/retrieval/report.md
+outputs/evaluation_v2_release/retrieval/failed_cases.json
+```

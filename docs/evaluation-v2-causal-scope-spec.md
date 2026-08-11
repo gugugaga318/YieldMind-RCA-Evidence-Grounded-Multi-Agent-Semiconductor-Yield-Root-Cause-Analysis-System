@@ -2,8 +2,8 @@
 
 ## Status
 
-- Status: Approved design; Long Task A implemented behind a default-off Feature Flag;
-  Long Task B structurally implemented with human data review pending; Long Task C pending
+- Status: Long Tasks A-C implemented and evaluated; final release is `NOT_READY`
+  because Retrieval Quality is `FAIL` and the paid real-Qwen RCA gate is `BLOCKED`
 - Target branch: `feature/autonomous-qwen-react`
 - Proposed delivery: Batch 22
 - Depends on: Batch 21 semantic gating and Long Tasks 1-4 governed Hybrid Retrieval
@@ -657,6 +657,26 @@ Acceptance:
 - V1 fixtures remain unchanged.
 
 ### Long Task C - V2 Evaluation, Release Decision, and Documentation
+
+Implementation checkpoint (2026-08-10):
+
+- all 14 reviewed RCA scenarios pass the deterministic fixed reference, including
+  11/11 supported roots, 3/3 correct abstentions, exact Impact Lot sets, semantic
+  Evidence completeness, and required unsupported-source warnings;
+- Controlled ReAct completes all 14 scenarios, preserves exact Impact scope, and never
+  promotes an expected-inconclusive case; supported cases may intentionally remain
+  inconclusive when the bounded action chain omits Knowledge;
+- the real-Qwen lane is not replaced with Fake output: without explicit paid consent and
+  `DASHSCOPE_API_KEY`, its status and the RCA-quality gate are `NOT_RUN`/`BLOCKED`;
+- causal-wide Scope is promoted: cross-Module Recall@5 improved from 16.67% to 71.67%
+  while same-Module Recall@5 remained 100%;
+- Hybrid-RRF is implemented but not promoted because its 57.14% hard-negative pairwise
+  win rate regressed the fair Chunk Keyword baseline at 59.52%;
+- the Reranker remains disabled because local weights were unavailable and no strict
+  measured nDCG improvement exists;
+- the measured runtime selection is Chunk Keyword + causal-wide Scope + no Reranker;
+- the four final gates are Data Quality `PASS`, Governance `PASS`, Retrieval Quality
+  `FAIL`, and RCA Quality `BLOCKED`; therefore the overall release is `NOT_READY`.
 
 Deliver:
 

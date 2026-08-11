@@ -579,6 +579,7 @@ def load_builtin_knowledge_store(
             KnowledgeDocument(
                 document_id=str(item["document_id"]),
                 case_id=str(item["case_id"]) if item.get("case_id") else None,
+                asset_id=str(item["asset_id"]) if item.get("asset_id") else None,
                 document_type=str(item["document_type"]),
                 title=str(item["title"]),
                 content=content,
@@ -691,6 +692,15 @@ def _document_from_row(row: dict[str, Any]) -> KnowledgeDocument:
     return KnowledgeDocument(
         document_id=str(row["document_id"]),
         case_id=str(row["case_id"]) if row.get("case_id") else None,
+        asset_id=(
+            str(row["asset_id"])
+            if row.get("asset_id")
+            else (
+                str(row["evaluation_asset_id"])
+                if row.get("evaluation_asset_id")
+                else None
+            )
+        ),
         document_type=str(row["document_type"]),
         title=str(row["title"]),
         content=content,

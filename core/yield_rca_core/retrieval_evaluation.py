@@ -22,6 +22,7 @@ from yield_rca_core.knowledge_models import (
 from yield_rca_core.knowledge_retrieval import KeywordRetriever, RetrievalQuery
 
 RETRIEVAL_EVALUATION_SCHEMA_VERSION = "1.0"
+RETRIEVAL_EVALUATION_SCHEMA_VERSIONS = {"1.0", "2.0"}
 ALLOWED_RELEVANCE_GRADES = {0, 1, 2, 3}
 ALLOWED_QUERY_LANGUAGES = {"en", "zh", "mixed"}
 ALLOWED_QUESTION_KINDS = {
@@ -69,6 +70,13 @@ class RetrievalEvaluationQuery:
     cross_language: bool = False
     no_answer: bool = False
     hard_negative_asset_ids: tuple[str, ...] = ()
+    incident_family_id: str = ""
+    partition: str = ""
+    requested_document_type: str = ""
+    metadata_quality: str = ""
+    metadata_policy: str = ""
+    query_time_cutoff: str = ""
+    secondary_relevant_asset_ids: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RetrievalEvaluationQuery:
@@ -93,6 +101,19 @@ class RetrievalEvaluationQuery:
             raise RetrievalEvaluationError(
                 f"query {query_id} has duplicate hard-negative asset IDs"
             )
+        secondary_relevant = tuple(
+            str(item).strip() for item in data.get("secondary_relevant_asset_ids", [])
+        )
+        if any(not item for item in secondary_relevant):
+            raise RetrievalEvaluationError(
+                f"query {query_id} has an empty secondary-relevant asset ID"
+            )
+        requested_document_type = str(data.get("requested_document_type", "")).strip()
+        expected_document_type = KnowledgeQuestionKind(question_kind).document_type
+        if requested_document_type and requested_document_type != expected_document_type:
+            raise RetrievalEvaluationError(
+                f"query {query_id} document type disagrees with question_kind"
+            )
         return cls(
             query_id=query_id,
             text=text,
@@ -103,6 +124,13 @@ class RetrievalEvaluationQuery:
             cross_language=bool(data.get("cross_language", False)),
             no_answer=bool(data.get("no_answer", False)),
             hard_negative_asset_ids=hard_negatives,
+            incident_family_id=str(data.get("incident_family_id", "")).strip(),
+            partition=str(data.get("partition", "")).strip(),
+            requested_document_type=requested_document_type,
+            metadata_quality=str(data.get("metadata_quality", "")).strip(),
+            metadata_policy=str(data.get("metadata_policy", "")).strip(),
+            query_time_cutoff=str(data.get("query_time_cutoff", "")).strip(),
+            secondary_relevant_asset_ids=secondary_relevant,
         )
 
 
@@ -124,7 +152,7 @@ class RetrievalGroundTruth:
             relevance_threshold = int(data.get("relevance_threshold", 1))
         except (TypeError, ValueError) as exc:
             raise RetrievalEvaluationError("relevance_threshold must be an integer") from exc
-        if schema_version != RETRIEVAL_EVALUATION_SCHEMA_VERSION:
+        if schema_version not in RETRIEVAL_EVALUATION_SCHEMA_VERSIONS:
             raise RetrievalEvaluationError("unsupported retrieval evaluation schema version")
         if not corpus_version:
             raise RetrievalEvaluationError("corpus_version must not be empty")
@@ -198,15 +226,25 @@ class RetrievalGroundTruth:
             if query.hard_negative_asset_ids:
                 hard_negative += 1
                 for asset_id in query.hard_negative_asset_ids:
-                    if by_asset.get(asset_id) != 0:
+                    grade = by_asset.get(asset_id)
+                    valid_negative = (
+                        grade == 0
+                        if self.schema_version == RETRIEVAL_EVALUATION_SCHEMA_VERSION
+                        else grade is not None and grade < self.relevance_threshold
+                    )
+                    if not valid_negative:
                         raise RetrievalEvaluationError(
-                            f"hard negative {asset_id} for {query.query_id} must have grade 0"
+                            f"hard negative {asset_id} for {query.query_id} must be below "
+                            "the relevance threshold"
                         )
 
-        if not answerable or not no_answer or not cross_language or not hard_negative:
+        required_slices_present = bool(answerable and no_answer and hard_negative)
+        if self.schema_version == RETRIEVAL_EVALUATION_SCHEMA_VERSION:
+            required_slices_present = required_slices_present and bool(cross_language)
+        if not required_slices_present:
             raise RetrievalEvaluationError(
-                "ground truth requires answerable, no-answer, cross-language, and "
-                "hard-negative slices"
+                "ground truth requires answerable, no-answer, and hard-negative slices; "
+                "schema 1.0 also requires a cross-language slice"
             )
         if not graded_multi_relevant:
             raise RetrievalEvaluationError(
@@ -262,6 +300,15 @@ class RetrievalGroundTruth:
                         "cross_language": query.cross_language,
                         "no_answer": query.no_answer,
                         "hard_negative_asset_ids": list(query.hard_negative_asset_ids),
+                        "incident_family_id": query.incident_family_id,
+                        "partition": query.partition,
+                        "requested_document_type": query.requested_document_type,
+                        "metadata_quality": query.metadata_quality,
+                        "metadata_policy": query.metadata_policy,
+                        "query_time_cutoff": query.query_time_cutoff,
+                        "secondary_relevant_asset_ids": list(
+                            query.secondary_relevant_asset_ids
+                        ),
                     }
                     for query in self.queries
                     if query.query_id in query_ids
@@ -440,6 +487,10 @@ def _rounded(value: float) -> float:
     return round(value, 6)
 
 
+def _percent_or_na(value: float | None) -> str:
+    return f"{value:.2%}" if value is not None else "n/a"
+
+
 def evaluate_retrieval(
     ground_truth: RetrievalGroundTruth,
     backend: RetrievalEvaluationBackend,
@@ -507,6 +558,23 @@ def evaluate_retrieval(
             for asset_id, rank in hard_negative_positions.items()
             if first_relevant_rank is None or rank < first_relevant_rank
         )
+        primary_assets = {
+            asset_id for asset_id, grade in judgments.items() if grade == 3
+        } or relevant
+        final_positions = {
+            asset_id: rank for rank, asset_id in enumerate(final_ids[:10], start=1)
+        }
+        hard_negative_pair_wins = [
+            bool(
+                primary_asset in final_positions
+                and (
+                    negative_asset not in final_positions
+                    or final_positions[primary_asset] < final_positions[negative_asset]
+                )
+            )
+            for primary_asset in sorted(primary_assets)
+            for negative_asset in query.hard_negative_asset_ids
+        ]
 
         per_query: dict[str, float | bool | None] = {
             "recall_at_5": None,
@@ -514,6 +582,8 @@ def evaluate_retrieval(
             "mrr_at_10": None,
             "ndcg_at_10": None,
             "hard_negative_accuracy": None,
+            "hard_negative_pairwise_win_rate": None,
+            "hard_negative_top10_presence_rate": None,
             "no_answer_correct": None,
         }
         if query.no_answer:
@@ -534,6 +604,16 @@ def evaluate_retrieval(
                 if query.hard_negative_asset_ids
                 else None
             )
+            pairwise_win_rate = (
+                sum(hard_negative_pair_wins) / len(hard_negative_pair_wins)
+                if hard_negative_pair_wins
+                else None
+            )
+            top10_presence_rate = (
+                len(hard_negative_positions) / len(query.hard_negative_asset_ids)
+                if query.hard_negative_asset_ids
+                else None
+            )
             per_query.update(
                 {
                     "recall_at_5": recall_at_5,
@@ -541,6 +621,8 @@ def evaluate_retrieval(
                     "mrr_at_10": mrr_at_10,
                     "ndcg_at_10": ndcg_at_10,
                     "hard_negative_accuracy": hard_negative_accuracy,
+                    "hard_negative_pairwise_win_rate": pairwise_win_rate,
+                    "hard_negative_top10_presence_rate": top10_presence_rate,
                 }
             )
             answerable_rows.append(
@@ -551,6 +633,9 @@ def evaluate_retrieval(
                     "mrr_at_10": mrr_at_10,
                     "ndcg_at_10": ndcg_at_10,
                     "hard_negative_accuracy": hard_negative_accuracy,
+                    "hard_negative_pairwise_win_rate": pairwise_win_rate,
+                    "hard_negative_top10_presence_rate": top10_presence_rate,
+                    "hard_negative_pair_count": len(hard_negative_pair_wins),
                 }
             )
 
@@ -625,11 +710,15 @@ def evaluate_retrieval(
         "ndcg_at_10": _rounded(
             _mean([row["ndcg_at_10"] for row in answerable_rows], metric_name="nDCG@10")
         ),
-        "cross_language_recall_at_5": _rounded(
-            _mean(
-                [row["recall_at_5"] for row in cross_language_rows],
-                metric_name="Cross-language Recall@5",
+        "cross_language_recall_at_5": (
+            _rounded(
+                _mean(
+                    [row["recall_at_5"] for row in cross_language_rows],
+                    metric_name="Cross-language Recall@5",
+                )
             )
+            if cross_language_rows
+            else None
         ),
         "hard_negative_accuracy": _rounded(
             _mean(
@@ -642,6 +731,23 @@ def evaluate_retrieval(
             - _mean(
                 [float(row["hard_negative_accuracy"]) for row in hard_negative_rows],
                 metric_name="hard-negative accuracy",
+            )
+        ),
+        "hard_negative_pairwise_win_rate": _rounded(
+            sum(
+                float(row["hard_negative_pairwise_win_rate"])
+                * int(row["hard_negative_pair_count"])
+                for row in hard_negative_rows
+            )
+            / sum(int(row["hard_negative_pair_count"]) for row in hard_negative_rows)
+        ),
+        "hard_negative_pair_count": sum(
+            int(row["hard_negative_pair_count"]) for row in hard_negative_rows
+        ),
+        "hard_negative_top10_presence_rate": _rounded(
+            _mean(
+                [float(row["hard_negative_top10_presence_rate"]) for row in hard_negative_rows],
+                metric_name="hard-negative Top-10 presence rate",
             )
         ),
         "no_answer_accuracy": _rounded(no_answer_accuracy),
@@ -690,8 +796,13 @@ def render_retrieval_evaluation_report(evaluation: dict[str, Any]) -> str:
         f"| Candidate Recall@20 | {metrics['candidate_recall_at_20']:.2%} |",
         f"| MRR@10 | {metrics['mrr_at_10']:.4f} |",
         f"| nDCG@10 | {metrics['ndcg_at_10']:.4f} |",
-        f"| Cross-language Recall@5 | {metrics['cross_language_recall_at_5']:.2%} |",
+        "| Cross-language Recall@5 | "
+        f"{_percent_or_na(metrics['cross_language_recall_at_5'])} |",
         f"| Hard-negative accuracy | {metrics['hard_negative_accuracy']:.2%} |",
+        "| Hard-negative pairwise win rate | "
+        f"{metrics['hard_negative_pairwise_win_rate']:.2%} |",
+        "| Hard-negative Top-10 presence rate | "
+        f"{metrics['hard_negative_top10_presence_rate']:.2%} |",
         f"| Hard-negative outrank rate | {metrics['hard_negative_outrank_rate']:.2%} |",
         f"| No-answer accuracy | {metrics['no_answer_accuracy']:.2%} |",
         f"| No-answer false-positive rate | {metrics['no_answer_false_positive_rate']:.2%} |",
@@ -768,7 +879,7 @@ def render_retrieval_ablation_report(ablation: dict[str, Any]) -> str:
             f"| `{name}` | {metrics['recall_at_5']:.2%} | "
             f"{metrics['candidate_recall_at_20']:.2%} | {metrics['mrr_at_10']:.4f} | "
             f"{metrics['ndcg_at_10']:.4f} | "
-            f"{metrics['cross_language_recall_at_5']:.2%} | "
+            f"{_percent_or_na(metrics['cross_language_recall_at_5'])} | "
             f"{metrics['hard_negative_accuracy']:.2%} | "
             f"{metrics['no_answer_accuracy']:.2%} | "
             f"{metrics['unapproved_hit_count']} |"

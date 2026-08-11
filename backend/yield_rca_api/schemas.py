@@ -561,6 +561,7 @@ class KnowledgeLookupRequest(APIModel):
 class KnowledgeDocumentResponse(APIModel):
     document_id: str
     case_id: str | None
+    asset_id: str | None
     evaluation_asset_id: str
     document_type: str
     title: str

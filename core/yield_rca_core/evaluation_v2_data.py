@@ -782,6 +782,7 @@ def _blueprints() -> list[dict[str, Any]]:
             "impact_count": 0,
             "guidance_type": "SOP",
             "metadata_quality": "complete",
+            "control_lots_share_detected_equipment": True,
             "unavailable_sources": ["chemical batch genealogy"],
             "secondary_relevant_asset_ids": [
                 "RCA_V2_001",
@@ -2127,8 +2128,14 @@ def _build_seed_tables(
                     "is_critical": "true",
                 }
             )
-        for lot_offset, lot_id in enumerate(lot_ids):
-            lot_start = family_start + timedelta(hours=lot_offset * 3)
+        for lot_id in lot_ids:
+            if lot_id == observation["source_lot_id"]:
+                lot_start_offset = 0
+            elif lot_id in family["impact_lot_truth"]:
+                lot_start_offset = family["impact_lot_truth"].index(lot_id) + 1
+            else:
+                lot_start_offset = 12 + control_lot_ids.index(lot_id) * 3
+            lot_start = family_start + timedelta(hours=lot_start_offset)
             wafer_id = f"{lot_id}_W01"
             tables["lot_master"].append(
                 {

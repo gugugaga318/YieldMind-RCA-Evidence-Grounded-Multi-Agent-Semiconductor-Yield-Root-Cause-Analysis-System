@@ -1,0 +1,18 @@
+{
+  "controlled_react": [
+    "RCA_V2_IF_V2_001",
+    "RCA_V2_IF_V2_002",
+    "RCA_V2_IF_V2_003",
+    "RCA_V2_IF_V2_004",
+    "RCA_V2_IF_V2_007",
+    "RCA_V2_IF_V2_008",
+    "RCA_V2_IF_V2_009",
+    "RCA_V2_IF_V2_010",
+    "RCA_V2_IF_V2_011",
+    "RCA_V2_IF_V2_012",
+    "RCA_V2_IF_V2_013",
+    "RCA_V2_IF_V2_014"
+  ],
+  "fixed": [],
+  "llm_react": []
+}

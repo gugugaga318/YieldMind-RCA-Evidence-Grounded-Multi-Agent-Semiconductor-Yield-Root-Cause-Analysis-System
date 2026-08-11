@@ -1,0 +1,3730 @@
+{
+  "dataset_id": "synthetic-semiconductor-causal-v2",
+  "gates": {
+    "governance": {
+      "historical_only_root_cause_promotions": 0,
+      "passed": true,
+      "status": "PASS",
+      "unapproved_knowledge_leakage": 0,
+      "unsupported_source_explicit_count": 2,
+      "unsupported_source_recall": 1.0,
+      "unsupported_source_scenario_count": 2
+    },
+    "rca_quality": {
+      "controlled_compatibility": {
+        "impact_mismatch_scenario_ids": [],
+        "note": "Controlled ReAct is a safety/compatibility baseline. Fewer Specialist actions may intentionally downgrade supported conclusions.",
+        "passed": true,
+        "status": "PASS",
+        "unsafe_false_support_scenario_ids": []
+      },
+      "fixed_reference_complete": true,
+      "passed": false,
+      "reason": "Paid real-Qwen evaluation requires both --run-real-qwen and --confirm-paid-qwen with DASHSCOPE_API_KEY.",
+      "status": "BLOCKED"
+    }
+  },
+  "limitations": "Synthetic benchmark for causal-retrieval engineering; it is not validation against confidential or production Fab data.",
+  "modes": {
+    "controlled_react": {
+      "failed_scenario_ids": [
+        "RCA_V2_IF_V2_001",
+        "RCA_V2_IF_V2_002",
+        "RCA_V2_IF_V2_003",
+        "RCA_V2_IF_V2_004",
+        "RCA_V2_IF_V2_007",
+        "RCA_V2_IF_V2_008",
+        "RCA_V2_IF_V2_009",
+        "RCA_V2_IF_V2_010",
+        "RCA_V2_IF_V2_011",
+        "RCA_V2_IF_V2_012",
+        "RCA_V2_IF_V2_013",
+        "RCA_V2_IF_V2_014"
+      ],
+      "metrics": {
+        "completed_count": 14,
+        "completion_rate": 1.0,
+        "correct_abstention_count": 3,
+        "correct_abstention_rate": 1.0,
+        "evidence_completeness": 1.0,
+        "evidence_required_count": 77,
+        "evidence_satisfied_count": 77,
+        "impact_false_negative": 0,
+        "impact_false_positive": 0,
+        "impact_lot_precision": 1.0,
+        "impact_lot_recall": 1.0,
+        "impact_true_positive": 22,
+        "inconclusive_scenario_count": 3,
+        "knowledge_only_promotion_count": 0,
+        "llm_call_count": 0,
+        "requested_mode_preservation_rate": 1.0,
+        "requested_mode_preserved_count": 14,
+        "required_warning_recall": 0.833333,
+        "root_cause_correct_count": 0,
+        "root_cause_correctness": 0.0,
+        "scenario_count": 14,
+        "scenario_pass_count": 2,
+        "scenario_pass_rate": 0.142857,
+        "supported_scenario_count": 11,
+        "unapproved_knowledge_evidence_count": 0,
+        "warning_required_count": 6,
+        "warning_satisfied_count": 5
+      },
+      "partitions": {
+        "calibration": {
+          "completed_count": 7,
+          "completion_rate": 1.0,
+          "correct_abstention_count": 2,
+          "correct_abstention_rate": 1.0,
+          "evidence_completeness": 1.0,
+          "evidence_required_count": 29,
+          "evidence_satisfied_count": 29,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_lot_precision": 1.0,
+          "impact_lot_recall": 1.0,
+          "impact_true_positive": 9,
+          "inconclusive_scenario_count": 2,
+          "knowledge_only_promotion_count": 0,
+          "llm_call_count": 0,
+          "requested_mode_preservation_rate": 1.0,
+          "requested_mode_preserved_count": 7,
+          "required_warning_recall": 1.0,
+          "root_cause_correct_count": 0,
+          "root_cause_correctness": 0.0,
+          "scenario_count": 7,
+          "scenario_pass_count": 2,
+          "scenario_pass_rate": 0.285714,
+          "supported_scenario_count": 5,
+          "unapproved_knowledge_evidence_count": 0,
+          "warning_required_count": 4,
+          "warning_satisfied_count": 4
+        },
+        "test": {
+          "completed_count": 7,
+          "completion_rate": 1.0,
+          "correct_abstention_count": 1,
+          "correct_abstention_rate": 1.0,
+          "evidence_completeness": 1.0,
+          "evidence_required_count": 48,
+          "evidence_satisfied_count": 48,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_lot_precision": 1.0,
+          "impact_lot_recall": 1.0,
+          "impact_true_positive": 13,
+          "inconclusive_scenario_count": 1,
+          "knowledge_only_promotion_count": 0,
+          "llm_call_count": 0,
+          "requested_mode_preservation_rate": 1.0,
+          "requested_mode_preserved_count": 7,
+          "required_warning_recall": 0.5,
+          "root_cause_correct_count": 0,
+          "root_cause_correctness": 0.0,
+          "scenario_count": 7,
+          "scenario_pass_count": 0,
+          "scenario_pass_rate": 0.0,
+          "supported_scenario_count": 6,
+          "unapproved_knowledge_evidence_count": 0,
+          "warning_required_count": 2,
+          "warning_satisfied_count": 1
+        }
+      },
+      "requested_mode": "controlled_react",
+      "results": [
+        {
+          "actual_impact_lots": [
+            "LOT_V2_01_IMP_01",
+            "LOT_V2_01_IMP_02"
+          ],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_01_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_01_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_DIRECTIONAL_MICRO_SCRATCH_BANDS",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_SCRATCH_DENSITY",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_DIRECTIONAL_MICRO_SCRATCH_BANDS_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_SCRATCH_DENSITY_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_01_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CONDITIONER_MOTOR_TORQUE",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 3,
+          "evidence_satisfied_count": 3,
+          "expected_discovery_lane": "same_step",
+          "expected_impact_lots": [
+            "LOT_V2_01_IMP_01",
+            "LOT_V2_01_IMP_02"
+          ],
+          "expected_root_cause": "CMP_CU_11 pad conditioner bearing drag caused intermittent pad glazing",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_001",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_001",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_02_IMP_01",
+            "LOT_V2_02_IMP_02",
+            "LOT_V2_02_IMP_03"
+          ],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_02_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_02_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_EDGE_DISHING_ASYMMETRY",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_EDGE_CENTER_THICKNESS_DELTA",
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_EDGE_DISHING_ASYMMETRY_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_EDGE_CENTER_THICKNESS_DELTA_SHARED_EXPOSURE",
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_02_PRE_CMP_PROFILE",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT",
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_PRE_CMP"
+            },
+            {
+              "expected_evidence_id": "EV_V2_02_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_ANODE_CONTACT_VOLTAGE",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 4,
+          "evidence_satisfied_count": 4,
+          "expected_discovery_lane": "upstream_route",
+          "expected_impact_lots": [
+            "LOT_V2_02_IMP_01",
+            "LOT_V2_02_IMP_02",
+            "LOT_V2_02_IMP_03"
+          ],
+          "expected_root_cause": "PLATE_CU_04 anode contact intermittency created an upstream copper profile skew",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 3,
+          "incident_family_id": "IF_V2_002",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_002",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_03_IMP_01",
+            "LOT_V2_03_IMP_02"
+          ],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_03_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_03_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_ONE_SIDED_OVER_POLISH_ARC",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_WITHIN_WAFER_REMOVAL_ASYMMETRY",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_ONE_SIDED_OVER_POLISH_ARC_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_WITHIN_WAFER_REMOVAL_ASYMMETRY_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_03_PRE_CMP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT",
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_PRE_CMP"
+            },
+            {
+              "expected_evidence_id": "EV_V2_03_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CARRIER_HEAD_ORBIT_RUNOUT",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 4,
+          "evidence_satisfied_count": 4,
+          "expected_discovery_lane": "shared_resource",
+          "expected_impact_lots": [
+            "LOT_V2_03_IMP_01",
+            "LOT_V2_03_IMP_02"
+          ],
+          "expected_root_cause": "CMP_CU_13 carrier-head orbit runout caused azimuthal over-polish",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_003",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "missing",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_003",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SOURCE_LOT_NOT_WAT_FAILED",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_04_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_APPARENT_REMOVAL_RATE_STEP",
+                "EV_METROLOGY_POST_PROCESS_REPORTED_POST_PLANARIZATION_FILM_THICKNESS",
+                "EV_DEFECT_APPARENT_REMOVAL_RATE_STEP_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_REPORTED_POST_PLANARIZATION_FILM_THICKNESS_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_REFERENCE_CALIBRATION",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_REFERENCE_WAFER_OFFSET"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_REFERENCE_CALIBRATION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_INDEPENDENT_REMEASURE",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_INDEPENDENT_REMEASURE_REPORTED_POST_PLANARIZATION_FILM_THICKNESS",
+                "EV_METROLOGY_INDEPENDENT_REMEASURE_REPORTED_POST_PLANARIZATION_FILM_THICKNESS_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_METROLOGY_REMEASURE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_PROCESS_FDC_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "PROCESS_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_WAT_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_PASSING_CONTROLS",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_WAT_PASSING_CONTROLS_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "WAT_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_REFERENCE_WAFER_OFFSET",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "global_semantic",
+          "expected_impact_lots": [],
+          "expected_root_cause": "MET_FILM_03 reference-wafer offset produced a false post-CMP thickness shift",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_004",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "noisy",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_004",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_CONFLICTING_EVIDENCE",
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_05_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_05_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_CENTER_RESIDUE_ISLANDS",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_RESIDUE_AREA_RATIO",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_CENTER_RESIDUE_ISLANDS_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_RESIDUE_AREA_RATIO_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_05_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_SLURRY_PUMP_PRESSURE_DROP_INDEX",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_05_CONTRADICTION",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION"
+              ],
+              "role": "contradicting",
+              "satisfied": true,
+              "semantic_type": "FDC_NORMAL_EXCLUSION"
+            }
+          ],
+          "evidence_required_count": 3,
+          "evidence_satisfied_count": 3,
+          "expected_discovery_lane": "same_step",
+          "expected_impact_lots": [],
+          "expected_root_cause": "unverified CMP slurry delivery restriction",
+          "expected_status": "inconclusive",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_005",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": true,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_CONFLICTING_EVIDENCE"
+          ],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_005",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_FDC_FEATURE_DATA_MISSING",
+            "WARN_FDC_NO_FEATURES",
+            "WARN_FDC_NO_OOC_EVENTS",
+            "WARN_IMPACT_SCOPE_NO_OOC_WINDOW",
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT",
+            "WARN_UNSUPPORTED_DATA_SOURCE"
+          ],
+          "causal_slice": "unresolved",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_06_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_06_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_ISOLATED_SIDEWALL_ROUGHNESS",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_ROUGHNESS_INDEX",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_ISOLATED_SIDEWALL_ROUGHNESS_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_ROUGHNESS_INDEX_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_06_SAME_CHAMBER_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_RECURRENCE_CHECK"
+            }
+          ],
+          "evidence_required_count": 3,
+          "evidence_satisfied_count": 3,
+          "expected_discovery_lane": "global_semantic",
+          "expected_impact_lots": [],
+          "expected_root_cause": "UNRESOLVED because current-lot equipment evidence is missing",
+          "expected_status": "inconclusive",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_006",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "missing",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": true,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_UNSUPPORTED_DATA_SOURCE"
+          ],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_006",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": [
+            "Dry Etch FDC feature history"
+          ]
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_07_IMP_01",
+            "LOT_V2_07_IMP_02"
+          ],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_07_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_07_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_TRUE_DEPOSITED_FILM_THINNING",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_DEPOSITED_FILM_THICKNESS_LOSS",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_TRUE_DEPOSITED_FILM_THINNING_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_DEPOSITED_FILM_THICKNESS_LOSS_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_07_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_07_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_07_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CHAMBER_TEMPERATURE_BIAS",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 5,
+          "evidence_satisfied_count": 5,
+          "expected_discovery_lane": "same_step",
+          "expected_impact_lots": [
+            "LOT_V2_07_IMP_01",
+            "LOT_V2_07_IMP_02"
+          ],
+          "expected_root_cause": "CVD_FILM_07 chamber-temperature drift reduced deposition rate",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_007",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_007",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_08_IMP_01",
+            "LOT_V2_08_IMP_02",
+            "LOT_V2_08_IMP_03"
+          ],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_08_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_RADIAL_EROSION_GROWTH",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_EROSION_RANGE",
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_RADIAL_EROSION_GROWTH_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_EROSION_RANGE_SHARED_EXPOSURE",
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_PRE_CMP_PROFILE",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT",
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_PRE_CMP"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_DETECTED_STEP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_ELECTROLYTE_AGITATION_SPEED",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "upstream_route",
+          "expected_impact_lots": [
+            "LOT_V2_08_IMP_01",
+            "LOT_V2_08_IMP_02",
+            "LOT_V2_08_IMP_03"
+          ],
+          "expected_root_cause": "PLATE_CU_09 agitation controller drift distorted the incoming copper profile",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 3,
+          "incident_family_id": "IF_V2_008",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "noisy",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_008",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_09_IMP_01",
+            "LOT_V2_09_IMP_02",
+            "LOT_V2_09_IMP_03"
+          ],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_09_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_REPEATING_ARC_SCRATCHES",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_ARC_DEFECT_COUNT",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_REPEATING_ARC_SCRATCHES_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_ARC_DEFECT_COUNT_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_DETECTED_STEP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION",
+                "EV_FDC_CARRIER_HEAD_ORBIT_RUNOUT",
+                "EV_FDC_CONDITIONER_MOTOR_TORQUE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_RINSE_NOZZLE_PARTICLE_INDEX",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 6,
+          "evidence_satisfied_count": 6,
+          "expected_discovery_lane": "shared_resource",
+          "expected_impact_lots": [
+            "LOT_V2_09_IMP_01",
+            "LOT_V2_09_IMP_02",
+            "LOT_V2_09_IMP_03"
+          ],
+          "expected_root_cause": "CMP_CU_22 post-polish rinse chamber particle shedding marked wafers",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 3,
+          "incident_family_id": "IF_V2_009",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_009",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_10_IMP_01",
+            "LOT_V2_10_IMP_02"
+          ],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_10_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_THRESHOLD_VOLTAGE_TAIL_SHIFT",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_THRESHOLD_VOLTAGE_TAIL_SHIFT_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_INDEPENDENT_WAT_RETEST",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_WAT_RETEST"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_ELECTRICAL_CONTROLS_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_PASSING_CONTROLS",
+                "EV_WAT_PASSING_CONTROLS_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "WAT_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_BEAM_DOSE_INTEGRATOR",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "global_semantic",
+          "expected_impact_lots": [
+            "LOT_V2_10_IMP_01",
+            "LOT_V2_10_IMP_02"
+          ],
+          "expected_root_cause": "IMP_WELL_03 dose-integrator drift shifted well implant dose",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_010",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "missing",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_010",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_11_IMP_01",
+            "LOT_V2_11_IMP_02"
+          ],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_11_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_SERPENTINE_LEAKAGE_CLUSTERS",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_SERPENTINE_LEAKAGE_CLUSTERS_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_INDEPENDENT_WAT_RETEST",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_WAT_RETEST"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_ELECTRICAL_CONTROLS_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_PASSING_CONTROLS",
+                "EV_WAT_PASSING_CONTROLS_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "WAT_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_RETICLE_SCATTER_INDEX",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "global_semantic",
+          "expected_impact_lots": [
+            "LOT_V2_11_IMP_01",
+            "LOT_V2_11_IMP_02"
+          ],
+          "expected_root_cause": "LITHO_SCN_06 reticle haze repeated a line-space bridging signature",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_011",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "noisy",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_011",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_12_IMP_01",
+            "LOT_V2_12_IMP_02",
+            "LOT_V2_12_IMP_03"
+          ],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_12_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_ODD_SLOT_FILM_THINNING",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_INDEPENDENT_CONFIRMATION_FILM_THICKNESS_DELTA",
+                "EV_METROLOGY_POST_PROCESS_FILM_THICKNESS_DELTA",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_ODD_SLOT_FILM_THINNING_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_INDEPENDENT_CONFIRMATION_FILM_THICKNESS_DELTA_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_PROCESS_FILM_THICKNESS_DELTA_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_DETECTED_STEP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_INDEPENDENT_METROLOGY",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_INDEPENDENT_CONFIRMATION_FILM_THICKNESS_DELTA",
+                "EV_METROLOGY_INDEPENDENT_CONFIRMATION_FILM_THICKNESS_DELTA_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_METROLOGY_CONFIRMATION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_SUSCEPTOR_TEMPERATURE_ERROR",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "upstream_route",
+          "expected_impact_lots": [
+            "LOT_V2_12_IMP_01",
+            "LOT_V2_12_IMP_02",
+            "LOT_V2_12_IMP_03"
+          ],
+          "expected_root_cause": "CVD_ILD_17 susceptor sensor intermittency reduced odd-slot deposition rate",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 3,
+          "incident_family_id": "IF_V2_012",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_012",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_CONFLICTING_EVIDENCE",
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "unresolved",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_13_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_SHORT_LIVED_REMOVAL_RATE_DIP",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_CMP_CONFIRMATION_POST_CMP_RESIDUAL_FILM_DELTA",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_SHORT_LIVED_REMOVAL_RATE_DIP_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE",
+                "EV_METROLOGY_POST_CMP_CONFIRMATION_POST_CMP_RESIDUAL_FILM_DELTA_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_PRE_CMP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_PRE_CMP_INCOMING_FILM_THICKNESS_TILT",
+                "EV_METROLOGY_PRE_CMP_INCOMING_FILM_THICKNESS_TILT_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_PRE_CMP"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_SAME_CHAMBER_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_RECURRENCE_CHECK"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_DETECTED_STEP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION",
+                "EV_FDC_CARRIER_PRESSURE",
+                "EV_FDC_CONDITIONER_MOTOR_TORQUE",
+                "EV_FDC_PAD_LIFE_USED_PERCENT",
+                "EV_FDC_PLATEN_SPEED",
+                "EV_FDC_SLURRY_DELIVERY_PRESSURE",
+                "EV_FDC_SLURRY_FLOW"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_DETECTED_STEP_EXCURSION",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_EXCURSION_WINDOW",
+                "EV_FDC_ENDPOINT_EXTENSION",
+                "EV_FDC_REMOVAL_RATE_DROP_INDEX"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_EXCURSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_INDEPENDENT_PROCESS_CONFIRMATION",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_POST_CMP_CONFIRMATION_POST_CMP_RESIDUAL_FILM_DELTA",
+                "EV_METROLOGY_POST_CMP_CONFIRMATION_POST_CMP_RESIDUAL_FILM_DELTA_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_PROCESS_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "shared_resource",
+          "expected_impact_lots": [],
+          "expected_root_cause": "UNRESOLVED after normal pad and equipment checks because chemical batch genealogy is unavailable",
+          "expected_status": "inconclusive",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_013",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [
+            "WARN_UNSUPPORTED_DATA_SOURCE"
+          ],
+          "partition": "test",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_UNSUPPORTED_DATA_SOURCE"
+          ],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_013",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": [
+            "chemical batch genealogy"
+          ]
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "controlled_react",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_MISSING_FINDINGS",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_14_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_CONTACT_RESISTANCE_SPIKES",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_CONTACT_RESISTANCE_SPIKES_SHARED_EXPOSURE",
+                "EV_WAT_SYNTHETIC_SIGNAL_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_INDEPENDENT_WAT_RETEST",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_PASSING_CONTROLS",
+                "EV_WAT_PASSING_CONTROLS_SHARED_EXPOSURE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_WAT_RETEST"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_EQUIPMENT_INSPECTION",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_PROBE_CARD_CONTAMINATION_INDEX"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "EQUIPMENT_INSPECTION_CONFIRMATION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_POST_CLEAN_RECOVERY",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_PASSING_CONTROLS",
+                "EV_WAT_PASSING_CONTROLS_SHARED_EXPOSURE",
+                "EV_FDC_POST_CLEAN_PROBE_CONTACT_REPEATABILITY"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_MAINTENANCE_RECOVERY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_IMPACT_SCOPE_AUDIT",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "EQUIPMENT_GENEALOGY_SCOPE_AUDIT"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_PROBE_CARD_CONTAMINATION_INDEX",
+                "EV_FDC_PROBE_CONTACT_REPEATABILITY",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "same_step",
+          "expected_impact_lots": [],
+          "expected_root_cause": "WAT_CELL_12 probe-card contamination caused false resistance spikes",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_014",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": false,
+          "requested_mode": "controlled_react",
+          "required_warning_ids": [],
+          "root_cause_correct": false,
+          "scenario_id": "RCA_V2_IF_V2_014",
+          "status_correct": false,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        }
+      ],
+      "status": "COMPLETE",
+      "test_slices": {
+        "causal_scope": {
+          "cross_module": {
+            "completed_count": 4,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 28,
+            "evidence_satisfied_count": 28,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 10,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 4,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 0.0,
+            "scenario_count": 4,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 4,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "same_module": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 13,
+            "evidence_satisfied_count": 13,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 3,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 0.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 2,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "unresolved": {
+            "completed_count": 1,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 1,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 7,
+            "evidence_satisfied_count": 7,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 0,
+            "inconclusive_scenario_count": 1,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 1,
+            "required_warning_recall": 0.5,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 1,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 0,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 2,
+            "warning_satisfied_count": 1
+          }
+        },
+        "discovery_lane": {
+          "global_semantic": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 14,
+            "evidence_satisfied_count": 14,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 4,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 0.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 2,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "same_step": {
+            "completed_count": 1,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 7,
+            "evidence_satisfied_count": 7,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 0,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 1,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 0.0,
+            "scenario_count": 1,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 1,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "shared_resource": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 1,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 13,
+            "evidence_satisfied_count": 13,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 3,
+            "inconclusive_scenario_count": 1,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 0.5,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 0.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 1,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 2,
+            "warning_satisfied_count": 1
+          },
+          "upstream_route": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 14,
+            "evidence_satisfied_count": 14,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 6,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 0.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 2,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          }
+        },
+        "metadata_quality": {
+          "complete": {
+            "completed_count": 4,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 1,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 27,
+            "evidence_satisfied_count": 27,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 6,
+            "inconclusive_scenario_count": 1,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 4,
+            "required_warning_recall": 0.5,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 0.0,
+            "scenario_count": 4,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 3,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 2,
+            "warning_satisfied_count": 1
+          },
+          "missing": {
+            "completed_count": 1,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 7,
+            "evidence_satisfied_count": 7,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 2,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 1,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 0.0,
+            "scenario_count": 1,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 1,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "noisy": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 14,
+            "evidence_satisfied_count": 14,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 5,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 0.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 0,
+            "scenario_pass_rate": 0.0,
+            "supported_scenario_count": 2,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          }
+        }
+      }
+    },
+    "fixed": {
+      "failed_scenario_ids": [],
+      "metrics": {
+        "completed_count": 14,
+        "completion_rate": 1.0,
+        "correct_abstention_count": 3,
+        "correct_abstention_rate": 1.0,
+        "evidence_completeness": 1.0,
+        "evidence_required_count": 77,
+        "evidence_satisfied_count": 77,
+        "impact_false_negative": 0,
+        "impact_false_positive": 0,
+        "impact_lot_precision": 1.0,
+        "impact_lot_recall": 1.0,
+        "impact_true_positive": 22,
+        "inconclusive_scenario_count": 3,
+        "knowledge_only_promotion_count": 0,
+        "llm_call_count": 0,
+        "requested_mode_preservation_rate": 1.0,
+        "requested_mode_preserved_count": 14,
+        "required_warning_recall": 1.0,
+        "root_cause_correct_count": 11,
+        "root_cause_correctness": 1.0,
+        "scenario_count": 14,
+        "scenario_pass_count": 14,
+        "scenario_pass_rate": 1.0,
+        "supported_scenario_count": 11,
+        "unapproved_knowledge_evidence_count": 0,
+        "warning_required_count": 6,
+        "warning_satisfied_count": 6
+      },
+      "partitions": {
+        "calibration": {
+          "completed_count": 7,
+          "completion_rate": 1.0,
+          "correct_abstention_count": 2,
+          "correct_abstention_rate": 1.0,
+          "evidence_completeness": 1.0,
+          "evidence_required_count": 29,
+          "evidence_satisfied_count": 29,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_lot_precision": 1.0,
+          "impact_lot_recall": 1.0,
+          "impact_true_positive": 9,
+          "inconclusive_scenario_count": 2,
+          "knowledge_only_promotion_count": 0,
+          "llm_call_count": 0,
+          "requested_mode_preservation_rate": 1.0,
+          "requested_mode_preserved_count": 7,
+          "required_warning_recall": 1.0,
+          "root_cause_correct_count": 5,
+          "root_cause_correctness": 1.0,
+          "scenario_count": 7,
+          "scenario_pass_count": 7,
+          "scenario_pass_rate": 1.0,
+          "supported_scenario_count": 5,
+          "unapproved_knowledge_evidence_count": 0,
+          "warning_required_count": 4,
+          "warning_satisfied_count": 4
+        },
+        "test": {
+          "completed_count": 7,
+          "completion_rate": 1.0,
+          "correct_abstention_count": 1,
+          "correct_abstention_rate": 1.0,
+          "evidence_completeness": 1.0,
+          "evidence_required_count": 48,
+          "evidence_satisfied_count": 48,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_lot_precision": 1.0,
+          "impact_lot_recall": 1.0,
+          "impact_true_positive": 13,
+          "inconclusive_scenario_count": 1,
+          "knowledge_only_promotion_count": 0,
+          "llm_call_count": 0,
+          "requested_mode_preservation_rate": 1.0,
+          "requested_mode_preserved_count": 7,
+          "required_warning_recall": 1.0,
+          "root_cause_correct_count": 6,
+          "root_cause_correctness": 1.0,
+          "scenario_count": 7,
+          "scenario_pass_count": 7,
+          "scenario_pass_rate": 1.0,
+          "supported_scenario_count": 6,
+          "unapproved_knowledge_evidence_count": 0,
+          "warning_required_count": 2,
+          "warning_satisfied_count": 2
+        }
+      },
+      "requested_mode": "fixed",
+      "results": [
+        {
+          "actual_impact_lots": [
+            "LOT_V2_01_IMP_01",
+            "LOT_V2_01_IMP_02"
+          ],
+          "actual_mode": "fixed",
+          "actual_root_cause": "CMP_CU_11 pad conditioner bearing drag caused intermittent pad glazing",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_01_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_01_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_DIRECTIONAL_MICRO_SCRATCH_BANDS",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_SCRATCH_DENSITY"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_01_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CONDITIONER_MOTOR_TORQUE",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 3,
+          "evidence_satisfied_count": 3,
+          "expected_discovery_lane": "same_step",
+          "expected_impact_lots": [
+            "LOT_V2_01_IMP_01",
+            "LOT_V2_01_IMP_02"
+          ],
+          "expected_root_cause": "CMP_CU_11 pad conditioner bearing drag caused intermittent pad glazing",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_001",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_001",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_02_IMP_01",
+            "LOT_V2_02_IMP_02",
+            "LOT_V2_02_IMP_03"
+          ],
+          "actual_mode": "fixed",
+          "actual_root_cause": "PLATE_CU_04 anode contact intermittency created an upstream copper profile skew",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_02_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_02_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_EDGE_DISHING_ASYMMETRY",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_EDGE_CENTER_THICKNESS_DELTA",
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_02_PRE_CMP_PROFILE",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_PRE_CMP"
+            },
+            {
+              "expected_evidence_id": "EV_V2_02_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_ANODE_CONTACT_VOLTAGE",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 4,
+          "evidence_satisfied_count": 4,
+          "expected_discovery_lane": "upstream_route",
+          "expected_impact_lots": [
+            "LOT_V2_02_IMP_01",
+            "LOT_V2_02_IMP_02",
+            "LOT_V2_02_IMP_03"
+          ],
+          "expected_root_cause": "PLATE_CU_04 anode contact intermittency created an upstream copper profile skew",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 3,
+          "incident_family_id": "IF_V2_002",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_002",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_03_IMP_01",
+            "LOT_V2_03_IMP_02"
+          ],
+          "actual_mode": "fixed",
+          "actual_root_cause": "CMP_CU_13 carrier-head orbit runout caused azimuthal over-polish",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_03_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_03_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_ONE_SIDED_OVER_POLISH_ARC",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_WITHIN_WAFER_REMOVAL_ASYMMETRY"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_03_PRE_CMP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_PRE_CMP"
+            },
+            {
+              "expected_evidence_id": "EV_V2_03_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CARRIER_HEAD_ORBIT_RUNOUT",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 4,
+          "evidence_satisfied_count": 4,
+          "expected_discovery_lane": "shared_resource",
+          "expected_impact_lots": [
+            "LOT_V2_03_IMP_01",
+            "LOT_V2_03_IMP_02"
+          ],
+          "expected_root_cause": "CMP_CU_13 carrier-head orbit runout caused azimuthal over-polish",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_003",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "missing",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_003",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "fixed",
+          "actual_root_cause": "MET_FILM_03 reference-wafer offset produced a false post-CMP thickness shift",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SOURCE_LOT_NOT_WAT_FAILED",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_04_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_DEFECT_APPARENT_REMOVAL_RATE_STEP",
+                "EV_METROLOGY_POST_PROCESS_REPORTED_POST_PLANARIZATION_FILM_THICKNESS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_REFERENCE_CALIBRATION",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_REFERENCE_WAFER_OFFSET"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_REFERENCE_CALIBRATION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_INDEPENDENT_REMEASURE",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_INDEPENDENT_REMEASURE_REPORTED_POST_PLANARIZATION_FILM_THICKNESS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_METROLOGY_REMEASURE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_PROCESS_FDC_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "PROCESS_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_WAT_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_WAT_PASSING_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "WAT_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_04_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_REFERENCE_WAFER_OFFSET",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "global_semantic",
+          "expected_impact_lots": [],
+          "expected_root_cause": "MET_FILM_03 reference-wafer offset produced a false post-CMP thickness shift",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_004",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "noisy",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_004",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "fixed",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_RCA_CONFLICTING_EVIDENCE",
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_05_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_05_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_CENTER_RESIDUE_ISLANDS",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_RESIDUE_AREA_RATIO"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_05_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_SLURRY_PUMP_PRESSURE_DROP_INDEX",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_05_CONTRADICTION",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION"
+              ],
+              "role": "contradicting",
+              "satisfied": true,
+              "semantic_type": "FDC_NORMAL_EXCLUSION"
+            }
+          ],
+          "evidence_required_count": 3,
+          "evidence_satisfied_count": 3,
+          "expected_discovery_lane": "same_step",
+          "expected_impact_lots": [],
+          "expected_root_cause": "unverified CMP slurry delivery restriction",
+          "expected_status": "inconclusive",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_005",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_RCA_CONFLICTING_EVIDENCE"
+          ],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_005",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "fixed",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_FDC_FEATURE_DATA_MISSING",
+            "WARN_FDC_NO_FEATURES",
+            "WARN_FDC_NO_OOC_EVENTS",
+            "WARN_IMPACT_SCOPE_NO_OOC_WINDOW",
+            "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_SPC_BASELINE_INSUFFICIENT",
+            "WARN_UNSUPPORTED_DATA_SOURCE"
+          ],
+          "causal_slice": "unresolved",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_06_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_06_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_ISOLATED_SIDEWALL_ROUGHNESS",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_ROUGHNESS_INDEX"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_06_SAME_CHAMBER_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_RECURRENCE_CHECK"
+            }
+          ],
+          "evidence_required_count": 3,
+          "evidence_satisfied_count": 3,
+          "expected_discovery_lane": "global_semantic",
+          "expected_impact_lots": [],
+          "expected_root_cause": "UNRESOLVED because current-lot equipment evidence is missing",
+          "expected_status": "inconclusive",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_006",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "missing",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_UNSUPPORTED_DATA_SOURCE"
+          ],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_006",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": [
+            "Dry Etch FDC feature history"
+          ]
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_07_IMP_01",
+            "LOT_V2_07_IMP_02"
+          ],
+          "actual_mode": "fixed",
+          "actual_root_cause": "CVD_FILM_07 chamber-temperature drift reduced deposition rate",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_07_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_07_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_TRUE_DEPOSITED_FILM_THINNING",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_DEPOSITED_FILM_THICKNESS_LOSS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_07_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_07_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_07_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CHAMBER_TEMPERATURE_BIAS",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 5,
+          "evidence_satisfied_count": 5,
+          "expected_discovery_lane": "same_step",
+          "expected_impact_lots": [
+            "LOT_V2_07_IMP_01",
+            "LOT_V2_07_IMP_02"
+          ],
+          "expected_root_cause": "CVD_FILM_07 chamber-temperature drift reduced deposition rate",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_007",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "calibration",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_007",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_08_IMP_01",
+            "LOT_V2_08_IMP_02",
+            "LOT_V2_08_IMP_03"
+          ],
+          "actual_mode": "fixed",
+          "actual_root_cause": "PLATE_CU_09 agitation controller drift distorted the incoming copper profile",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_08_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_RADIAL_EROSION_GROWTH",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_EROSION_RANGE",
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_PRE_CMP_PROFILE",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_PRE_CMP_INCOMING_COPPER_THICKNESS_TILT"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_PRE_CMP"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_DETECTED_STEP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_08_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_ELECTROLYTE_AGITATION_SPEED",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "upstream_route",
+          "expected_impact_lots": [
+            "LOT_V2_08_IMP_01",
+            "LOT_V2_08_IMP_02",
+            "LOT_V2_08_IMP_03"
+          ],
+          "expected_root_cause": "PLATE_CU_09 agitation controller drift distorted the incoming copper profile",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 3,
+          "incident_family_id": "IF_V2_008",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "noisy",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_008",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_09_IMP_01",
+            "LOT_V2_09_IMP_02",
+            "LOT_V2_09_IMP_03"
+          ],
+          "actual_mode": "fixed",
+          "actual_root_cause": "CMP_CU_22 post-polish rinse chamber particle shedding marked wafers",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_09_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_REPEATING_ARC_SCRATCHES",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_PROCESS_ARC_DEFECT_COUNT"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_DETECTED_STEP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION",
+                "EV_FDC_CARRIER_HEAD_ORBIT_RUNOUT",
+                "EV_FDC_CONDITIONER_MOTOR_TORQUE"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_09_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_RINSE_NOZZLE_PARTICLE_INDEX",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 6,
+          "evidence_satisfied_count": 6,
+          "expected_discovery_lane": "shared_resource",
+          "expected_impact_lots": [
+            "LOT_V2_09_IMP_01",
+            "LOT_V2_09_IMP_02",
+            "LOT_V2_09_IMP_03"
+          ],
+          "expected_root_cause": "CMP_CU_22 post-polish rinse chamber particle shedding marked wafers",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 3,
+          "incident_family_id": "IF_V2_009",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_009",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_10_IMP_01",
+            "LOT_V2_10_IMP_02"
+          ],
+          "actual_mode": "fixed",
+          "actual_root_cause": "IMP_WELL_03 dose-integrator drift shifted well implant dose",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_10_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_THRESHOLD_VOLTAGE_TAIL_SHIFT",
+                "EV_WAT_SYNTHETIC_SIGNAL"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_INDEPENDENT_WAT_RETEST",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SYNTHETIC_SIGNAL"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_WAT_RETEST"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_ELECTRICAL_CONTROLS_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_PASSING_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "WAT_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_10_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_BEAM_DOSE_INTEGRATOR",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "global_semantic",
+          "expected_impact_lots": [
+            "LOT_V2_10_IMP_01",
+            "LOT_V2_10_IMP_02"
+          ],
+          "expected_root_cause": "IMP_WELL_03 dose-integrator drift shifted well implant dose",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_010",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "missing",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_010",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_11_IMP_01",
+            "LOT_V2_11_IMP_02"
+          ],
+          "actual_mode": "fixed",
+          "actual_root_cause": "LITHO_SCN_06 reticle haze repeated a line-space bridging signature",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_11_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_SERPENTINE_LEAKAGE_CLUSTERS",
+                "EV_WAT_SYNTHETIC_SIGNAL"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_INDEPENDENT_WAT_RETEST",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SYNTHETIC_SIGNAL"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_WAT_RETEST"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_ELECTRICAL_CONTROLS_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_PASSING_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "WAT_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_11_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_RETICLE_SCATTER_INDEX",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "global_semantic",
+          "expected_impact_lots": [
+            "LOT_V2_11_IMP_01",
+            "LOT_V2_11_IMP_02"
+          ],
+          "expected_root_cause": "LITHO_SCN_06 reticle haze repeated a line-space bridging signature",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 2,
+          "incident_family_id": "IF_V2_011",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "noisy",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_011",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [
+            "LOT_V2_12_IMP_01",
+            "LOT_V2_12_IMP_02",
+            "LOT_V2_12_IMP_03"
+          ],
+          "actual_mode": "fixed",
+          "actual_root_cause": "CVD_ILD_17 susceptor sensor intermittency reduced odd-slot deposition rate",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "cross_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_12_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_ODD_SLOT_FILM_THINNING",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_INDEPENDENT_CONFIRMATION_FILM_THICKNESS_DELTA",
+                "EV_METROLOGY_POST_PROCESS_FILM_THICKNESS_DELTA"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_IMPACT_CORRELATION",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "CORRELATED_IMPACT_LOT_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_RECOVERY_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_RECOVERY_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_RECOVERY_CONTROL_EVIDENCE"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_DETECTED_STEP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_INDEPENDENT_METROLOGY",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_INDEPENDENT_CONFIRMATION_FILM_THICKNESS_DELTA"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_METROLOGY_CONFIRMATION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_12_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_SUSCEPTOR_TEMPERATURE_ERROR",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "upstream_route",
+          "expected_impact_lots": [
+            "LOT_V2_12_IMP_01",
+            "LOT_V2_12_IMP_02",
+            "LOT_V2_12_IMP_03"
+          ],
+          "expected_root_cause": "CVD_ILD_17 susceptor sensor intermittency reduced odd-slot deposition rate",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 3,
+          "incident_family_id": "IF_V2_012",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_012",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "fixed",
+          "actual_root_cause": "inconclusive",
+          "actual_status": "inconclusive",
+          "actual_warning_ids": [
+            "WARN_IMPROVEMENT_RCA_INCONCLUSIVE",
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_RCA_CONFLICTING_EVIDENCE",
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_SPC_BASELINE_INSUFFICIENT",
+            "WARN_UNSUPPORTED_DATA_SOURCE"
+          ],
+          "causal_slice": "unresolved",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_13_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_SHORT_LIVED_REMOVAL_RATE_DIP",
+                "EV_WAT_SYNTHETIC_SIGNAL",
+                "EV_METROLOGY_POST_CMP_CONFIRMATION_POST_CMP_RESIDUAL_FILM_DELTA"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_PRE_CMP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_PRE_CMP_INCOMING_FILM_THICKNESS_TILT"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "METROLOGY_PRE_CMP"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_SAME_CHAMBER_CONTROLS",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_RECURRENCE_CHECK"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_DETECTED_STEP_NORMAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_CMP_NORMAL_EXCLUSION",
+                "EV_FDC_CARRIER_PRESSURE",
+                "EV_FDC_CONDITIONER_MOTOR_TORQUE",
+                "EV_FDC_PAD_LIFE_USED_PERCENT",
+                "EV_FDC_PLATEN_SPEED",
+                "EV_FDC_SLURRY_DELIVERY_PRESSURE",
+                "EV_FDC_SLURRY_FLOW"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_NORMAL_EXCLUSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_DETECTED_STEP_EXCURSION",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_EXCURSION_WINDOW",
+                "EV_FDC_ENDPOINT_EXTENSION",
+                "EV_FDC_REMOVAL_RATE_DROP_INDEX"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DETECTED_STEP_FDC_EXCURSION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_13_INDEPENDENT_PROCESS_CONFIRMATION",
+              "matched_runtime_evidence_ids": [
+                "EV_METROLOGY_POST_CMP_CONFIRMATION_POST_CMP_RESIDUAL_FILM_DELTA"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_PROCESS_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "shared_resource",
+          "expected_impact_lots": [],
+          "expected_root_cause": "UNRESOLVED after normal pad and equipment checks because chemical batch genealogy is unavailable",
+          "expected_status": "inconclusive",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_013",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [
+            "WARN_RCA_INCONCLUSIVE",
+            "WARN_UNSUPPORTED_DATA_SOURCE"
+          ],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_013",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": [
+            "chemical batch genealogy"
+          ]
+        },
+        {
+          "actual_impact_lots": [],
+          "actual_mode": "fixed",
+          "actual_root_cause": "WAT_CELL_12 probe-card contamination caused false resistance spikes",
+          "actual_status": "supported",
+          "actual_warning_ids": [
+            "WARN_KNOWLEDGE_NO_CONFIRMED_CASE",
+            "WARN_KNOWLEDGE_WEAK_MATCH",
+            "WARN_SPC_BASELINE_INSUFFICIENT"
+          ],
+          "causal_slice": "same_module",
+          "evidence_matches": [
+            {
+              "expected_evidence_id": "EV_V2_14_MES_ROUTE",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_SOURCE_LOT_CONTEXT",
+                "EV_MES_COMMON_CHAMBER"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "MES_PROCESS_HISTORY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_OBSERVATION",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_SOURCE_LOT_ANOMALY",
+                "EV_DEFECT_CONTACT_RESISTANCE_SPIKES",
+                "EV_WAT_SYNTHETIC_SIGNAL"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "DEFECT_OR_METROLOGY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_INDEPENDENT_WAT_RETEST",
+              "matched_runtime_evidence_ids": [
+                "EV_WAT_PASSING_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "INDEPENDENT_WAT_RETEST"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_EQUIPMENT_INSPECTION",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_PROBE_CARD_CONTAMINATION_INDEX"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "EQUIPMENT_INSPECTION_CONFIRMATION"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_POST_CLEAN_RECOVERY",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_POST_CLEAN_PROBE_CONTACT_REPEATABILITY",
+                "EV_WAT_PASSING_CONTROLS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "POST_MAINTENANCE_RECOVERY"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_IMPACT_SCOPE_AUDIT",
+              "matched_runtime_evidence_ids": [
+                "EV_MES_IMPACT_LOTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "EQUIPMENT_GENEALOGY_SCOPE_AUDIT"
+            },
+            {
+              "expected_evidence_id": "EV_V2_14_CAUSAL_SIGNAL",
+              "matched_runtime_evidence_ids": [
+                "EV_FDC_PROBE_CARD_CONTAMINATION_INDEX",
+                "EV_FDC_PROBE_CONTACT_REPEATABILITY",
+                "EV_OOC_EVENTS"
+              ],
+              "role": "supporting",
+              "satisfied": true,
+              "semantic_type": "FDC_OR_OPERATIONAL_CONFIRMATION"
+            }
+          ],
+          "evidence_required_count": 7,
+          "evidence_satisfied_count": 7,
+          "expected_discovery_lane": "same_step",
+          "expected_impact_lots": [],
+          "expected_root_cause": "WAT_CELL_12 probe-card contamination caused false resistance spikes",
+          "expected_status": "supported",
+          "fallback_reason": null,
+          "impact_false_negative": 0,
+          "impact_false_positive": 0,
+          "impact_true_positive": 0,
+          "incident_family_id": "IF_V2_014",
+          "job_completed": true,
+          "knowledge_only_promotion": false,
+          "llm_call_count": 0,
+          "metadata_quality": "complete",
+          "missing_warning_ids": [],
+          "partition": "test",
+          "passed": true,
+          "requested_mode": "fixed",
+          "required_warning_ids": [],
+          "root_cause_correct": true,
+          "scenario_id": "RCA_V2_IF_V2_014",
+          "status_correct": true,
+          "unapproved_knowledge_evidence_ids": [],
+          "unavailable_data_sources": []
+        }
+      ],
+      "status": "COMPLETE",
+      "test_slices": {
+        "causal_scope": {
+          "cross_module": {
+            "completed_count": 4,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 28,
+            "evidence_satisfied_count": 28,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 10,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 4,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 4,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 4,
+            "scenario_pass_count": 4,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 4,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "same_module": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 13,
+            "evidence_satisfied_count": 13,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 3,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 2,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 2,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 2,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "unresolved": {
+            "completed_count": 1,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 1,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 7,
+            "evidence_satisfied_count": 7,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 0,
+            "inconclusive_scenario_count": 1,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 1,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 0,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 1,
+            "scenario_pass_count": 1,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 0,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 2,
+            "warning_satisfied_count": 2
+          }
+        },
+        "discovery_lane": {
+          "global_semantic": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 14,
+            "evidence_satisfied_count": 14,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 4,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 2,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 2,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 2,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "same_step": {
+            "completed_count": 1,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 7,
+            "evidence_satisfied_count": 7,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 0,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 1,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 1,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 1,
+            "scenario_pass_count": 1,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 1,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "shared_resource": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 1,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 13,
+            "evidence_satisfied_count": 13,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 3,
+            "inconclusive_scenario_count": 1,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 1,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 2,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 1,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 2,
+            "warning_satisfied_count": 2
+          },
+          "upstream_route": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 14,
+            "evidence_satisfied_count": 14,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 6,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 2,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 2,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 2,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          }
+        },
+        "metadata_quality": {
+          "complete": {
+            "completed_count": 4,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 1,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 27,
+            "evidence_satisfied_count": 27,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 6,
+            "inconclusive_scenario_count": 1,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 4,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 3,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 4,
+            "scenario_pass_count": 4,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 3,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 2,
+            "warning_satisfied_count": 2
+          },
+          "missing": {
+            "completed_count": 1,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 7,
+            "evidence_satisfied_count": 7,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 2,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 1,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 1,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 1,
+            "scenario_pass_count": 1,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 1,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          },
+          "noisy": {
+            "completed_count": 2,
+            "completion_rate": 1.0,
+            "correct_abstention_count": 0,
+            "correct_abstention_rate": 1.0,
+            "evidence_completeness": 1.0,
+            "evidence_required_count": 14,
+            "evidence_satisfied_count": 14,
+            "impact_false_negative": 0,
+            "impact_false_positive": 0,
+            "impact_lot_precision": 1.0,
+            "impact_lot_recall": 1.0,
+            "impact_true_positive": 5,
+            "inconclusive_scenario_count": 0,
+            "knowledge_only_promotion_count": 0,
+            "llm_call_count": 0,
+            "requested_mode_preservation_rate": 1.0,
+            "requested_mode_preserved_count": 2,
+            "required_warning_recall": 1.0,
+            "root_cause_correct_count": 2,
+            "root_cause_correctness": 1.0,
+            "scenario_count": 2,
+            "scenario_pass_count": 2,
+            "scenario_pass_rate": 1.0,
+            "supported_scenario_count": 2,
+            "unapproved_knowledge_evidence_count": 0,
+            "warning_required_count": 0,
+            "warning_satisfied_count": 0
+          }
+        }
+      }
+    },
+    "llm_react": {
+      "reason": "Paid real-Qwen evaluation requires both --run-real-qwen and --confirm-paid-qwen with DASHSCOPE_API_KEY.",
+      "status": "NOT_RUN"
+    }
+  },
+  "partitions": {
+    "calibration_scenario_count": 7,
+    "test_scenario_count": 7
+  },
+  "passed": false,
+  "selected_runtime": {
+    "causal_scope_enabled": true,
+    "reranker_enabled": false,
+    "retriever": "chunk_keyword"
+  },
+  "synthetic": true
+}

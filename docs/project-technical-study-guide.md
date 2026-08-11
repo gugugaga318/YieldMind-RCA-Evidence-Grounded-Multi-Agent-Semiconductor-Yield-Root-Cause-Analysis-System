@@ -103,10 +103,10 @@ Basic SPC 使用基线、样本标准差、3-sigma 控制限和点/趋势规则�
 
 知识检索采用两阶段方式：
 
-1. **Discovery**：`KeywordRetriever` 基于症状、模块、设备、参数等字段检索历史候选；
+1. **Discovery**：Typed Retriever 先按治理状态和 Causal Scope 形成候选，再使用当前选中的 Chunk Keyword 排序；BM25、Vector、RRF 与 Reranker 走同一资产合同，可通过 Feature Flag 做公平消融；
 2. **Validation**：使用当前 MES/FDC/Defect-WAT 的证据逐条验证候选是否支持、反驳或数据不足。
 
-因此，历史案例的定位作用被保留，但不会取代当前事件证据。一个相似案例不能仅凭文本相似度，把当前不确定的事件提升为 `supported`。当前实现为关键词检索；Embedding、pgvector、Hybrid Search 与 reranker 是刻意延期的演进项。
+因此，历史案例的定位作用被保留，但不会取代当前事件证据。一个相似案例不能仅凭文本相似度，把当前不确定的事件提升为 `supported`。Evaluation V2 已实装并测试本地 `bge-m3` Hybrid-RRF，但它在 hard-negative 排序上没有超过 Chunk Keyword 基线，所以当前发布选择仍是 **Chunk Keyword + Causal Scope**；Hybrid 保留在 Feature Flag 后，Reranker 继续关闭。
 
 ## 7. Hypothesis Engine：从“Agent 回答”到“受门控决策”
 
@@ -163,7 +163,7 @@ React + TypeScript + Vite Dashboard 调用 API 并展示报告、证据链、模
 - 可选集成：PostgreSQL migration、真实 Qwen；
 - 离线评估：10 个正例、负例、冲突、缺失数据和正确拒答场景。
 
-最近一次完整本地验证结果：Python `269 passed, 3 skipped`，mypy 通过；前端 TypeScript 与 Vitest `6/6` 通过；离线评估 10/10 通过，Top-1/Top-3 100%，无 hallucinated citations。全量 Ruff 仍有 20 条存量格式问题，集中在合成数据脚本和测试文件，不是功能回归，但应在发布前清理。
+最近一次完整本地验证结果：Python `531 passed, 3 skipped, 47 subtests passed`；Long Task C 新增核心源文件的定向 mypy 与 Ruff 通过。前端 Vitest `43/43` 通过，TypeScript 检查与 Vite 生产构建通过。Evaluation V2 的 Fixed RCA 参考在 14/14 审核场景上通过，但真实 Qwen 未运行，因此 RCA Gate 明确为 `BLOCKED`；Hybrid-RRF 未通过 hard-negative 非回归门，Retrieval Gate 为 `FAIL`。全量 Ruff 仍有 18 条既有问题；全量严格 mypy 也有既有类型债务，不能把定向检查包装成全仓通过。
 
 ## 12. 项目亮点（可直接用于面试）
 
@@ -176,6 +176,30 @@ React + TypeScript + Vite Dashboard 调用 API 并展示报告、证据链、模
 7. **Human-in-the-loop 知识闭环**：双工程师审批、Recipe 角色门槛、快照化 provenance，降低错误知识回流风险。
 8. **可测试、可演示、可部署**：核心纯 Python、API、前端、Docker、合成数据与离线评估都具备，适合展示完整工程能力。
 
+### 12.1 Evaluation V2：如何证明“跨模块调查”不是口号
+
+旧评估查询中的模块和答案词过于明显，容易让关键词检索获得虚高结果。V2
+把 Retrieval 与端到端 RCA 分开评估，并采用独立 Calibration/Test 分区、人工
+审核 qrel、同范围 hard negatives 和 in-scope No-answer。检索比较使用相同语料、
+Scope、候选预算和 K，防止不同算法“各跑各的规则”。
+
+V2 的关键实验是 Scope 消融：用户在 Cu CMP 看到现象时，Legacy 策略把 Cu CMP
+作为硬过滤；Causal-wide 策略把它作为 soft hint，并同时保留 `same_step`、
+`upstream_route`、`shared_resource`、`global_semantic` 四条受预算约束的候选通道。
+实测 Cross-Module Recall@5 从 16.67% 提升到 71.67%，Same-Module 保持 100%。
+
+Hybrid-RRF 的 Recall@5 是 79.76%，略高于 Chunk Keyword 的 77.38%，但它的
+hard-negative pairwise 从 59.52% 降到 57.14%，nDCG@10 也从 0.6445 降到
+0.6222。因此项目没有只挑好看的 Recall 宣布切换，而是保留 Hybrid Feature
+Flag，选择 Chunk Keyword + Causal Scope。Reranker 因缺少可用本地权重和严格
+增益证据继续关闭。
+
+端到端 RCA 使用 14 个审核场景。固定确定性参考完成 11/11 supported 根因、
+3/3 正确拒答和精确 Impact Lot 集；Controlled ReAct 作为安全兼容基线，少跑
+Agent 时允许降级但不能错误升级。真实 Qwen 必须显式授权付费且受每场景调用
+上限约束；没有运行时报告 `NOT_RUN`，RCA Gate 为 `BLOCKED`，不能用 Fake
+结果冒充。这种“宁可不发布，也不包装指标”的评估治理是项目的重要亮点。
+
 ## 13. 可以提升的方向
 
 | 优先级 | 改进方向 | 当前状态 | 建议方案 |
@@ -183,9 +207,9 @@ React + TypeScript + Vite Dashboard 调用 API 并展示报告、证据链、模
 | P0 | Job 持久化与异步执行 | Job 在进程内，同步处理 | PostgreSQL job 表 + Redis/Celery 或 Temporal；支持重试、取消、状态机与幂等键 |
 | P0 | 认证授权与审计 | 有审批规则，缺少完整身份体系 | OIDC/RBAC、审批人身份映射、不可篡改 audit log、数据访问权限 |
 | P0 | 真实数据接入与数据质量 | 使用合成 CSV/可选 PostgreSQL | 建 CDC/ETL、数据契约、schema evolution、缺失/延迟/异常数据监控 |
-| P1 | 检索质量 | 当前是 KeywordRetriever | 混合检索（BM25 + embedding + metadata filter）+ reranker；离线 recall/nDCG 评估 |
+| P1 | 检索质量 | Chunk Keyword + Causal Scope 已按 V2 结果选中；Hybrid/Reranker 未通过发布门 | 扩充盲测 qrel、修复 hard-negative 排序，再用严格非回归 Gate 复评 |
 | P1 | 生产可观测性 | 有基本 metrics 和调用元数据 | OpenTelemetry tracing、Prometheus/Grafana、按 case/evidence 的审计检索、成本告警 |
-| P1 | 评估规模和统计显著性 | 10 个离线场景 | 扩展为按工艺模块分层的标注集；盲测、置信区间、回归门禁、人工复核一致性 |
+| P1 | 评估规模和统计显著性 | 14 个审核 RCA 场景与独立 Retrieval V2 分区仍属于小样本 | 扩展为按工艺模块分层的盲测集；增加置信区间、回归门禁和人工复核一致性 |
 | P1 | API 与前端可靠性 | 同步 API、基础 Dashboard | SSE/WebSocket 进度、错误态/重试、证据 drill-down、导出 PDF、可访问性测试 |
 | P2 | RCA 规则可配置化 | 规则在 Python 中 | 用版本化 YAML/数据库配置管理 signature、阈值、OCAP；引入变更审批与回放 |
 | P2 | 多租户/多 Fab 扩展 | 单一演示数据模型 | tenant/site 隔离、设备字典映射、单位标准化、区域数据合规 |
@@ -193,7 +217,7 @@ React + TypeScript + Vite Dashboard 调用 API 并展示报告、证据链、模
 
 ## 14. 90 秒面试讲法
 
-“我做的是一个半导体良率根因分析 Multi-Agent MVP。它的核心不是让 LLM 直接给结论，而是先把 MES、FDC/SPC、Defect/WAT 和历史案例统一为带 ID 的 Typed Evidence。Agent 不能直连数据库，只能经由 Tool Layer 取数；Planner 和 Supervisor 编排四类专家 Agent。之后由一个独立、确定性的 Hypothesis Engine 生成和验证根因候选，显式保存支持、反驳和中性证据，并在证据不足或物理冲突时拒绝确认结论。历史案例采用两阶段 RAG，只能增强当前证据，不能单独把猜测变成 confirmed。RCA 结果会生成可追溯报告和分层改进建议，最终只有经过两位工程师审批的证据快照才能进入长期知识库。项目有 FastAPI、React、Docker、离线评估和 269 项后端测试；下一步我会优先补齐异步持久化、真实数据治理和 Hybrid RAG。”
+“我做的是一个半导体良率根因分析 Multi-Agent MVP。它的核心不是让 LLM 直接给结论，而是先把 MES、FDC/SPC、Defect/WAT 和历史案例统一为带 ID 的 Typed Evidence。Agent 不能直连数据库，只能经由 Tool Layer 取数；Planner 和 Supervisor 编排四类专家 Agent。之后由一个独立、确定性的 Hypothesis Engine 生成和验证根因候选，显式保存支持、反驳和中性证据，并在证据不足或物理冲突时拒绝确认结论。历史案例采用两阶段 RAG，只能增强当前证据，不能单独把猜测变成 confirmed。针对‘现象在 Cu CMP、根因可能在上游’的问题，我把 observed module 从硬过滤改成 Python 管理的 Causal Scope，并用独立 Retrieval/RCA 数据集做消融：跨模块 Recall@5 从 16.67% 提升到 71.67%，同模块保持 100%。Hybrid-RRF 虽提高 Recall，却降低 hard-negative 排序，所以没有切换生产默认。项目已有 FastAPI、React、Docker、双工程师知识审批、531 项后端测试和四 Gate 发布评估；下一步优先补齐异步持久化、真实 Fab 数据治理并扩大盲测样本。”
 
 ## 15. 建议的学习路径
 
@@ -202,7 +226,7 @@ React + TypeScript + Vite Dashboard 调用 API 并展示报告、证据链、模
 3. 阅读 `tool_layer.py` 与 `specialist_agents.py`，理解从数据到专家 Finding；
 4. 重点精读 `hypothesis_engine.py`、`rca_reasoning_agent.py`，掌握证据门控；
 5. 阅读 `knowledge_retrieval.py`、`memory.py`，理解 RAG 与审批闭环；
-6. 最后通过 `tests/contract/` 和 `scripts/run_evaluation.py` 学习如何把架构规则固化为可执行验证。
+6. 最后通过 `tests/contract/`、`scripts/run_evaluation.py`、`scripts/run_evaluation_v2_retrieval.py` 和 `scripts/run_evaluation_v2_rca.py` 学习如何把架构规则固化为可执行验证。
 
 ## 16. 相关项目文档
 
@@ -211,5 +235,7 @@ React + TypeScript + Vite Dashboard 调用 API 并展示报告、证据链、模
 - `docs/architecture/`：系统、Agent、数据架构；
 - `docs/advanced-spc.md`：Advanced SPC 数据合同；
 - `docs/evaluation.md`：离线评估定义；
+- `docs/evaluation-v2-causal-scope-spec.md`：跨模块 Scope、独立数据集与四 Gate 发布规则；
+- `docs/retrieval-evaluation.md`：公平检索消融、失败案例和指标解释；
 - `docs/memory-approval.md`：知识审批和发布约束；
 - `docs/adr/ADR-005-qwen-hybrid-agent-observability.md`：LLM 混合模式与可观测性决策。
