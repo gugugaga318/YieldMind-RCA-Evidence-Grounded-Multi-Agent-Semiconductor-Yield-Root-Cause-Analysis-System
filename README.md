@@ -594,6 +594,48 @@ conclusion. `QuestionUpdateReview` is persisted in `RCAState`, exposed by the
 API, and rendered in the Agent Trace. No rejected update is silently converted
 into `closed` or `unavailable`.
 
+### Evaluation V2 causal Scope and four release gates
+
+Run the reviewed Retrieval V2 ablation with the pinned local `bge-m3` model,
+then run deterministic/Controlled RCA references and combine the four gates:
+
+```powershell
+& .\.venv\Scripts\python.exe scripts\run_evaluation_v2_retrieval.py `
+    --embedding-backend sentence-transformers `
+    --device auto
+& .\.venv\Scripts\python.exe scripts\run_evaluation_v2_rca.py
+& .\.venv\Scripts\python.exe scripts\run_evaluation_v2_release.py
+```
+
+The measured runtime selection is Chunk Keyword + causal-wide Scope, with
+Hybrid-RRF and the Reranker left behind Feature Flags. The final report uses
+independent Data Quality, Governance, Retrieval Quality, and RCA Quality gates;
+it does not collapse them into a misleading overall `PASS`. Without an
+explicitly paid real-Qwen run, the RCA gate is `BLOCKED`, never replaced by a
+Fake-LLM result.
+
+To run the seven Test-partition scenarios with real Qwen, enter the key without
+putting it in shell history and keep the per-scenario call cap:
+
+```powershell
+$qwenSecret = Read-Host "DashScope API key" -AsSecureString
+try {
+    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+    & .\.venv\Scripts\python.exe scripts\run_evaluation_v2_rca.py `
+        --run-real-qwen `
+        --confirm-paid-qwen `
+        --max-qwen-calls-per-scenario 16
+    & .\.venv\Scripts\python.exe scripts\run_evaluation_v2_release.py
+} finally {
+    Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+    Remove-Variable qwenSecret -ErrorAction SilentlyContinue
+}
+```
+
+See [docs/evaluation-v2-causal-scope-spec.md](docs/evaluation-v2-causal-scope-spec.md)
+and [docs/retrieval-evaluation.md](docs/retrieval-evaluation.md) for the measured
+results, failed cases, and Synthetic-only claim boundary.
+
 ## RCA Reasoning Engine
 
 New RCA jobs use the evidence-bounded `hypothesis_v1` engine. It supplies the
