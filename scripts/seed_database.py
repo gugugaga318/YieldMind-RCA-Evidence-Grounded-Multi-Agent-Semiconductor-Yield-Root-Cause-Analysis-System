@@ -72,6 +72,14 @@ ARRAY_COLUMNS = {
     "knowledge_document": {"tags"},
     "ooc_event": {"spc_rule_codes"},
 }
+NON_NULL_EMPTY_STRING_COLUMNS = {
+    "knowledge_document": {
+        "module",
+        "equipment_type",
+        "operation",
+        "defect_type",
+    },
+}
 OPTIONAL_TABLES = {
     "metrology_result",
     "spc_baseline_profile",
@@ -87,6 +95,8 @@ def load_csv(path: Path) -> list[dict[str, Any]]:
 
 def normalize_value(table_name: str, column_name: str, value: Any) -> Any:
     if value == "":
+        if column_name in NON_NULL_EMPTY_STRING_COLUMNS.get(table_name, set()):
+            return ""
         return None
     if column_name in ARRAY_COLUMNS.get(table_name, set()):
         if isinstance(value, list):
@@ -142,10 +152,10 @@ def seed_builtin_knowledge(connection: Any, corpus_path: Path) -> None:
                 "tags": item.get("tags", []),
                 "created_at": item.get("created_at", "2026-08-08T00:00:00+08:00"),
                 "validation_status": "CONFIRMED",
-                "module": item.get("module", ""),
-                "equipment_type": item.get("equipment_type", ""),
-                "operation": item.get("operation", ""),
-                "defect_type": item.get("defect_type", ""),
+                "module": str(item.get("module") or ""),
+                "equipment_type": str(item.get("equipment_type") or ""),
+                "operation": str(item.get("operation") or ""),
+                "defect_type": str(item.get("defect_type") or ""),
                 "source_format": "synthetic",
                 "content_sha256": item.get("content_hash")
                 or sha256(content.encode("utf-8")).hexdigest(),

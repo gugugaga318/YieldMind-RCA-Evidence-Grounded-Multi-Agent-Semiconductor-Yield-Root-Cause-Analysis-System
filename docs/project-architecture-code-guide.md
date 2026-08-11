@@ -1656,7 +1656,7 @@ FRONTEND_PORT=5174
 docker compose up -d db
 
 # 3. 显式执行 migration + seed
-docker compose --profile tools run --rm seed
+docker compose --profile tools run --rm --build seed
 
 # 4. 构建并启动应用
 docker compose up --build -d backend frontend

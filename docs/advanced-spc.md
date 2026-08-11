@@ -80,7 +80,7 @@ Docker Compose:
 ```powershell
 # Set YIELD_RCA_DATASET=spc_case in .env first.
 docker compose up -d db
-docker compose --profile tools run --rm seed
+docker compose --profile tools run --rm --build seed
 docker compose up --build -d backend frontend
 ```
 

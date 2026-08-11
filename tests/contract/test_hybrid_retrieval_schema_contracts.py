@@ -22,6 +22,7 @@ class HybridRetrievalSchemaContractTest(unittest.TestCase):
     def test_down_migration_removes_only_long_task_three_schema(self) -> None:
         self.assertIn("DROP INDEX IF EXISTS idx_knowledge_chunk_search_vector", DOWN_SQL)
         self.assertIn("DROP COLUMN IF EXISTS search_vector", DOWN_SQL)
+        self.assertIn("ALTER TABLE IF EXISTS knowledge_chunk", DOWN_SQL)
         self.assertNotIn("DROP TABLE", DOWN_SQL)
 
 

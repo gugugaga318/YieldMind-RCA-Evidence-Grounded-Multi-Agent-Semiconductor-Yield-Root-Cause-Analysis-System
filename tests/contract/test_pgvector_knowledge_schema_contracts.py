@@ -29,6 +29,8 @@ class PgvectorKnowledgeSchemaContractTest(unittest.TestCase):
         self.assertIn("drop column if exists embedding", normalized)
         self.assertNotIn("drop extension", normalized)
         self.assertIn("create view active_knowledge_chunk", normalized)
+        self.assertIn("alter table if exists knowledge_chunk", normalized)
+        self.assertIn("to_regclass('public.knowledge_chunk')", normalized)
 
 
 if __name__ == "__main__":

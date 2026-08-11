@@ -412,7 +412,7 @@ Copy `.env.example` to `.env`, replace the local PostgreSQL password, then run:
 
 ```powershell
 docker compose up -d db
-docker compose --profile tools run --rm seed
+docker compose --profile tools run --rm --build seed
 docker compose up --build -d backend frontend
 ```
 
@@ -443,7 +443,7 @@ DASHSCOPE_API_KEY=<local-secret>
 Reapply the explicit local seed/migrations before restarting the containers:
 
 ```powershell
-docker compose --profile tools run --rm seed
+docker compose --profile tools run --rm --build seed
 docker compose up --build -d backend frontend
 ```
 

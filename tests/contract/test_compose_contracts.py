@@ -61,6 +61,8 @@ class ComposeContractTest(unittest.TestCase):
         self.assertIn("FROM nginx:", frontend)
         self.assertIn("location /api/", nginx)
         self.assertIn("proxy_pass http://backend:8000/", nginx)
+        self.assertIn("proxy_send_timeout 600s;", nginx)
+        self.assertIn("proxy_read_timeout 600s;", nginx)
 
 
 if __name__ == "__main__":

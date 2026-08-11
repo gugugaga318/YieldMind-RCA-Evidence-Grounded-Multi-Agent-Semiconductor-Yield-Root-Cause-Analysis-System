@@ -78,7 +78,7 @@ runtime startup. Run it explicitly before the first RCA query:
 
 ```powershell
 docker compose up -d db
-docker compose --profile tools run --rm seed
+docker compose --profile tools run --rm --build seed
 ```
 
 The seed command applies the current schema migration with `--reset-schema`
@@ -190,6 +190,13 @@ Metrics:   http://127.0.0.1:8000/metrics
 The browser calls `/api`; Nginx removes that prefix and forwards the request to
 the internal `backend:8000` service. React does not connect directly to
 PostgreSQL or execute RCA logic.
+
+`POST /api/rca/jobs` is still synchronous. Real Qwen ReAct runs can take several
+minutes because bounded Planner and Specialist calls execute before the response
+is returned. The demo Nginx proxy therefore keeps send/read operations open for
+600 seconds. This prevents the proxy from returning `504` while FastAPI is still
+successfully completing a bounded run; it is not a substitute for an
+asynchronous job queue in a production deployment.
 
 PostgreSQL is intentionally not published on a host port. Backend and seed
 containers reach it through the private Compose network at `db:5432`, avoiding

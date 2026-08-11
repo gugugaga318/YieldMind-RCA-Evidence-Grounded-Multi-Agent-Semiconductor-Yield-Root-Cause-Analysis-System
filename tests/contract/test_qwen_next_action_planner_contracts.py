@@ -520,6 +520,27 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
                 for error in captured.exception.validation_errors
             )
         )
+        stop_contract = client.requests[0].payload[
+            "goal_satisfied_stop_contract"
+        ]
+        self.assertEqual(
+            stop_contract["currently_open_question_ids"],
+            ["Q_DEFECT", "Q_MECHANISM"],
+        )
+        self.assertTrue(
+            stop_contract["require_terminal_update_for_every_open_question"]
+        )
+        retry_feedback = client.requests[1].payload[
+            "previous_validation_feedback"
+        ]
+        self.assertEqual(
+            retry_feedback["must_terminally_update_question_ids"],
+            ["Q_DEFECT", "Q_MECHANISM"],
+        )
+        self.assertIn(
+            "validator_ready_reference_question_updates",
+            retry_feedback["repair_instruction"],
+        )
 
     def test_reviewed_stop_accepts_supported_updates_for_every_open_question(
         self,
@@ -601,6 +622,10 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             "prerequisite",
             str(client.requests[1].payload["previous_validation_error"]),
         )
+        feedback = client.requests[1].payload["previous_validation_feedback"]
+        self.assertEqual(feedback["category"], "core_decision_validation")
+        self.assertTrue(feedback["must_repair_before_resubmission"])
+        self.assertIn("prerequisite", feedback["message"])
 
     def test_one_transient_call_failure_is_retried_without_advancing_output_attempt(
         self,

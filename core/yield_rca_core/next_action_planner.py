@@ -520,8 +520,47 @@ class QwenNextActionPlanner:
         validation_error_categories: list[str] = []
         call_retry_count = 0
         failed_provider_call_attempt_count = 0
+        open_question_ids = [
+            question.question_id for question in open_questions
+        ]
+        goal_satisfied_stop_contract = {
+            "currently_open_question_ids": open_question_ids,
+            "require_terminal_update_for_every_open_question": True,
+            "validator_ready_reference_question_updates": [
+                update.to_dict() for update in baseline.question_updates
+            ],
+            "boundary": (
+                "A goal_satisfied stop is invalid while any listed Question "
+                "remains open. If no validator-ready terminal update is "
+                "available, choose a legal action or a different stop boundary."
+            ),
+        }
 
         for attempt in range(1, _OUTPUT_ATTEMPTS + 1):
+            previous_validation_feedback = None
+            if validation_errors:
+                last_error = validation_errors[-1]
+                goal_satisfied_repair = (
+                    "goal_satisfied stop cannot leave open investigation questions"
+                    in last_error
+                )
+                previous_validation_feedback = {
+                    "category": validation_error_categories[-1],
+                    "message": last_error,
+                    "must_repair_before_resubmission": True,
+                    "must_terminally_update_question_ids": (
+                        open_question_ids if goal_satisfied_repair else []
+                    ),
+                    "repair_instruction": (
+                        "Keep goal_satisfied only by submitting an accepted closed "
+                        "or unavailable QuestionUpdate for every listed Question. "
+                        "Use validator_ready_reference_question_updates when it "
+                        "matches the intended stop; otherwise choose a legal action "
+                        "or a different stop boundary."
+                        if goal_satisfied_repair
+                        else "Repair the exact validation error before resubmitting."
+                    ),
+                }
             request = LLMRequest(
                 agent=AgentKind.PLANNER.value,
                 prompt_name="next_action_planner",
@@ -578,10 +617,12 @@ class QwenNextActionPlanner:
                         for question in open_questions
                     },
                     "deterministic_planner_decision": baseline.to_dict(),
+                    "goal_satisfied_stop_contract": goal_satisfied_stop_contract,
                     "output_attempt": attempt,
                     "previous_validation_error": (
                         validation_errors[-1] if validation_errors else None
                     ),
+                    "previous_validation_feedback": previous_validation_feedback,
                 },
                 temperature=0.0,
             )

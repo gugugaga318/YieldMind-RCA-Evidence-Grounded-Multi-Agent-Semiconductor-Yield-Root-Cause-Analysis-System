@@ -75,6 +75,19 @@ For a stop decision:
 - Use a terminal goal_status and one stop_reason: goal_satisfied,
   critical_contradiction, no_allowed_action, budget_exhausted, or data_unavailable.
 - Do not create new open questions.
+- A goal_satisfied stop must terminally update every Question listed in
+  goal_satisfied_stop_contract.currently_open_question_ids. Omitting even one
+  Question makes the entire decision invalid. When
+  validator_ready_reference_question_updates is non-empty and you intend the same
+  stop, copy those terminal deltas exactly. When it is empty, do not claim
+  goal_satisfied while listed Questions remain open; choose a legal action or a
+  different evidence-bounded stop.
+
+When output_attempt is greater than 1, previous_validation_feedback is the
+authoritative repair instruction. Fix the exact rejected field before resubmitting;
+do not return the unchanged decision. For a goal_satisfied boundary error, every ID
+in must_terminally_update_question_ids must receive an accepted closed or
+unavailable QuestionUpdate in the repaired JSON.
 
 You may update an existing open question to closed only when its answer cites
 available Evidence IDs. You may mark it unavailable only with an explicit reason.
