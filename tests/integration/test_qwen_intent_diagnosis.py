@@ -20,6 +20,7 @@ from yield_rca_core.llm_gateway import (  # noqa: E402
 )
 
 from scripts.run_qwen_intent_diagnosis import (  # noqa: E402
+    GOLDEN_QUERY,
     run_qwen_intent_diagnosis,
 )
 
@@ -126,8 +127,26 @@ class QwenIntentDiagnosisIntegrationTest(unittest.TestCase):
         self.assertEqual(evaluation["primary_diagnosis"], "intent_plan_accepted")
         run = evaluation["runs"][0]
         self.assertEqual(run["attempt_count"], 1)
-        self.assertEqual(run["plan_summary"]["intent"], "root_cause")
+        self.assertEqual(evaluation["scenario"], "frontend_default_full_rca")
+        self.assertEqual(run["plan_summary"]["intent"], "full_rca")
+        self.assertEqual(
+            run["plan_summary"]["required_evidence"],
+            [
+                "defect_signature",
+                "shared_exposure",
+                "impact_scope",
+                "process_mechanism",
+                "product_outcome",
+            ],
+        )
         self.assertEqual(run["attempt_diagnostics"][0]["outcome"], "success")
+
+    def test_diagnosis_query_matches_frontend_default_full_rca_query(self) -> None:
+        frontend_source = (ROOT / "frontend" / "src" / "App.tsx").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn(json.dumps(GOLDEN_QUERY), frontend_source)
 
     def test_provider_failure_is_safe_and_keeps_diagnosis_incomplete(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

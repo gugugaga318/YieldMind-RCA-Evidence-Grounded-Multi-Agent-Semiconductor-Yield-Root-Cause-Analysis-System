@@ -30,7 +30,9 @@ from yield_rca_core.llm_gateway import (  # noqa: E402
 )
 
 DEFAULT_OUTPUT_DIR = ROOT / "outputs" / "qwen_intent_diagnosis"
-GOLDEN_QUERY = "Investigate the root cause of LOT_A_001 scratch in Cu CMP."
+GOLDEN_QUERY = (
+    "Investigate the scratch found in Cu CMP and identify root cause and impact lots."
+)
 GOLDEN_LOT_ID = "LOT_A_001"
 DEFAULT_RUNS = 3
 MAX_INTENT_CALLS_PER_RUN = 2
@@ -177,7 +179,7 @@ def aggregate_intent_diagnosis(
     )
     return {
         "schema_version": RESULT_SCHEMA_VERSION,
-        "scenario": "golden_scratch_cu_cmp_root_cause",
+        "scenario": "frontend_default_full_rca",
         "provider": provider,
         "model": model,
         "run_count": len(runs),

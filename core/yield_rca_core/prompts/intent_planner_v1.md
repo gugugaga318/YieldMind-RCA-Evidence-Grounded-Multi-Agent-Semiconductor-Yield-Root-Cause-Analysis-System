@@ -46,3 +46,14 @@ objective. Do not choose an Agent, Action, Tool, SQL query, root cause, or repor
 Every question must declare exactly one bounded question_kind. Use material_trace only
 when the user's request explicitly asks for material, supplier, or consumable genealogy;
 the runtime will report that capability as unavailable when no Material Tool is configured.
+
+Treat allowed_question_kinds in the input payload as the authoritative runtime enum.
+Copy one of those values exactly for every question_kind. Do not invent aliases such as
+shared_exposure, defect_pattern, process_context, or impact_lots.
+
+When output_attempt is greater than 1, previous_validation_feedback contains the precise
+failure category, reason code, field path, and allowed values from the rejected attempt.
+Repair every reported field and return the complete JSON object again. For
+unsupported_question_kind, replace each item listed in invalid_question_kinds with one
+exact value from allowed_question_kinds. The legacy previous_validation_error string is
+context only; previous_validation_feedback is the authoritative repair instruction.

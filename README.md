@@ -513,8 +513,9 @@ model responses, or any API credential.
 ### Real Qwen Intent Planner diagnosis
 
 When an `llm_react` request hands off during Intent Planning, run the isolated
-diagnostic before changing a Prompt or validation rule. It executes only the
-Golden Scratch + Cu CMP Intent Planner boundary, never enters Next Action
+diagnostic before changing a Prompt or validation rule. It executes the same
+Scratch + Cu CMP full-RCA request prefilled by the frontend (root cause plus
+impact Lots) at the Intent Planner boundary, never enters Next Action
 Planning or any Specialist/Tool path, and permits at most two paid calls per
 run. Three runs therefore have a hard maximum of six paid calls.
 
@@ -539,7 +540,8 @@ try {
 The runner distinguishes provider failure, JSON/output parsing, typed contract
 validation, and semantic guard rejection. It aggregates stable reason codes and
 field paths under `outputs/qwen_intent_diagnosis/`. Results contain only bounded
-candidate shape summaries and baseline differences; the API key, complete
+candidate shape summaries, safe invalid `question_kind` indexes/tokens, and
+baseline differences; the API key, complete
 Prompt, user-query payload, and raw Qwen response are never written.
 
 ### Repeated Qwen Planner-review reliability evaluation

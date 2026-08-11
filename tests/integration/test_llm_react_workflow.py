@@ -14,6 +14,7 @@ from yield_rca_api.app import create_app  # noqa: E402
 from yield_rca_core.investigation_models import (  # noqa: E402
     ConclusionLevel,
     DecisionType,
+    InvestigationIntent,
     QuestionUpdateReasonCode,
     StopReason,
 )
@@ -32,6 +33,9 @@ from yield_rca_core.workflow import build_csv_workflow  # noqa: E402
 SEED_DIR = ROOT / "data" / "seeds" / "golden_case"
 ROOT_CAUSE_QUERY = (
     "Investigate the root cause of LOT_A_001 scratch in Cu CMP."
+)
+FULL_RCA_QUERY = (
+    "Investigate the scratch found in Cu CMP and identify root cause and impact lots."
 )
 IMPACT_QUERY = "Identify the impact lots for LOT_A_001."
 PRODUCT_IMPACT_QUERY = (
@@ -658,6 +662,38 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
             "inspect_defect_pattern",
         )
         self.assertIsNone(state.run_evaluation)
+
+    def test_invalid_full_rca_intent_preserves_python_baseline_goal(self) -> None:
+        state = run_lot(
+            InvalidIntentClient(),
+            FULL_RCA_QUERY,
+            job_id="JOB_LLM_REACT_FULL_RCA_INTENT_FALLBACK",
+        )
+
+        self.assertEqual(
+            state.execution_metadata["orchestration_mode"],
+            "controlled_react",
+        )
+        self.assertEqual(
+            state.execution_metadata["orchestration_fallback_stage"],
+            "intent_planning",
+        )
+        self.assertIsNotNone(state.investigation_goal)
+        assert state.investigation_goal is not None
+        self.assertEqual(
+            state.investigation_goal.intent,
+            InvestigationIntent.FULL_RCA.value,
+        )
+        self.assertEqual(
+            state.investigation_goal.required_evidence,
+            [
+                "defect_signature",
+                "shared_exposure",
+                "impact_scope",
+                "process_mechanism",
+                "product_outcome",
+            ],
+        )
 
     def test_product_root_cause_and_history_use_mes_selected_lots(self) -> None:
         workflow = fake_llm_workflow(RecordingFakeClient())

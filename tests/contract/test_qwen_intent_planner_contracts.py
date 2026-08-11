@@ -19,6 +19,7 @@ from yield_rca_core import (  # noqa: E402
     InvestigationValidationError,
     PlannerAttemptOutcome,
     PlannerFailureCategory,
+    QuestionKind,
     QwenIntentPlanner,
     QwenIntentPlannerError,
 )
@@ -99,6 +100,37 @@ class SensitiveInvalidIntentClient(RecordingIntentClient):
             },
             usage=response.usage,
         )
+
+
+class InvalidQuestionKindThenValidIntentClient(RecordingIntentClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        response = super().complete_json(request)
+        if len(self.requests) != 1:
+            return response
+        payload = copy.deepcopy(response.data)
+        payload["questions"][1]["question_kind"] = "shared_exposure"
+        return LLMResponse(data=payload, usage=response.usage)
+
+
+class UnsafeQuestionKindIntentClient(RecordingIntentClient):
+    secret_kind = "api_key_secret"
+    oversized_kind = "x" * 80
+
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        response = super().complete_json(request)
+        payload = copy.deepcopy(response.data)
+        payload["questions"][0]["question_kind"] = (
+            self.secret_kind if len(self.requests) == 1 else self.oversized_kind
+        )
+        return LLMResponse(data=payload, usage=response.usage)
+
+
+class NonStringQuestionKindIntentClient(RecordingIntentClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        response = super().complete_json(request)
+        payload = copy.deepcopy(response.data)
+        payload["questions"][0]["question_kind"] = {"unexpected": "object"}
+        return LLMResponse(data=payload, usage=response.usage)
 
 
 class CrossGoalQuestionClient(RecordingIntentClient):
@@ -244,6 +276,85 @@ class QwenIntentPlannerContractTest(unittest.TestCase):
         self.assertEqual(second.outcome, PlannerAttemptOutcome.SUCCESS.value)
         self.assertFalse(second.repair_feedback_sent)
 
+    def test_invalid_question_kind_retry_receives_typed_repair_feedback(self) -> None:
+        client = InvalidQuestionKindThenValidIntentClient()
+
+        outcome = QwenIntentPlanner(client).plan_with_diagnostics(
+            "Investigate scratch root cause for LOT_01.",
+            lot_id="LOT_01",
+        )
+
+        first = outcome.attempt_diagnostics[0]
+        self.assertEqual(first.reason_code, "unsupported_question_kind")
+        self.assertEqual(first.field_path, "$.questions[1].question_kind")
+        self.assertEqual(
+            first.candidate_summary["invalid_question_kinds"],
+            [{"index": 1, "value": "shared_exposure"}],
+        )
+
+        first_request, second_request = client.requests
+        allowed_kinds = second_request.payload["allowed_question_kinds"]
+        self.assertEqual(first_request.payload["allowed_question_kinds"], allowed_kinds)
+        self.assertNotIn(QuestionKind.UNSUPPORTED.value, allowed_kinds)
+        self.assertIn(QuestionKind.PROCESS_MECHANISM.value, allowed_kinds)
+        self.assertIn(
+            "question_kind is invalid",
+            str(second_request.payload["previous_validation_error"]),
+        )
+        feedback = second_request.payload["previous_validation_feedback"]
+        self.assertEqual(feedback["reason_code"], "unsupported_question_kind")
+        self.assertEqual(feedback["field_path"], "$.questions[1].question_kind")
+        self.assertEqual(feedback["allowed_question_kinds"], allowed_kinds)
+        self.assertEqual(
+            feedback["invalid_question_kinds"],
+            [{"index": 1, "value": "shared_exposure"}],
+        )
+
+    def test_unsafe_invalid_question_kind_values_are_redacted(self) -> None:
+        client = UnsafeQuestionKindIntentClient()
+
+        with self.assertRaises(QwenIntentPlannerError) as context:
+            QwenIntentPlanner(client).plan(
+                "Investigate scratch root cause for LOT_01.",
+                lot_id="LOT_01",
+            )
+
+        diagnostics = [
+            item.to_dict() for item in context.exception.attempt_diagnostics
+        ]
+        self.assertEqual(
+            diagnostics[0]["candidate_summary"]["invalid_question_kinds"],
+            [{"index": 0, "value": "[REDACTED]"}],
+        )
+        self.assertEqual(
+            diagnostics[1]["candidate_summary"]["invalid_question_kinds"],
+            [{"index": 0, "value": "[REDACTED]"}],
+        )
+        serialized = json.dumps(
+            {
+                "diagnostics": diagnostics,
+                "repair_feedback": client.requests[1].payload[
+                    "previous_validation_feedback"
+                ],
+            }
+        )
+        self.assertNotIn(client.secret_kind, serialized)
+        self.assertNotIn(client.oversized_kind, serialized)
+
+    def test_non_string_question_kind_is_recorded_as_safe_type(self) -> None:
+        with self.assertRaises(QwenIntentPlannerError) as context:
+            QwenIntentPlanner(NonStringQuestionKindIntentClient()).plan(
+                "Investigate scratch root cause for LOT_01.",
+                lot_id="LOT_01",
+            )
+
+        first = context.exception.attempt_diagnostics[0]
+        self.assertEqual(first.field_path, "$.questions[0].question_kind")
+        self.assertEqual(
+            first.candidate_summary["invalid_question_kinds"],
+            [{"index": 0, "value": "[NON_STRING:dict]"}],
+        )
+
     def test_two_invalid_outputs_require_explicit_controlled_react_fallback(self) -> None:
         client = AlwaysInvalidIntentClient()
 
@@ -259,7 +370,31 @@ class QwenIntentPlannerContractTest(unittest.TestCase):
         self.assertEqual(len(context.exception.attempt_diagnostics), 2)
         self.assertTrue(context.exception.attempt_diagnostics[0].repair_feedback_sent)
         self.assertFalse(context.exception.attempt_diagnostics[1].repair_feedback_sent)
+        self.assertIsInstance(context.exception.fallback_plan, IntentPlan)
         self.assertEqual(len(client.requests), 2)
+
+    def test_failed_full_rca_intent_keeps_deterministic_fallback_plan(self) -> None:
+        with self.assertRaises(QwenIntentPlannerError) as context:
+            QwenIntentPlanner(AlwaysInvalidIntentClient()).plan(
+                (
+                    "Investigate the scratch found in Cu CMP and identify root cause "
+                    "and impact lots."
+                ),
+                lot_id="LOT_A_001",
+            )
+
+        fallback = context.exception.fallback_plan
+        self.assertEqual(fallback.goal.intent, InvestigationIntent.FULL_RCA.value)
+        self.assertEqual(
+            fallback.goal.required_evidence,
+            [
+                "defect_signature",
+                "shared_exposure",
+                "impact_scope",
+                "process_mechanism",
+                "product_outcome",
+            ],
+        )
 
     def test_semantic_known_fact_change_has_stable_reason_and_field_path(self) -> None:
         client = ChangedKnownFactIntentClient()
@@ -369,6 +504,8 @@ class QwenIntentPlannerContractTest(unittest.TestCase):
 
         prompt = load_prompt("intent_planner", "v1").lower()
         self.assertIn("do not choose an agent, action, tool", prompt)
+        self.assertIn("allowed_question_kinds", prompt)
+        self.assertIn("previous_validation_feedback", prompt)
         source = inspect.getsource(intent_planner).lower()
         self.assertNotIn("yield_rca_core.repositories", source)
         self.assertNotIn("yield_rca_core.tool_layer", source)

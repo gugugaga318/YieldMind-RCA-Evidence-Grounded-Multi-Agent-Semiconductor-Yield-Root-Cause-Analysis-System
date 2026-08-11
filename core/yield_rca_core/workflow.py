@@ -123,9 +123,13 @@ class PurePythonRCAWorkflow:
                     )
                     intent_plan = intent_outcome.plan
                 except (QwenIntentPlannerError, LLMCallError) as exc:
-                    goal = self.planner.plan_investigation_goal(
-                        user_query,
-                        lot_id=lot_id,
+                    goal = (
+                        exc.fallback_plan.goal
+                        if isinstance(exc, QwenIntentPlannerError)
+                        else self.planner.plan_investigation_goal(
+                            user_query,
+                            lot_id=lot_id,
+                        )
                     )
                     job = _job_from_goal(
                         goal.known_facts,

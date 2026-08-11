@@ -69,6 +69,10 @@ _REQUIRED_EVIDENCE_BY_INTENT: dict[str, list[str]] = {
     ],
 }
 _SENSITIVE_FIELD_TOKENS = ("api_key", "authorization", "password", "secret", "token")
+_SAFE_ENUM_TOKEN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+_ALLOWED_QUESTION_KINDS = tuple(
+    item.value for item in QuestionKind if item is not QuestionKind.UNSUPPORTED
+)
 
 
 class _IntentCandidateValidationError(InvestigationValidationError):
@@ -89,10 +93,15 @@ class QwenIntentPlannerError(LLMOutputValidationError):
         self,
         validation_errors: list[str],
         attempt_diagnostics: list[PlannerAttemptDiagnostic] | None = None,
+        *,
+        fallback_plan: IntentPlan,
     ) -> None:
+        if not isinstance(fallback_plan, IntentPlan):
+            raise TypeError("fallback_plan must be an IntentPlan")
         self.attempts = len(validation_errors)
         self.validation_errors = tuple(validation_errors)
         self.attempt_diagnostics = tuple(attempt_diagnostics or ())
+        self.fallback_plan = fallback_plan
         super().__init__(
             "Qwen Intent Planner returned invalid output twice; "
             f"fallback to {self.fallback_mode} is required"
@@ -136,6 +145,23 @@ def _safe_field_names(value: object) -> list[str]:
     return sorted(names)[:30]
 
 
+def _safe_question_kind_value(value: object) -> str:
+    """Retain only bounded enum-like tokens; redact arbitrary model content."""
+
+    if not isinstance(value, str):
+        safe_type = type(value).__name__
+        if safe_type not in {"NoneType", "bool", "dict", "float", "int", "list"}:
+            safe_type = "other"
+        return f"[NON_STRING:{safe_type}]"
+    normalized = value.strip()
+    lowered = normalized.casefold()
+    if any(token in lowered for token in (*_SENSITIVE_FIELD_TOKENS, "bearer")):
+        return "[REDACTED]"
+    if not _SAFE_ENUM_TOKEN.fullmatch(normalized):
+        return "[REDACTED]"
+    return normalized
+
+
 def _candidate_summary(candidate: object) -> dict[str, Any]:
     """Summarize shape only; never retain the raw response or fact values."""
 
@@ -159,14 +185,37 @@ def _candidate_summary(candidate: object) -> dict[str, Any]:
     questions = candidate.get("questions")
     if isinstance(questions, list):
         summary["question_count"] = len(questions)
-        allowed_kinds = {item.value for item in QuestionKind}
+        allowed_kinds = set(_ALLOWED_QUESTION_KINDS)
         question_kinds = {
             question.get("question_kind")
             for question in questions
             if isinstance(question, dict)
+            and isinstance(question.get("question_kind"), str)
             and question.get("question_kind") in allowed_kinds
         }
         summary["question_kinds"] = sorted(question_kinds)
+        invalid_question_kinds: list[dict[str, Any]] = []
+        missing_question_kind_indexes: list[int] = []
+        for index, question in enumerate(questions[:10]):
+            if not isinstance(question, dict):
+                continue
+            if "question_kind" not in question:
+                missing_question_kind_indexes.append(index)
+                continue
+            question_kind = question.get("question_kind")
+            if not isinstance(question_kind, str) or question_kind not in allowed_kinds:
+                invalid_question_kinds.append(
+                    {
+                        "index": index,
+                        "value": _safe_question_kind_value(question_kind),
+                    }
+                )
+        if invalid_question_kinds:
+            summary["invalid_question_kinds"] = invalid_question_kinds
+        if missing_question_kind_indexes:
+            summary["missing_question_kind_indexes"] = (
+                missing_question_kind_indexes
+            )
     return summary
 
 
@@ -225,7 +274,11 @@ def _contract_failure(error: Exception) -> tuple[str, str]:
     return IntentPlannerReasonCode.MALFORMED_OUTPUT.value, "$"
 
 
-def _failure_details(error: Exception) -> tuple[str, str, str | None]:
+def _failure_details(
+    error: Exception,
+    *,
+    candidate_summary: dict[str, Any] | None = None,
+) -> tuple[str, str, str | None]:
     if isinstance(error, _IntentCandidateValidationError):
         return (
             PlannerFailureCategory.SEMANTIC_VALIDATION_ERROR.value,
@@ -239,11 +292,41 @@ def _failure_details(error: Exception) -> tuple[str, str, str | None]:
             "$",
         )
     reason_code, field_path = _contract_failure(error)
+    if reason_code == IntentPlannerReasonCode.UNSUPPORTED_QUESTION_KIND.value:
+        invalid_kinds = (candidate_summary or {}).get("invalid_question_kinds")
+        if isinstance(invalid_kinds, list) and invalid_kinds:
+            invalid_index = invalid_kinds[0].get("index")
+            if type(invalid_index) is int and invalid_index >= 0:
+                field_path = f"$.questions[{invalid_index}].question_kind"
     return (
         PlannerFailureCategory.CONTRACT_VALIDATION_ERROR.value,
         reason_code,
         field_path,
     )
+
+
+def _repair_feedback(
+    *,
+    failure_category: str,
+    reason_code: str,
+    field_path: str | None,
+    message: str,
+    candidate_summary: dict[str, Any],
+) -> dict[str, Any]:
+    """Build bounded machine-readable feedback for the next model attempt."""
+
+    feedback: dict[str, Any] = {
+        "failure_category": failure_category,
+        "reason_code": reason_code,
+        "field_path": field_path,
+        "message": message,
+        "allowed_question_kinds": list(_ALLOWED_QUESTION_KINDS),
+    }
+    for key in ("invalid_question_kinds", "missing_question_kind_indexes"):
+        value = candidate_summary.get(key)
+        if value:
+            feedback[key] = value
+    return feedback
 
 
 def _provider_request_id(response: object) -> str | None:
@@ -425,6 +508,7 @@ class QwenIntentPlanner:
             protected_lot_id = str(baseline.goal.known_facts["lot_id"])
         validation_errors: list[str] = []
         attempt_diagnostics: list[PlannerAttemptDiagnostic] = []
+        previous_validation_feedback: dict[str, Any] | None = None
 
         for attempt in range(1, _OUTPUT_ATTEMPTS + 1):
             request = LLMRequest(
@@ -436,6 +520,7 @@ class QwenIntentPlanner:
                     "explicit_lot_id": protected_lot_id,
                     "requested_goal_id": baseline.goal.goal_id,
                     "allowed_intents": [intent.value for intent in InvestigationIntent],
+                    "allowed_question_kinds": list(_ALLOWED_QUESTION_KINDS),
                     "fixed_max_steps": baseline.goal.max_steps,
                     "fixed_max_tool_calls": baseline.goal.max_tool_calls,
                     "deterministic_intent_plan": baseline.to_dict(),
@@ -443,6 +528,7 @@ class QwenIntentPlanner:
                     "previous_validation_error": (
                         validation_errors[-1] if validation_errors else None
                     ),
+                    "previous_validation_feedback": previous_validation_feedback,
                 },
                 temperature=0.0,
             )
@@ -514,8 +600,19 @@ class QwenIntentPlanner:
             ) as exc:
                 message = _safe_message(exc)
                 validation_errors.append(message)
-                failure_category, reason_code, field_path = _failure_details(exc)
                 response_data = response.data if response is not None else None
+                candidate_summary = _candidate_summary(response_data)
+                failure_category, reason_code, field_path = _failure_details(
+                    exc,
+                    candidate_summary=candidate_summary,
+                )
+                previous_validation_feedback = _repair_feedback(
+                    failure_category=failure_category,
+                    reason_code=reason_code,
+                    field_path=field_path,
+                    message=message,
+                    candidate_summary=candidate_summary,
+                )
                 attempt_diagnostics.append(
                     PlannerAttemptDiagnostic(
                         stage=PlannerAttemptStage.INTENT_PLANNING.value,
@@ -528,13 +625,17 @@ class QwenIntentPlanner:
                         field_path=field_path,
                         message=message,
                         repair_feedback_sent=attempt < _OUTPUT_ATTEMPTS,
-                        candidate_summary=_candidate_summary(response_data),
+                        candidate_summary=candidate_summary,
                         baseline_diff=_baseline_diff(response_data, baseline),
                         provider_request_id=_provider_request_id(response),
                     )
                 )
 
-        raise QwenIntentPlannerError(validation_errors, attempt_diagnostics)
+        raise QwenIntentPlannerError(
+            validation_errors,
+            attempt_diagnostics,
+            fallback_plan=baseline,
+        )
 
     def _baseline_plan(self, query: str, *, lot_id: str | None) -> IntentPlan:
         base_goal = self.fallback_planner.plan_investigation_goal(query, lot_id=lot_id)
@@ -666,11 +767,11 @@ class QwenIntentPlanner:
         baseline_notice_kinds = {
             notice.capability for notice in baseline.capability_notices
         }
-        for question in candidate.questions:
+        for question_index, question in enumerate(candidate.questions):
             if question.question_kind == QuestionKind.UNSUPPORTED.value:
                 raise _IntentCandidateValidationError(
                     IntentPlannerReasonCode.UNSUPPORTED_QUESTION_KIND,
-                    "$.questions[].question_kind",
+                    f"$.questions[{question_index}].question_kind",
                     "unsupported_question_kind: Qwen created an unrecognized Question kind",
                 )
             if (
@@ -679,7 +780,7 @@ class QwenIntentPlanner:
             ):
                 raise _IntentCandidateValidationError(
                     IntentPlannerReasonCode.UNREQUESTED_MATERIAL_TRACE,
-                    "$.questions[].question_kind",
+                    f"$.questions[{question_index}].question_kind",
                     "unsupported_question_kind: material_trace was not requested by the user",
                 )
         if explicit_lot_id is not None:
