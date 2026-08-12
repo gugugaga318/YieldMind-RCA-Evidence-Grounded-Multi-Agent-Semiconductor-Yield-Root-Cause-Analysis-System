@@ -16,6 +16,7 @@ from yield_rca_core.llm_gateway import LLMCallError, LLMOutputValidationError
 from yield_rca_core.models import RCAState, TaskStatus
 from yield_rca_core.supervisor import SupervisorExecutionError
 from yield_rca_core.workflow import PurePythonRCAWorkflow
+from yield_rca_core.workflow_events import capture_workflow_events
 
 from yield_rca_api.audit import AuditEvent, AuditSink
 from yield_rca_api.memory import MemoryApprovalService, MemoryCandidateNotEligibleError
@@ -284,13 +285,21 @@ class RCAQueueWorker:
             lot_id=str(lot_id) if lot_id is not None else None,
             user_query=user_query,
         )
-        completed = self.workflow.run(
-            user_query,
-            job_id=record.state.job.job_id,
-            plan_id=f"PLAN_{record.state.job.job_id}",
-            lot_id=str(lot_id) if lot_id is not None else None,
-            orchestration_mode_override=selected_mode,
-        )
+        with capture_workflow_events(
+            lambda event_type, payload: self.store.record_progress_event(
+                worker_id=self.worker_id,
+                job_id=record.state.job.job_id,
+                event_type=event_type,
+                payload=payload,
+            )
+        ):
+            completed = self.workflow.run(
+                user_query,
+                job_id=record.state.job.job_id,
+                plan_id=f"PLAN_{record.state.job.job_id}",
+                lot_id=str(lot_id) if lot_id is not None else None,
+                orchestration_mode_override=selected_mode,
+            )
         execution_metadata = {
             **completed.execution_metadata,
             "orchestration_requested_mode": self.workflow.orchestration_mode,

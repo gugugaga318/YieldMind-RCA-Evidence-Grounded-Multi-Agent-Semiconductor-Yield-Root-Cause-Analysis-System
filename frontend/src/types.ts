@@ -1,4 +1,13 @@
-export type TaskStatus = "pending" | "running" | "completed" | "failed" | "skipped";
+export type TaskStatus =
+  | "pending"
+  | "queued"
+  | "running"
+  | "retry_wait"
+  | "cancel_requested"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "skipped";
 export type InvestigationMode = "product_window" | "lot";
 export type WorkspaceMode = InvestigationMode | "knowledge";
 export type KnowledgeQuestionKind =
@@ -36,7 +45,10 @@ export interface RCAJobCreated {
   investigation_mode: InvestigationMode;
   source_lot_id: string | null;
   state_url: string;
+  events_url: string;
   report_url: string;
+  cancel_url: string;
+  idempotency_key: string | null;
   memory_candidate_id: string | null;
   memory_candidate_url: string | null;
 }
@@ -470,6 +482,37 @@ export interface RCAJobResponse {
   job_id: string;
   status: TaskStatus;
   state: RCAState;
+  queue: RCAJobQueueMetadata | null;
+}
+
+export interface RCAJobQueueMetadata {
+  priority: number;
+  attempt_count: number;
+  max_attempts: number;
+  next_attempt_at: string | null;
+  lease_expires_at: string | null;
+  cancel_requested_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  error: { error_code?: string; message?: string; retryable?: boolean } | null;
+  version: number;
+}
+
+export interface RCAJobEvent {
+  job_id: string;
+  sequence: number;
+  event_type: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export type JobStreamConnection = "connecting" | "live" | "reconnecting" | "closed";
+
+export interface CancelRCAJobResponse {
+  job_id: string;
+  status: TaskStatus;
+  cancel_requested_at: string;
+  state_url: string;
 }
 
 export interface RCAReportResponse {

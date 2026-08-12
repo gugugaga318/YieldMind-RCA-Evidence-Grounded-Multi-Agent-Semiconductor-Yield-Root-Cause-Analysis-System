@@ -127,6 +127,11 @@ class RCAQueueWorkerTest(unittest.TestCase):
         self.assertTrue(record.state.evidence)
         self.assertEqual(record.state.execution_metadata["queue_attempt_number"], 1)
         self.assertEqual(store.list_attempts("RCA_WORKER_SUCCESS")[0].status, "completed")
+        event_types = [event.event_type for event in store.list_events("RCA_WORKER_SUCCESS")]
+        self.assertIn("investigation_planned", event_types)
+        self.assertIn("agent_started", event_types)
+        self.assertIn("agent_completed", event_types)
+        self.assertLess(event_types.index("agent_started"), event_types.index("job_completed"))
 
     def test_transient_provider_failure_schedules_retry(self) -> None:
         store = InMemoryRCAJobStore()

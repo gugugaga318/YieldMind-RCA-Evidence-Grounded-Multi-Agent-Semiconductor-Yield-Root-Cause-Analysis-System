@@ -56,6 +56,7 @@ from yield_rca_core.rca_reasoning_agent import RCAReasoningAgent
 from yield_rca_core.report_generator import ReportGenerator
 from yield_rca_core.specialist_agents import DefectWATAgent, FDCAgent, KnowledgeAgent, MESAgent
 from yield_rca_core.specialist_v2 import SpecialistV2Error, SpecialistV2Executor
+from yield_rca_core.workflow_events import emit_workflow_event
 
 SUPERVISOR_EXECUTABLE_AGENTS = frozenset(
     {
@@ -647,11 +648,42 @@ class Supervisor:
                     evidence_gaps=evidence_gaps,
                     stop_reason=decision.stop_reason,
                 )
+                emit_workflow_event(
+                    "investigation_stopped",
+                    {
+                        "mode": "controlled_react",
+                        "goal_status": decision.goal_status,
+                        "conclusion_level": decision.conclusion_level,
+                        "stop_reason": decision.stop_reason,
+                        "evidence_gaps": evidence_gaps,
+                    },
+                )
                 report = self.report_generator.generate(terminal)
                 return replace(terminal, report=report)
 
+            emit_workflow_event(
+                "action_started",
+                {
+                    "action_id": decision.next_action.action_id,
+                    "action_kind": decision.next_action.kind,
+                    "agent": decision.next_action.agent,
+                    "reason": decision.next_action.reason,
+                },
+            )
             finding = self._dispatch_controlled(decision.next_action, state)
             state = self._record_controlled_finding(state, decision.next_action, finding)
+            emit_workflow_event(
+                "action_completed",
+                {
+                    "action_id": decision.next_action.action_id,
+                    "action_kind": decision.next_action.kind,
+                    "agent": finding.agent,
+                    "finding_id": finding.finding_id,
+                    "summary": finding.summary,
+                    "evidence_ids": list(finding.evidence_ids),
+                    "confidence": finding.confidence,
+                },
+            )
 
     def _controlled_action_tool_cost(
         self,
@@ -821,6 +853,17 @@ class Supervisor:
                     ),
                     stop_reason=decision.stop_reason,
                 )
+                emit_workflow_event(
+                    "planner_stopped",
+                    {
+                        "decision_id": decision.decision_id,
+                        "reason": decision.reason,
+                        "goal_status": decision.goal_status,
+                        "conclusion_level": conclusion_level,
+                        "stop_reason": decision.stop_reason,
+                        "evidence_gaps": list(terminal.evidence_gaps),
+                    },
+                )
                 if not terminal.evidence:
                     return terminal
                 report = self.report_generator.generate(terminal)
@@ -832,6 +875,27 @@ class Supervisor:
                     "LLM act decision lost its next_action",
                     state=state,
                 )
+            emit_workflow_event(
+                "planner_decision",
+                {
+                    "decision_id": decision.decision_id,
+                    "decision_type": decision.decision_type,
+                    "reason": decision.reason,
+                    "action_id": action.action_id,
+                    "action_kind": action.kind,
+                    "agent": action.agent,
+                    "target_question_ids": list(decision.target_question_ids),
+                },
+            )
+            emit_workflow_event(
+                "action_started",
+                {
+                    "action_id": action.action_id,
+                    "action_kind": action.kind,
+                    "agent": action.agent,
+                    "reason": action.reason,
+                },
+            )
             remaining_tool_calls = max(
                 0,
                 intent_plan.goal.max_tool_calls - len(observed_tool_latencies),
@@ -854,6 +918,18 @@ class Supervisor:
                 finding,
             )
             state = self._record_planner_outcome(state_with_finding, outcome)
+            emit_workflow_event(
+                "action_completed",
+                {
+                    "action_id": action.action_id,
+                    "action_kind": action.kind,
+                    "agent": finding.agent,
+                    "finding_id": finding.finding_id,
+                    "summary": finding.summary,
+                    "evidence_ids": list(finding.evidence_ids),
+                    "confidence": finding.confidence,
+                },
+            )
 
     @staticmethod
     def _record_planner_outcome(
@@ -1353,7 +1429,29 @@ class Supervisor:
                 )
 
             for task in ready:
+                emit_workflow_event(
+                    "agent_started",
+                    {
+                        "task_id": task.task_id,
+                        "agent": task.agent,
+                        "objective": task.objective,
+                    },
+                )
                 state = self._execute_task(state, task)
+                finding = state.finding_for_task(task.task_id)
+                emit_workflow_event(
+                    "agent_completed",
+                    {
+                        "task_id": task.task_id,
+                        "agent": task.agent,
+                        "finding_id": finding.finding_id if finding is not None else None,
+                        "summary": finding.summary if finding is not None else "",
+                        "evidence_ids": (
+                            list(finding.evidence_ids) if finding is not None else []
+                        ),
+                        "confidence": finding.confidence if finding is not None else None,
+                    },
+                )
                 remaining.remove(task.task_id)
 
         if state.task_plan is None:
@@ -1361,6 +1459,18 @@ class Supervisor:
         state = replace(state, current_task_id=None)
         report = self.report_generator.generate(state)
         completed_job = replace(state.job, status=TaskStatus.COMPLETED.value)
+        emit_workflow_event(
+            "investigation_stopped",
+            {
+                "mode": "fixed",
+                "goal_status": "satisfied",
+                "conclusion_level": (
+                    state.hypotheses[-1].status if state.hypotheses else "inconclusive"
+                ),
+                "stop_reason": "workflow_completed",
+                "evidence_gaps": [],
+            },
+        )
         return replace(state, job=completed_job, report=report)
 
     def _execute_task(self, state: RCAState, task: AgentTask) -> RCAState:

@@ -430,11 +430,117 @@ p {
 }
 
 .status-pending,
-.status-skipped {
+.status-skipped,
+.status-queued {
   color: #65716b;
   background: #f1f3f2;
   border-color: #dce1df;
 }
+
+.status-retry_wait {
+  color: #a15c00;
+  background: #fff3d6;
+  border-color: #f4cf81;
+}
+
+.status-cancel_requested,
+.status-cancelled {
+  color: #8b3942;
+  background: #fff0f1;
+  border-color: #edbdc2;
+}
+
+.async-job-panel {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #ffffff, #f7faf9);
+  box-shadow: 0 10px 30px rgba(23, 32, 29, 0.06);
+}
+
+.async-job-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+}
+
+.async-job-heading h2 {
+  margin: 2px 0 4px;
+  font-size: 19px;
+}
+
+.async-job-heading code {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.async-job-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 18px 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.async-job-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 13px;
+  border-right: 1px solid var(--line-soft);
+}
+
+.async-job-facts > div:last-child { border-right: 0; }
+.async-job-facts span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.async-job-facts strong { display: flex; align-items: center; gap: 5px; font-size: 12px; }
+.stream-live { color: #0b6b58; }
+.stream-reconnecting { color: var(--warning); }
+
+.async-event-list {
+  display: grid;
+  gap: 0;
+  max-height: 420px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.async-event {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.async-event:last-child { border-bottom: 0; }
+.async-event-icon { display: grid; place-items: center; width: 28px; height: 28px; color: var(--accent); background: var(--accent-soft); border-radius: 50%; }
+.async-event > div:last-child { display: flex; flex-direction: column; gap: 3px; }
+.async-event strong { font-size: 12px; font-weight: 650; line-height: 1.45; }
+.async-event small { color: var(--muted); font-size: 10px; }
+.event-job_failed .async-event-icon,
+.event-job_cancelled .async-event-icon { color: var(--critical); background: #fff0f1; }
+
+.cancel-job-button,
+.sidebar-cancel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #9a3540;
+  background: #fff7f7;
+  border: 1px solid #e9b7bc;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.cancel-job-button { margin-top: 16px; padding: 9px 13px; }
+.sidebar-cancel-button { width: 100%; margin-top: 10px; padding: 8px; font-size: 11px; }
+.cancel-job-button:disabled,
+.sidebar-cancel-button:disabled { opacity: .55; cursor: not-allowed; }
 
 .workspace {
   min-width: 0;

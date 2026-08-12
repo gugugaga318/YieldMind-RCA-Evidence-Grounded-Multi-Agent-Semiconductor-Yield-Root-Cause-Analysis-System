@@ -1,4 +1,4 @@
-import { BookOpen, CalendarRange, Play, Search, ServerCog, Waypoints } from "lucide-react";
+import { Ban, BookOpen, CalendarRange, Play, Search, ServerCog, Waypoints } from "lucide-react";
 import type { FormEvent } from "react";
 
 import type {
@@ -26,6 +26,8 @@ interface JobComposerProps {
   loading: boolean;
   currentJob: RCAJobCreated | null;
   runtimeInfo: RuntimeInfo | null;
+  onCancel: () => void;
+  cancelling: boolean;
 }
 
 export function JobComposer({
@@ -45,6 +47,8 @@ export function JobComposer({
   loading,
   currentJob,
   runtimeInfo,
+  onCancel,
+  cancelling,
 }: JobComposerProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -241,6 +245,17 @@ export function JobComposer({
               })}
             </time>
           </div>
+          {["queued", "running", "retry_wait", "cancel_requested"].includes(currentJob.status) && (
+            <button
+              type="button"
+              className="sidebar-cancel-button"
+              onClick={onCancel}
+              disabled={cancelling || currentJob.status === "cancel_requested"}
+            >
+              <Ban size={14} aria-hidden="true" />
+              {cancelling || currentJob.status === "cancel_requested" ? "Cancelling" : "Cancel Job"}
+            </button>
+          )}
         </div>
       )}
     </aside>

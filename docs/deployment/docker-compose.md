@@ -203,10 +203,11 @@ same normalized request returns the original Job; changing the request returns
 Batch 23.1 runs a separate `worker` service. It claims with
 `FOR UPDATE SKIP LOCKED`, renews leases, retries only transient provider or
 transport failures, recovers expired leases, and honors
-`POST /api/rca/jobs/{job_id}/cancel`. The API response's `events_url` is still
-reserved for Batch 23.2 SSE; the frontend polling/streaming UX is also deferred
-to that Batch. No API key, Authorization header, or hidden model reasoning is
-stored in the queue.
+`POST /api/rca/jobs/{job_id}/cancel`. Batch 23.2 activates the response's
+`events_url` as an SSE Agent progress trace. Nginx buffering is disabled so
+Events reach the browser immediately; the frontend reconnects with an Event
+cursor and retains polling as a degraded fallback. No API key, Authorization
+header, raw model response, or hidden model reasoning is stored or streamed.
 
 When upgrading an existing local PostgreSQL volume, apply migration
 `011_async_job_queue` before starting the new backend and Worker. The backend

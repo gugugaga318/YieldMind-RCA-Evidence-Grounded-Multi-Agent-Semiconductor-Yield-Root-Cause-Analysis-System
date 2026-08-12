@@ -230,9 +230,11 @@ non-secret queue metadata. A report request returns structured
 
 Batch 23.1 adds the separate leased Worker, transient-only bounded retry,
 cooperative cancellation, stale-lease recovery, Attempt history, and ordered
-Job Events. Batch 23.2 will add SSE trace streaming and the matching frontend
-asynchronous UX. The FastAPI `execute_jobs_inline=True` adapter exists only for
-explicit regression tests and is never enabled by the default runtime app.
+Job Events. Batch 23.2 streams those persisted public Events over SSE and gives
+the frontend asynchronous submission, reconnect, progress, cancellation,
+terminal result, and structured error handling. The FastAPI
+`execute_jobs_inline=True` adapter exists only for explicit regression tests
+and is never enabled by the default runtime app.
 
 After Batch 23.1 has completed the queued Job, approve an eligible generated
 memory candidate with two different engineers:

@@ -369,6 +369,85 @@ class AsyncJobContractTest(unittest.TestCase):
         self.assertEqual(repeated.status_code, 202)
         self.assertEqual(state.json()["status"], "cancelled")
 
+    def test_sse_replays_ordered_events_after_cursor_and_closes_at_terminal(self) -> None:
+        store = InMemoryRCAJobStore()
+        store.enqueue(queue_record("RCA_SSE"))
+        claimed = store.claim_next(worker_id="worker-sse", lease_seconds=60)
+        assert claimed is not None
+        store.record_progress_event(
+            worker_id="worker-sse",
+            job_id="RCA_SSE",
+            event_type="action_started",
+            payload={
+                "action_id": "ACTION_1",
+                "action_kind": "inspect_defect_pattern",
+                "agent": "defect_wat",
+                "reason": "Inspect the observed scratch.",
+            },
+        )
+        completed_state = replace(
+            claimed.state,
+            job=replace(claimed.state.job, status=TaskStatus.COMPLETED.value),
+        )
+        store.complete(
+            worker_id="worker-sse",
+            job_id="RCA_SSE",
+            state=completed_state,
+        )
+        app = create_app(workflow=build_csv_workflow(SEED_DIR), store=store)
+
+        with TestClient(app) as client:
+            response = client.get("/rca/jobs/RCA_SSE/events?after=2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"].split(";")[0], "text/event-stream")
+        self.assertIn("id: 3\nevent: job_event", response.text)
+        self.assertIn('"event_type":"action_started"', response.text)
+        self.assertIn("id: 4\nevent: job_event", response.text)
+        self.assertNotIn('"event_type":"job_queued"', response.text)
+        self.assertEqual(response.headers["x-accel-buffering"], "no")
+
+    def test_sse_rejects_unknown_job_and_invalid_last_event_id(self) -> None:
+        store = InMemoryRCAJobStore()
+        store.enqueue(queue_record("RCA_SSE_CURSOR"))
+        cancelled = store.request_cancel("RCA_SSE_CURSOR")
+        assert cancelled is not None
+        app = create_app(workflow=build_csv_workflow(SEED_DIR), store=store)
+
+        with TestClient(app) as client:
+            unknown = client.get("/rca/jobs/UNKNOWN/events")
+            invalid = client.get(
+                "/rca/jobs/RCA_SSE_CURSOR/events",
+                headers={"Last-Event-ID": "not-an-integer"},
+            )
+
+        self.assertEqual(unknown.status_code, 404)
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(
+            invalid.json()["detail"]["error_code"],
+            "invalid_event_cursor",
+        )
+
+    def test_progress_events_require_active_lease_and_reject_secrets(self) -> None:
+        store = InMemoryRCAJobStore()
+        store.enqueue(queue_record("RCA_EVENT_SAFE"))
+        with self.assertRaises(JobLeaseLostError):
+            store.record_progress_event(
+                worker_id="unowned-worker",
+                job_id="RCA_EVENT_SAFE",
+                event_type="agent_started",
+                payload={"agent": "mes"},
+            )
+        claimed = store.claim_next(worker_id="event-worker", lease_seconds=60)
+        assert claimed is not None
+        with self.assertRaises(ValueError):
+            store.record_progress_event(
+                worker_id="event-worker",
+                job_id="RCA_EVENT_SAFE",
+                event_type="agent_started",
+                payload={"DASHSCOPE_API_KEY": "must-not-persist"},
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

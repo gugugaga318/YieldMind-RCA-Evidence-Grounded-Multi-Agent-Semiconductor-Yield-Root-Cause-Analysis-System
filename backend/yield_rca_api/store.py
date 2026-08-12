@@ -268,7 +268,22 @@ class RCAJobStore(Protocol):
 
     def list_attempts(self, job_id: str) -> list[RCAJobAttemptRecord]: ...
 
-    def list_events(self, job_id: str) -> list[RCAJobEventRecord]: ...
+    def list_events(
+        self,
+        job_id: str,
+        *,
+        after_sequence: int = 0,
+    ) -> list[RCAJobEventRecord]: ...
+
+    def record_progress_event(
+        self,
+        *,
+        worker_id: str,
+        job_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        now: datetime | None = None,
+    ) -> RCAJobEventRecord: ...
 
     def create(self, state: RCAState) -> None: ...
 
@@ -759,9 +774,48 @@ class InMemoryRCAJobStore:
         with self._lock:
             return list(self._attempts.get(job_id, []))
 
-    def list_events(self, job_id: str) -> list[RCAJobEventRecord]:
+    def list_events(
+        self,
+        job_id: str,
+        *,
+        after_sequence: int = 0,
+    ) -> list[RCAJobEventRecord]:
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
         with self._lock:
-            return list(self._events.get(job_id, []))
+            return [
+                event
+                for event in self._events.get(job_id, [])
+                if event.sequence > after_sequence
+            ]
+
+    def record_progress_event(
+        self,
+        *,
+        worker_id: str,
+        job_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        now: datetime | None = None,
+    ) -> RCAJobEventRecord:
+        if not event_type.startswith(("investigation_", "planner_", "action_", "agent_")):
+            raise ValueError("unsupported public Workflow event type")
+        _validate_no_sensitive_fields(payload, "event payload")
+        created_at = self._now(now)
+        with self._lock:
+            record = self._records.get(job_id)
+            if record is None or not self._owns_active_lease(
+                record,
+                worker_id,
+                created_at,
+            ):
+                raise JobLeaseLostError(f"Worker {worker_id} does not own Job {job_id}")
+            if record.state.job.status not in {
+                TaskStatus.RUNNING.value,
+                TaskStatus.CANCEL_REQUESTED.value,
+            }:
+                raise JobLeaseLostError(f"Job {job_id} has no active progress lease")
+            return self._append_event(job_id, event_type, payload, created_at)
 
     def create(self, state: RCAState) -> None:
         self.enqueue(_legacy_record(state))
@@ -1594,19 +1648,26 @@ class PostgresRCAJobStore:
             for row in rows
         ]
 
-    def list_events(self, job_id: str) -> list[RCAJobEventRecord]:
+    def list_events(
+        self,
+        job_id: str,
+        *,
+        after_sequence: int = 0,
+    ) -> list[RCAJobEventRecord]:
         import psycopg
 
+        if after_sequence < 0:
+            raise ValueError("after_sequence must be non-negative")
         with psycopg.connect(self.database_url, connect_timeout=10) as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
                     SELECT job_id, sequence, event_type, payload, created_at
                     FROM rca_job_event
-                    WHERE job_id = %s
+                    WHERE job_id = %s AND sequence > %s
                     ORDER BY sequence
                     """,
-                    (job_id,),
+                    (job_id, after_sequence),
                 )
                 rows = cursor.fetchall()
         return [
@@ -1619,6 +1680,63 @@ class PostgresRCAJobStore:
             )
             for row in rows
         ]
+
+    def record_progress_event(
+        self,
+        *,
+        worker_id: str,
+        job_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        now: datetime | None = None,
+    ) -> RCAJobEventRecord:
+        import psycopg
+
+        if not event_type.startswith(("investigation_", "planner_", "action_", "agent_")):
+            raise ValueError("unsupported public Workflow event type")
+        _validate_no_sensitive_fields(payload, "event payload")
+        created_at = now or datetime.now(UTC)
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=UTC)
+        with psycopg.connect(self.database_url, connect_timeout=10) as connection:
+            with connection.cursor() as cursor:
+                current = self._locked_record(cursor, job_id)
+                if (
+                    current is None
+                    or current.lease_owner != worker_id
+                    or current.lease_expires_at is None
+                    or datetime.fromisoformat(current.lease_expires_at) <= created_at
+                    or current.state.job.status
+                    not in {TaskStatus.RUNNING.value, TaskStatus.CANCEL_REQUESTED.value}
+                ):
+                    raise JobLeaseLostError(
+                        f"Worker {worker_id} does not own Job {job_id}"
+                    )
+                self._append_event(
+                    cursor,
+                    job_id=job_id,
+                    event_type=event_type,
+                    payload=payload,
+                )
+                cursor.execute(
+                    """
+                    SELECT job_id, sequence, event_type, payload, created_at
+                    FROM rca_job_event
+                    WHERE job_id = %s
+                    ORDER BY sequence DESC
+                    LIMIT 1
+                    """,
+                    (job_id,),
+                )
+                row = cursor.fetchone()
+        assert row is not None
+        return RCAJobEventRecord(
+            job_id=str(row[0]),
+            sequence=int(row[1]),
+            event_type=str(row[2]),
+            payload=dict(row[3]),
+            created_at=row[4].isoformat(),
+        )
 
     def get(self, job_id: str) -> RCAState | None:
         record = self.get_record(job_id)

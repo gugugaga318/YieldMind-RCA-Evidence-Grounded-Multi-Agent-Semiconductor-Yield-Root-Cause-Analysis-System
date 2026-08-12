@@ -9,16 +9,19 @@ import {
   Search,
   Server,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  cancelRCAJob,
   createRCAJob,
-  getMemoryCandidate,
+  getJobMemoryCandidate,
   getRCAJob,
   getRCAReport,
   getRuntimeInfo,
   lookupKnowledge,
+  openRCAJobEventStream,
 } from "./api";
+import { AsyncJobProgress } from "./components/AsyncJobProgress";
 import { EvidenceChain } from "./components/EvidenceChain";
 import { JobComposer } from "./components/JobComposer";
 import { LotImpactPanel } from "./components/LotImpactPanel";
@@ -40,10 +43,13 @@ import {
   getYieldTrend,
 } from "./selectors";
 import type {
+  JobStreamConnection,
   KnowledgeLookupResult,
   KnowledgeQuestionKind,
   MemoryCandidate,
   RCAJobCreated,
+  RCAJobEvent,
+  RCAJobQueueMetadata,
   RCAReport,
   RCAState,
   RuntimeInfo,
@@ -56,6 +62,8 @@ const DEFAULT_LOT_QUERY =
   "Investigate the scratch found in Cu CMP and identify root cause and impact lots.";
 const DEFAULT_KNOWLEDGE_QUERY =
   "Which approved Cu CMP cases describe radial scratch patterns and retaining-ring wear?";
+const ACTIVE_JOB_STORAGE_KEY = "yield-rca.active-job-id";
+const ACTIVE_JOB_STATUSES = new Set(["queued", "running", "retry_wait", "cancel_requested"]);
 
 type WorkspaceTab = "investigation" | "report";
 
@@ -73,20 +81,36 @@ function App() {
   const [lotId, setLotId] = useState("LOT_A_001");
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
   const [job, setJob] = useState<RCAJobCreated | null>(null);
+  const [queue, setQueue] = useState<RCAJobQueueMetadata | null>(null);
+  const [jobEvents, setJobEvents] = useState<RCAJobEvent[]>([]);
+  const [streamConnection, setStreamConnection] =
+    useState<JobStreamConnection>("closed");
   const [state, setState] = useState<RCAState | null>(null);
   const [report, setReport] = useState<RCAReport | null>(null);
   const [memoryCandidate, setMemoryCandidate] = useState<MemoryCandidate | null>(null);
   const [knowledgeResult, setKnowledgeResult] =
     useState<KnowledgeLookupResult | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("investigation");
+  const activeJobIdRef = useRef<string | null>(null);
   const query =
     workspaceMode === "lot"
       ? lotQuery
       : workspaceMode === "knowledge"
         ? knowledgeQuery
         : productQuery;
+  const rcaJobActive = job ? ACTIVE_JOB_STATUSES.has(job.status) : false;
+  const loading = submitting || knowledgeLoading || rcaJobActive;
+
+  const currentJobError = useMemo(() => {
+    if (job?.status !== "failed") return null;
+    const details = queue?.error;
+    return [details?.error_code, details?.message].filter(Boolean).join(": ") ||
+      "The RCA Worker could not complete this investigation.";
+  }, [job?.status, queue?.error]);
 
   useEffect(() => {
     let active = true;
@@ -104,8 +128,92 @@ function App() {
     };
   }, []);
 
+  async function loadCompletedArtifacts(jobId: string, jobState: RCAState) {
+    if (jobState.report) {
+      const reportResponse = await getRCAReport(jobId);
+      setReport(reportResponse.report);
+    }
+    try {
+      const memoryResponse = await getJobMemoryCandidate(jobId);
+      setMemoryCandidate(memoryResponse.candidate);
+    } catch {
+      setMemoryCandidate(null);
+    }
+  }
+
+  async function refreshRCAJob(jobId: string) {
+    const response = await getRCAJob(jobId);
+    if (activeJobIdRef.current !== jobId) return response;
+    setQueue(response.queue);
+    setJob((current) => current && current.job_id === jobId
+      ? { ...current, status: response.status }
+      : {
+          job_id: response.job_id,
+          status: response.status,
+          created_at: response.state.job.created_at,
+          investigation_mode: response.state.job.investigation_mode,
+          source_lot_id: response.state.job.source_lot_id,
+          state_url: `/rca/jobs/${jobId}`,
+          events_url: `/rca/jobs/${jobId}/events`,
+          report_url: `/rca/jobs/${jobId}/report`,
+          cancel_url: `/rca/jobs/${jobId}/cancel`,
+          idempotency_key: null,
+          memory_candidate_id: null,
+          memory_candidate_url: null,
+        });
+    if (ACTIVE_JOB_STATUSES.has(response.status)) {
+      setState(null);
+    } else {
+      localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
+      setStreamConnection("closed");
+      if (response.status === "completed") {
+        setState(response.state);
+        await loadCompletedArtifacts(jobId, response.state);
+      } else {
+        setState(null);
+      }
+    }
+    return response;
+  }
+
+  useEffect(() => {
+    const storedJobId = localStorage.getItem(ACTIVE_JOB_STORAGE_KEY);
+    if (!storedJobId) return;
+    activeJobIdRef.current = storedJobId;
+    setStreamConnection("connecting");
+    refreshRCAJob(storedJobId).catch(() => {
+      localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
+      activeJobIdRef.current = null;
+      setStreamConnection("closed");
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!job || !ACTIVE_JOB_STATUSES.has(job.status)) return;
+    const jobId = job.job_id;
+    activeJobIdRef.current = jobId;
+    setStreamConnection("connecting");
+    const source = openRCAJobEventStream(
+      jobId,
+      (event) => {
+        setJobEvents((current) => {
+          if (current.some((item) => item.sequence === event.sequence)) return current;
+          return [...current, event].sort((left, right) => left.sequence - right.sequence);
+        });
+        void refreshRCAJob(jobId).catch(() => setStreamConnection("reconnecting"));
+      },
+      setStreamConnection,
+    );
+    const poll = window.setInterval(() => {
+      void refreshRCAJob(jobId).catch(() => setStreamConnection("reconnecting"));
+    }, 3000);
+    return () => {
+      source.close();
+      window.clearInterval(poll);
+    };
+  }, [job?.job_id, rcaJobActive]);
+
   async function runInvestigation() {
-    setLoading(true);
     setError(null);
     setState(null);
     setReport(null);
@@ -114,6 +222,7 @@ function App() {
 
     try {
       if (workspaceMode === "knowledge") {
+        setKnowledgeLoading(true);
         const result = await lookupKnowledge({
           query: knowledgeQuery,
           question_kind: knowledgeQuestionKind,
@@ -124,25 +233,38 @@ function App() {
         setKnowledgeResult(result);
         return;
       }
+      setSubmitting(true);
       setKnowledgeResult(null);
       const created = await createRCAJob(
         buildRCAJobRequest(workspaceMode, query, lotId),
       );
       setJob(created);
-      const [jobResponse, reportResponse] = await Promise.all([
-        getRCAJob(created.job_id),
-        getRCAReport(created.job_id),
-      ]);
-      setState(jobResponse.state);
-      setReport(reportResponse.report);
-      if (created.memory_candidate_id) {
-        const memoryResponse = await getMemoryCandidate(created.memory_candidate_id);
-        setMemoryCandidate(memoryResponse.candidate);
-      }
+      setQueue(null);
+      setJobEvents([]);
+      setStreamConnection("connecting");
+      activeJobIdRef.current = created.job_id;
+      localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, created.job_id);
+      await refreshRCAJob(created.job_id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "RCA request failed");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
+      setKnowledgeLoading(false);
+    }
+  }
+
+  async function cancelInvestigation() {
+    if (!job || !ACTIVE_JOB_STATUSES.has(job.status)) return;
+    setCancelling(true);
+    setError(null);
+    try {
+      const cancelled = await cancelRCAJob(job.job_id);
+      setJob((current) => current ? { ...current, status: cancelled.status } : current);
+      await refreshRCAJob(job.job_id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Cancellation failed");
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -191,6 +313,8 @@ function App() {
           loading={loading}
           currentJob={workspaceMode === "knowledge" ? null : job}
           runtimeInfo={runtimeInfo}
+          onCancel={cancelInvestigation}
+          cancelling={cancelling}
         />
 
         <main className="workspace">
@@ -238,26 +362,37 @@ function App() {
             )}
           </div>
 
-          {error && (
+          {(error || currentJobError) && (
             <div className="error-banner" role="alert">
               <AlertTriangle size={18} aria-hidden="true" />
-              <span>{error}</span>
+              <span>{error ?? currentJobError}</span>
             </div>
           )}
 
-          {loading && <LoadingState knowledge={workspaceMode === "knowledge"} />}
-          {!loading && workspaceMode === "knowledge" && !error && (
+          {knowledgeLoading && <LoadingState knowledge />}
+          {workspaceMode !== "knowledge" && job && !state && (
+            <AsyncJobProgress
+              jobId={job.job_id}
+              status={job.status}
+              queue={queue}
+              events={jobEvents}
+              connection={streamConnection}
+              cancelling={cancelling}
+              onCancel={cancelInvestigation}
+            />
+          )}
+          {!knowledgeLoading && workspaceMode === "knowledge" && !error && (
             <KnowledgeWorkspace result={knowledgeResult} />
           )}
-          {!loading && workspaceMode !== "knowledge" && !state && !error && <EmptyState />}
-          {!loading && workspaceMode !== "knowledge" && state && activeTab === "investigation" && (
+          {!submitting && workspaceMode !== "knowledge" && !job && !state && !error && <EmptyState />}
+          {workspaceMode !== "knowledge" && state && activeTab === "investigation" && (
             <InvestigationView
               state={state}
               memoryCandidate={memoryCandidate}
               onMemoryCandidateChange={setMemoryCandidate}
             />
           )}
-          {!loading && report && activeTab === "report" && <ReportView report={report} />}
+          {report && activeTab === "report" && <ReportView report={report} />}
         </main>
       </div>
     </div>

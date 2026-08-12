@@ -45,6 +45,7 @@ from yield_rca_core.tool_layer import (
     SummarizeDefectWatTool,
     capture_tool_latencies,
 )
+from yield_rca_core.workflow_events import emit_workflow_event
 
 
 def _job_from_goal(
@@ -122,6 +123,18 @@ class PurePythonRCAWorkflow:
                         lot_id=lot_id,
                     )
                     intent_plan = intent_outcome.plan
+                    emit_workflow_event(
+                        "investigation_planned",
+                        {
+                            "mode": active_orchestration_mode,
+                            "goal_id": intent_plan.goal.goal_id,
+                            "intent": intent_plan.goal.intent,
+                            "summary": intent_plan.goal.summary,
+                            "question_count": len(intent_plan.questions),
+                            "max_steps": intent_plan.goal.max_steps,
+                            "max_tool_calls": intent_plan.goal.max_tool_calls,
+                        },
+                    )
                 except (QwenIntentPlannerError, LLMCallError) as exc:
                     goal = (
                         exc.fallback_plan.goal
@@ -130,6 +143,19 @@ class PurePythonRCAWorkflow:
                             user_query,
                             lot_id=lot_id,
                         )
+                    )
+                    emit_workflow_event(
+                        "investigation_planned",
+                        {
+                            "mode": "controlled_react",
+                            "goal_id": goal.goal_id,
+                            "intent": goal.intent,
+                            "summary": goal.summary,
+                            "question_count": 0,
+                            "max_steps": goal.max_steps,
+                            "max_tool_calls": goal.max_tool_calls,
+                            "fallback_from": "llm_react",
+                        },
                     )
                     job = _job_from_goal(
                         goal.known_facts,
@@ -203,6 +229,16 @@ class PurePythonRCAWorkflow:
                     plan_id=plan_id,
                     lot_id=lot_id,
                 )
+                emit_workflow_event(
+                    "investigation_planned",
+                    {
+                        "mode": active_orchestration_mode,
+                        "plan_id": task_plan.plan_id,
+                        "summary": task_plan.objective,
+                        "task_count": len(task_plan.tasks),
+                        "agents": [task.agent for task in task_plan.tasks],
+                    },
+                )
                 mes_task = next(task for task in task_plan.tasks if task.agent == "mes")
                 raw_window = mes_task.inputs.get("time_window", {})
                 time_window = (
@@ -228,6 +264,18 @@ class PurePythonRCAWorkflow:
                 )
                 if active_orchestration_mode == OrchestrationMode.CONTROLLED_REACT.value:
                     goal = self.planner.plan_investigation_goal(user_query, lot_id=lot_id)
+                    emit_workflow_event(
+                        "investigation_planned",
+                        {
+                            "mode": active_orchestration_mode,
+                            "goal_id": goal.goal_id,
+                            "intent": goal.intent,
+                            "summary": goal.summary,
+                            "question_count": 0,
+                            "max_steps": goal.max_steps,
+                            "max_tool_calls": goal.max_tool_calls,
+                        },
+                    )
                     state = self.supervisor.execute_controlled(
                         job,
                         goal,

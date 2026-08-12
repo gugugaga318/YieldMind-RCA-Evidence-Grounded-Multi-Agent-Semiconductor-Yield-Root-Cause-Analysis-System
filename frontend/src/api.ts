@@ -1,4 +1,5 @@
 import type {
+  CancelRCAJobResponse,
   CreateRCAJobRequest,
   KnowledgeApprovalRequest,
   KnowledgeIngestionListResponse,
@@ -12,6 +13,7 @@ import type {
   RCAReportResponse,
   RuntimeInfo,
 } from "./types";
+import type { RCAJobEvent } from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -53,6 +55,35 @@ export function getRCAJob(jobId: string): Promise<RCAJobResponse> {
 
 export function getRCAReport(jobId: string): Promise<RCAReportResponse> {
   return request<RCAReportResponse>(`/rca/jobs/${jobId}/report`);
+}
+
+export function cancelRCAJob(jobId: string): Promise<CancelRCAJobResponse> {
+  return request<CancelRCAJobResponse>(`/rca/jobs/${jobId}/cancel`, {
+    method: "POST",
+  });
+}
+
+export function getJobMemoryCandidate(jobId: string): Promise<MemoryCandidateResponse> {
+  return request<MemoryCandidateResponse>(`/rca/jobs/${jobId}/memory-candidate`);
+}
+
+export function openRCAJobEventStream(
+  jobId: string,
+  onEvent: (event: RCAJobEvent) => void,
+  onConnectionChange: (state: "live" | "reconnecting") => void,
+  afterSequence = 0,
+): EventSource {
+  const query = afterSequence > 0 ? `?after=${afterSequence}` : "";
+  const source = new EventSource(
+    `${API_BASE}/rca/jobs/${encodeURIComponent(jobId)}/events${query}`,
+  );
+  source.onopen = () => onConnectionChange("live");
+  source.addEventListener("job_event", (rawEvent) => {
+    const message = rawEvent as MessageEvent<string>;
+    onEvent(JSON.parse(message.data) as RCAJobEvent);
+  });
+  source.onerror = () => onConnectionChange("reconnecting");
+  return source;
 }
 
 export function getRuntimeInfo(): Promise<RuntimeInfo> {

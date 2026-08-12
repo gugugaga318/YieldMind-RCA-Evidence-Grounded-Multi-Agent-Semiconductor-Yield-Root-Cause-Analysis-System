@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import os
+from asyncio import sleep
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
@@ -26,6 +27,8 @@ from fastapi import (
     status,
 )
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.concurrency import run_in_threadpool
+from starlette.responses import StreamingResponse
 from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
 from yield_rca_core.knowledge_ingestion import (
     KnowledgeCandidateNotFoundError,
@@ -88,11 +91,13 @@ from yield_rca_api.schemas import (
     ReportResponse,
 )
 from yield_rca_api.store import (
+    TERMINAL_JOB_STATUSES,
     DuplicateJobError,
     IdempotencyConflictError,
     InMemoryRCAJobStore,
     JobNotCancellableError,
     PostgresRCAJobStore,
+    RCAJobEventRecord,
     RCAJobQueueRecord,
     RCAJobStore,
 )
@@ -101,6 +106,25 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SEED_DIR = PROJECT_ROOT / "data" / "seeds" / "golden_case"
 DEFAULT_KNOWLEDGE_CORPUS = PROJECT_ROOT / "data" / "knowledge" / "synthetic_v1" / "corpus.json"
 LOGGER = logging.getLogger("yield_rca_api")
+SSE_POLL_SECONDS = 0.5
+SSE_HEARTBEAT_SECONDS = 15.0
+
+
+def _sse_event(event: RCAJobEventRecord) -> str:
+    """Serialize one persisted public Job Event without exposing RCAState internals."""
+
+    payload = {
+        "job_id": event.job_id,
+        "sequence": event.sequence,
+        "event_type": event.event_type,
+        "payload": event.payload,
+        "created_at": event.created_at,
+    }
+    return (
+        f"id: {event.sequence}\n"
+        "event: job_event\n"
+        f"data: {json.dumps(payload, ensure_ascii=False, separators=(',', ':'))}\n\n"
+    )
 
 
 def _state_api_payload(state: RCAState) -> dict[str, object]:
@@ -932,6 +956,81 @@ def create_app(
             status=record.state.job.status,
             cancel_requested_at=record.cancel_requested_at,
             state_url=f"/rca/jobs/{job_id}",
+        )
+
+    @application.get(
+        "/rca/jobs/{job_id}/events",
+        response_class=StreamingResponse,
+        responses={
+            200: {
+                "content": {"text/event-stream": {}},
+                "description": "Ordered public RCA Job Events",
+            }
+        },
+    )
+    async def stream_rca_job_events(
+        job_id: str,
+        request: Request,
+        after: Annotated[int | None, Query(ge=0)] = None,
+    ) -> StreamingResponse:
+        if await run_in_threadpool(job_store.get_record, job_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"RCA job not found: {job_id}",
+            )
+        header_cursor = request.headers.get("Last-Event-ID", "").strip()
+        if header_cursor:
+            try:
+                initial_cursor = int(header_cursor)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "error_code": "invalid_event_cursor",
+                        "message": "Last-Event-ID must be a non-negative integer",
+                    },
+                ) from exc
+            if initial_cursor < 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "error_code": "invalid_event_cursor",
+                        "message": "Last-Event-ID must be a non-negative integer",
+                    },
+                )
+        else:
+            initial_cursor = after or 0
+
+        async def event_stream():
+            cursor = initial_cursor
+            last_heartbeat = 0.0
+            while not await request.is_disconnected():
+                pending = await run_in_threadpool(
+                    lambda event_cursor=cursor: job_store.list_events(
+                        job_id,
+                        after_sequence=event_cursor,
+                    )
+                )
+                for event in pending:
+                    cursor = event.sequence
+                    yield _sse_event(event)
+                record = await run_in_threadpool(job_store.get_record, job_id)
+                if record is None or record.state.job.status in TERMINAL_JOB_STATUSES:
+                    return
+                loop_now = perf_counter()
+                if not pending and loop_now - last_heartbeat >= SSE_HEARTBEAT_SECONDS:
+                    last_heartbeat = loop_now
+                    yield ": keep-alive\n\n"
+                await sleep(SSE_POLL_SECONDS)
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
         )
 
     @application.get("/rca/jobs/{job_id}/report", response_model=RCAReportResponse)

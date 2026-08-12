@@ -85,8 +85,7 @@ action reasons, evidence summaries, and stop reasons only.
 `GET /rca/jobs/{job_id}` supports partial queued state and returns non-secret
 queue metadata. `GET /rca/jobs/{job_id}/report` returns structured
 `409 job_not_completed` until a report exists. The `cancel_url` is active in
-Batch 23.1. `events_url` reserves the stable URL that Batch 23.2 activates as
-SSE.
+Batch 23.1. Batch 23.2 activates `events_url` as `text/event-stream`.
 
 ## Batch 23.1 execution
 
@@ -160,7 +159,28 @@ The repository's documented seed command reapplies all migrations but resets
 the demo schema, so back up any local data that must be preserved before using
 that reset path.
 
-## Remaining batch
+## Batch 23.2 SSE and frontend
 
-- Batch 23.2: SSE Agent Trace plus frontend submission, reconnect, progress,
-  cancellation, terminal result, and error UX.
+`GET /rca/jobs/{job_id}/events` streams ordered persisted public Events. Each
+frame uses the database sequence as its SSE `id`; reconnecting clients send
+`Last-Event-ID`, while explicit consumers can use `?after=<sequence>`. The
+stream replays only later Events, emits bounded keep-alive comments while the
+Job is active, and closes after a terminal Event.
+
+The Worker emits progress only while it owns a valid Job lease. Public trace
+types include investigation planning, Agent/Action start and completion,
+Planner action decisions, stop reason, Evidence IDs, and bounded engineering
+summaries. They never include prompts, raw model responses, API keys,
+Authorization headers, hidden Chain-of-Thought, or a serialized intermediate
+`RCAState`.
+
+The browser now:
+
+- treats `202 queued` as acceptance rather than failure;
+- opens the SSE stream and refreshes the authoritative persisted Job state;
+- stores the active Job ID locally and reconnects after a page refresh;
+- keeps polling as a degraded fallback if an SSE connection is interrupted;
+- exposes queued and cooperative running cancellation;
+- requests the Report and optional Memory Candidate only after completion;
+- renders retry, failure, cancellation, and structured Queue errors separately
+  from successful RCA results.

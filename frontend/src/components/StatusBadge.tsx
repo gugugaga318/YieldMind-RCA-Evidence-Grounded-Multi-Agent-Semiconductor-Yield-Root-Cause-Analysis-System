@@ -10,9 +10,9 @@ export function StatusBadge({ status }: StatusBadgeProps) {
   const Icon =
     status === "completed"
       ? CheckCircle2
-      : status === "failed"
+      : status === "failed" || status === "cancelled"
         ? AlertTriangle
-        : status === "running"
+        : status === "running" || status === "cancel_requested"
           ? LoaderCircle
           : CircleDashed;
 
