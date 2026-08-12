@@ -1,0 +1,29 @@
+{
+  "calibration_query_ids": [
+    "Q_RCA_001_EN",
+    "Q_RCA_006_ZH",
+    "Q_RCA_007_EN",
+    "Q_RCA_012_ZH",
+    "Q_RCA_017_EN",
+    "Q_RCA_022_ZH",
+    "Q_RCA_026_EN",
+    "Q_RCA_030_ZH",
+    "Q_SOP_001_EN",
+    "Q_SOP_004_ZH",
+    "Q_SOP_009_EN",
+    "Q_NOTE_001_EN",
+    "Q_NOTE_004_MIXED",
+    "Q_NOTE_009_EN",
+    "Q_NOANSWER_001",
+    "Q_NOANSWER_002",
+    "Q_NOANSWER_003",
+    "Q_NOANSWER_004"
+  ],
+  "calibrator": "platt_logistic",
+  "intercept": -0.022701481887,
+  "model_name": "BAAI/bge-reranker-v2-m3",
+  "model_revision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+  "schema_version": "1.0",
+  "slope": 0.507258946605,
+  "training_pair_count": 44
+}

@@ -7,9 +7,24 @@ asset normalization and ranking.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import Any, Protocol
 
+from yield_rca_core.causal_retrieval import prepare_causal_plan
+from yield_rca_core.causal_scope import (
+    CausalSearchScope,
+    ObservationScope,
+    RepositoryCausalContextProvider,
+)
+from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
+from yield_rca_core.knowledge_models import (
+    KnowledgeDocumentType,
+    KnowledgeLookupIntent,
+    KnowledgeLookupPlan,
+    KnowledgeQuestionKind,
+)
 from yield_rca_core.repositories import FabRepository, Row
 
 
@@ -103,6 +118,13 @@ class RetrievalQuery:
     query: str
     module: str = ""
     equipment_type: str = ""
+    source_lot_id: str = ""
+    product_id: str = ""
+    detected_operation: str = ""
+    detected_equipment_id: str = ""
+    detected_at: str = ""
+    symptom_types: tuple[str, ...] = ()
+    explicit_module_limit: bool = False
     top_k: int = 10
 
 
@@ -112,6 +134,16 @@ class RetrievalHit:
 
     asset: KnowledgeAsset
     score: float
+    retrieval_strategy: str = "keyword"
+    score_components: dict[str, float] = field(default_factory=dict)
+    calibrated_relevance: float | None = None
+    source_confidence: float | None = None
+    matched_chunk_ids: tuple[str, ...] = ()
+    candidate_lanes: tuple[str, ...] = ()
+    scope_reasons: tuple[str, ...] = ()
+    route_distance: int | None = None
+    shared_resource_types: tuple[str, ...] = ()
+    scope_fusion_score: float | None = None
 
     def to_legacy_case(self) -> dict[str, Any]:
         return self.asset.to_legacy_case(similarity=self.score)
@@ -123,6 +155,8 @@ class RetrievalResult:
 
     query: RetrievalQuery
     hits: list[RetrievalHit]
+    observation_scope: ObservationScope | None = None
+    causal_search_scope: CausalSearchScope | None = None
 
     @property
     def top_hit(self) -> RetrievalHit | None:
@@ -197,3 +231,99 @@ class KeywordRetriever:
 
         hits = sorted(hits, key=lambda item: item.score, reverse=True)
         return RetrievalResult(query=query, hits=hits[: query.top_k])
+
+
+class TypedKnowledgeRetrieverAdapter:
+    """Expose typed logical-asset retrieval to the legacy RCA Knowledge Tool.
+
+    The adapter deliberately resolves only approved ``RCA_CASE`` assets. SOPs
+    and Engineering Notes remain available through the independent Knowledge
+    lookup intent and cannot be mistaken for historical root-cause evidence.
+    """
+
+    def __init__(
+        self,
+        repository: FabRepository,
+        retriever: KnowledgeLookupRetriever,
+        additional_asset_repositories: Sequence[KnowledgeAssetRepository] = (),
+    ) -> None:
+        self.asset_repositories = (
+            KnowledgeAssetRepository(repository),
+            *additional_asset_repositories,
+        )
+        self.retriever = retriever
+        self.context_provider = RepositoryCausalContextProvider(repository)
+
+    def retrieve(self, query: RetrievalQuery) -> RetrievalResult:
+        observation = ObservationScope(
+            source_lot_id=query.source_lot_id,
+            product_id=query.product_id,
+            detected_module=query.module,
+            detected_operation=query.detected_operation,
+            detected_equipment_id=query.detected_equipment_id,
+            detected_equipment_type=query.equipment_type,
+            detected_at=query.detected_at,
+            symptom_types=query.symptom_types,
+        )
+        plan = KnowledgeLookupPlan(
+            intent=KnowledgeLookupIntent.KNOWLEDGE_LOOKUP.value,
+            question_kind=KnowledgeQuestionKind.HISTORICAL_MATCH.value,
+            query=query.query,
+            allowed_document_types=(KnowledgeDocumentType.RCA_CASE.value,),
+            reason=(
+                "RCA Knowledge Agent requested a historical match; Python restricts "
+                "the action to approved RCA_CASE logical assets."
+            ),
+            module=query.module,
+            equipment_type=query.equipment_type,
+            observation_scope=observation,
+            explicit_module_limit=query.explicit_module_limit,
+            top_k=query.top_k,
+        )
+        plan = prepare_causal_plan(
+            self.retriever,
+            plan,
+            context_provider=self.context_provider,
+        )
+        fingerprint = sha256(
+            (
+                f"{query.query}|{query.module}|{query.equipment_type}|"
+                f"{query.source_lot_id}|{query.detected_operation}|{query.detected_at}"
+            ).encode()
+        ).hexdigest()[:16].upper()
+        logical_hits = self.retriever.retrieve(
+            plan,
+            lookup_id=f"KLOOK_AGENT_{fingerprint}",
+        )
+        assets: dict[str, KnowledgeAsset] = {}
+        for repository in self.asset_repositories:
+            for candidate_asset in repository.confirmed_assets():
+                assets.setdefault(candidate_asset.asset_id, candidate_asset)
+        hits: list[RetrievalHit] = []
+        for logical_hit in logical_hits:
+            case_id = logical_hit.document.case_id
+            resolved_asset = assets.get(case_id or "")
+            if resolved_asset is None:
+                continue
+            hits.append(
+                RetrievalHit(
+                    asset=resolved_asset,
+                    score=logical_hit.score,
+                    retrieval_strategy=logical_hit.retrieval_strategy,
+                    score_components=dict(logical_hit.score_components),
+                    calibrated_relevance=logical_hit.calibrated_relevance,
+                    source_confidence=logical_hit.source_confidence,
+                    matched_chunk_ids=logical_hit.matched_chunk_ids,
+                    candidate_lanes=logical_hit.candidate_lanes,
+                    scope_reasons=logical_hit.scope_reasons,
+                    route_distance=logical_hit.route_distance,
+                    shared_resource_types=logical_hit.shared_resource_types,
+                    scope_fusion_score=logical_hit.scope_fusion_score,
+                )
+            )
+        return RetrievalResult(
+            query=query,
+            hits=hits,
+            observation_scope=plan.observation_scope,
+            causal_search_scope=plan.causal_search_scope,
+        )

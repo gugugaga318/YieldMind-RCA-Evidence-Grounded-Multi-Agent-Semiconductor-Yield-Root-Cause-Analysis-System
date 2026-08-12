@@ -20,6 +20,7 @@ from yield_rca_core.models import (
     Report,
     Warning,
 )
+from yield_rca_core.question_capability import QUESTION_CAPABILITY_REGISTRY
 
 
 class ReportGenerationError(ValueError):
@@ -729,6 +730,116 @@ def _warning_section(
     return lines, cited
 
 
+def _question_semantics_section(state: RCAState) -> tuple[list[str], list[str]]:
+    """Render the Question/Evidence contract as an auditable report section."""
+
+    if not (
+        state.capability_notices
+        or state.investigation_questions
+        or state.question_evidence_links
+        or state.question_update_reviews
+    ):
+        return [], []
+
+    links_by_question: dict[str, list[Any]] = {}
+    for link in state.question_evidence_links:
+        links_by_question.setdefault(link.question_id, []).append(link)
+    reviews_by_question: dict[str, list[Any]] = {}
+    for review in state.question_update_reviews:
+        if review.question_id:
+            reviews_by_question.setdefault(review.question_id, []).append(review)
+
+    lines = ["## Question–Evidence Semantics", ""]
+    cited: list[str] = []
+    if state.capability_notices:
+        lines.extend(["### Capability Notices", ""])
+        for notice in state.capability_notices:
+            status = "supported" if notice.supported else "unsupported"
+            lines.append(
+                f"- `{notice.capability}` (**{status}**, requested by `{notice.request_source}`): "
+                f"{notice.reason}"
+            )
+            if notice.available_alternatives:
+                lines.append(
+                    "  - Available alternatives: "
+                    + ", ".join(f"`{item}`" for item in notice.available_alternatives)
+                )
+
+    if state.investigation_questions:
+        lines.extend(["### Question Coverage", ""])
+        for question in state.investigation_questions:
+            capability = QUESTION_CAPABILITY_REGISTRY.get(question.question_kind)
+            links = links_by_question.get(question.question_id, [])
+            satisfied = sorted(
+                {
+                    link.matched_evidence_group
+                    for link in links
+                    if link.relation != "unavailable"
+                    and capability is not None
+                    and link.matched_evidence_group in capability.closure_evidence_groups
+                }
+            )
+            missing = sorted(
+                set(capability.closure_evidence_groups) - set(satisfied)
+                if capability is not None
+                else set()
+            )
+            lines.extend(
+                [
+                    f"- **{question.question_id}** "
+                    f"(`{question.question_kind}`, `{question.status}`): "
+                    f"{question.question}",
+                    "  - Compatible Actions: "
+                    + (
+                        ", ".join(
+                            f"`{item}`"
+                            for item in sorted(capability.allowed_actions)
+                        )
+                        if capability is not None and capability.allowed_actions
+                        else "None"
+                    ),
+                    "  - Satisfied groups: "
+                    f"{', '.join(f'`{item}`' for item in satisfied) or 'None'}",
+                    "  - Missing groups: "
+                    f"{', '.join(f'`{item}`' for item in missing) or 'None'}",
+                ]
+            )
+            if question.answer:
+                lines.append(f"  - Answer: {question.answer}")
+            if question.unavailable_reason:
+                lines.append(f"  - Unavailable reason: {question.unavailable_reason}")
+            if links:
+                lines.append("  - Evidence links:")
+                for link in links:
+                    cited.append(link.evidence_id)
+                    lines.append(
+                        f"    - `{link.evidence_id}` via `{link.action_id}` "
+                        f"({link.relation}, `{link.matched_evidence_group}`): {link.reason}"
+                    )
+            else:
+                lines.append("  - Evidence links: None")
+            for review in reviews_by_question.get(question.question_id, []):
+                lines.append(
+                    f"  - QuestionUpdate review `{review.disposition}` "
+                    f"(`{review.reason_code}`): {review.reason}"
+                )
+
+    known_question_ids = {question.question_id for question in state.investigation_questions}
+    unscoped_reviews = [
+        review
+        for review in state.question_update_reviews
+        if not review.question_id or review.question_id not in known_question_ids
+    ]
+    if unscoped_reviews:
+        lines.extend(["### Unattached Review Diagnostics", ""])
+        for review in unscoped_reviews:
+            lines.append(
+                f"- Decision `{review.decision_id}`: `{review.disposition}` "
+                f"(`{review.reason_code}`): {review.reason}"
+            )
+    return lines, _deduplicate_strings(cited)
+
+
 def _reference_section(evidence: list[Evidence], cited_ids: list[str]) -> list[str]:
     evidence_by_id = {item.evidence_id: item for item in evidence}
     lines = [
@@ -818,6 +929,9 @@ class ReportGenerator:
             if state.evidence_gaps:
                 path_lines.append(f"- Remaining evidence gaps: {', '.join(state.evidence_gaps)}")
             sections.append(path_lines)
+        semantic_section, semantic_citations = _question_semantics_section(state)
+        if semantic_section:
+            sections.append(semantic_section)
         affected_section, affected_citations = _affected_lot_section(state)
         sections.append(affected_section)
         chain_section, chain_citations = _chain_section(chain)
@@ -836,7 +950,8 @@ class ReportGenerator:
         sections.append(warning_section)
 
         cited_ids = _deduplicate_strings(
-            affected_citations
+            semantic_citations
+            + affected_citations
             + chain_citations
             + spc_citations
             + root_citations

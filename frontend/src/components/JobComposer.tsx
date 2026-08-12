@@ -1,33 +1,54 @@
-import { CalendarRange, Play, Search, ServerCog, Waypoints } from "lucide-react";
+import { Ban, BookOpen, CalendarRange, Play, Search, ServerCog, Waypoints } from "lucide-react";
 import type { FormEvent } from "react";
 
-import type { InvestigationMode, RCAJobCreated, RuntimeInfo } from "../types";
+import type {
+  KnowledgeQuestionKind,
+  RCAJobCreated,
+  RuntimeInfo,
+  WorkspaceMode,
+} from "../types";
 import { StatusBadge } from "./StatusBadge";
 
 interface JobComposerProps {
-  investigationMode: InvestigationMode;
-  onInvestigationModeChange: (mode: InvestigationMode) => void;
+  workspaceMode: WorkspaceMode;
+  onWorkspaceModeChange: (mode: WorkspaceMode) => void;
   query: string;
   onQueryChange: (query: string) => void;
   lotId: string;
   onLotIdChange: (lotId: string) => void;
+  knowledgeQuestionKind: KnowledgeQuestionKind;
+  onKnowledgeQuestionKindChange: (kind: KnowledgeQuestionKind) => void;
+  knowledgeModule: string;
+  onKnowledgeModuleChange: (module: string) => void;
+  knowledgeExplicitModuleLimit: boolean;
+  onKnowledgeExplicitModuleLimitChange: (enabled: boolean) => void;
   onSubmit: () => void;
   loading: boolean;
   currentJob: RCAJobCreated | null;
   runtimeInfo: RuntimeInfo | null;
+  onCancel: () => void;
+  cancelling: boolean;
 }
 
 export function JobComposer({
-  investigationMode,
-  onInvestigationModeChange,
+  workspaceMode,
+  onWorkspaceModeChange,
   query,
   onQueryChange,
   lotId,
   onLotIdChange,
+  knowledgeQuestionKind,
+  onKnowledgeQuestionKindChange,
+  knowledgeModule,
+  onKnowledgeModuleChange,
+  knowledgeExplicitModuleLimit,
+  onKnowledgeExplicitModuleLimitChange,
   onSubmit,
   loading,
   currentJob,
   runtimeInfo,
+  onCancel,
+  cancelling,
 }: JobComposerProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,9 +68,9 @@ export function JobComposer({
           <button
             type="button"
             role="tab"
-            aria-selected={investigationMode === "product_window"}
-            className={investigationMode === "product_window" ? "active" : ""}
-            onClick={() => onInvestigationModeChange("product_window")}
+            aria-selected={workspaceMode === "product_window"}
+            className={workspaceMode === "product_window" ? "active" : ""}
+            onClick={() => onWorkspaceModeChange("product_window")}
             disabled={loading}
           >
             <CalendarRange size={15} aria-hidden="true" />
@@ -58,17 +79,85 @@ export function JobComposer({
           <button
             type="button"
             role="tab"
-            aria-selected={investigationMode === "lot"}
-            className={investigationMode === "lot" ? "active" : ""}
-            onClick={() => onInvestigationModeChange("lot")}
+            aria-selected={workspaceMode === "lot"}
+            className={workspaceMode === "lot" ? "active" : ""}
+            onClick={() => onWorkspaceModeChange("lot")}
             disabled={loading}
           >
             <Waypoints size={15} aria-hidden="true" />
             Lot ID
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={workspaceMode === "knowledge"}
+            className={workspaceMode === "knowledge" ? "active" : ""}
+            onClick={() => onWorkspaceModeChange("knowledge")}
+            disabled={loading}
+          >
+            <BookOpen size={15} aria-hidden="true" />
+            Knowledge
+          </button>
         </div>
 
-        {investigationMode === "lot" ? (
+        {workspaceMode === "knowledge" ? (
+          <>
+            <label htmlFor="knowledge-kind">Reference type</label>
+            <select
+              id="knowledge-kind"
+              value={knowledgeQuestionKind}
+              onChange={(event) =>
+                onKnowledgeQuestionKindChange(
+                  event.target.value as KnowledgeQuestionKind,
+                )
+              }
+              disabled={loading}
+            >
+              <option value="historical_match">Historical RCA Case</option>
+              <option value="procedure_guidance">SOP guidance</option>
+              <option value="engineering_note_lookup">Engineering Note</option>
+            </select>
+            <label htmlFor="knowledge-module">Observed module hint</label>
+            <input
+              id="knowledge-module"
+              value={knowledgeModule}
+              onChange={(event) => onKnowledgeModuleChange(event.target.value)}
+              maxLength={200}
+              placeholder="e.g. Cu CMP"
+              disabled={loading}
+            />
+            <label className="scope-limit-control" htmlFor="knowledge-module-limit">
+              <input
+                id="knowledge-module-limit"
+                type="checkbox"
+                checked={knowledgeExplicitModuleLimit}
+                onChange={(event) =>
+                  onKnowledgeExplicitModuleLimitChange(event.target.checked)
+                }
+                disabled={loading || knowledgeModule.trim().length === 0}
+              />
+              <span>
+                <strong>Restrict search to this module</strong>
+                <small>
+                  Leave off for causal search beyond where the symptom was observed.
+                </small>
+              </span>
+            </label>
+            <label htmlFor="knowledge-query">Knowledge question</label>
+            <textarea
+              id="knowledge-query"
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              rows={5}
+              maxLength={4000}
+              placeholder="Search an approved case, SOP, or Engineering Note."
+              disabled={loading}
+            />
+            <small className="field-help">
+              This path runs only the Knowledge Agent and never produces an RCA conclusion.
+            </small>
+          </>
+        ) : workspaceMode === "lot" ? (
           <>
             <label htmlFor="rca-lot-id">Abnormal Lot ID</label>
             <input
@@ -111,13 +200,19 @@ export function JobComposer({
           className="primary-button"
           disabled={
             loading ||
-            (investigationMode === "lot"
+            (workspaceMode === "lot"
               ? lotId.trim().length === 0 || query.trim().length === 0
               : query.trim().length === 0)
           }
         >
           <Play size={16} fill="currentColor" aria-hidden="true" />
-          {loading ? "Running analysis" : "Run RCA"}
+          {loading
+            ? workspaceMode === "knowledge"
+              ? "Searching references"
+              : "Running analysis"
+            : workspaceMode === "knowledge"
+              ? "Search knowledge"
+              : "Run RCA"}
         </button>
       </form>
 
@@ -150,6 +245,17 @@ export function JobComposer({
               })}
             </time>
           </div>
+          {["queued", "running", "retry_wait", "cancel_requested"].includes(currentJob.status) && (
+            <button
+              type="button"
+              className="sidebar-cancel-button"
+              onClick={onCancel}
+              disabled={cancelling || currentJob.status === "cancel_requested"}
+            >
+              <Ban size={14} aria-hidden="true" />
+              {cancelling || currentJob.status === "cancel_requested" ? "Cancelling" : "Cancel Job"}
+            </button>
+          )}
         </div>
       )}
     </aside>

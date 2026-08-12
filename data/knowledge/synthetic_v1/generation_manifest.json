@@ -1,0 +1,406 @@
+{
+  "assets": [
+    {
+      "asset_id": "RCA_SYN_001",
+      "document_id": "DOC_RCA_SYN_001",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_002",
+      "document_id": "DOC_RCA_SYN_002",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_003",
+      "document_id": "DOC_RCA_SYN_003",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_004",
+      "document_id": "DOC_RCA_SYN_004",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_005",
+      "document_id": "DOC_RCA_SYN_005",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_006",
+      "document_id": "DOC_RCA_SYN_006",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_007",
+      "document_id": "DOC_RCA_SYN_007",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_008",
+      "document_id": "DOC_RCA_SYN_008",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_009",
+      "document_id": "DOC_RCA_SYN_009",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_010",
+      "document_id": "DOC_RCA_SYN_010",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_011",
+      "document_id": "DOC_RCA_SYN_011",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_012",
+      "document_id": "DOC_RCA_SYN_012",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_013",
+      "document_id": "DOC_RCA_SYN_013",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_014",
+      "document_id": "DOC_RCA_SYN_014",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_015",
+      "document_id": "DOC_RCA_SYN_015",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_016",
+      "document_id": "DOC_RCA_SYN_016",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_017",
+      "document_id": "DOC_RCA_SYN_017",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_018",
+      "document_id": "DOC_RCA_SYN_018",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_019",
+      "document_id": "DOC_RCA_SYN_019",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_020",
+      "document_id": "DOC_RCA_SYN_020",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_021",
+      "document_id": "DOC_RCA_SYN_021",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_022",
+      "document_id": "DOC_RCA_SYN_022",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_023",
+      "document_id": "DOC_RCA_SYN_023",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_024",
+      "document_id": "DOC_RCA_SYN_024",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_025",
+      "document_id": "DOC_RCA_SYN_025",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_026",
+      "document_id": "DOC_RCA_SYN_026",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_027",
+      "document_id": "DOC_RCA_SYN_027",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_028",
+      "document_id": "DOC_RCA_SYN_028",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_029",
+      "document_id": "DOC_RCA_SYN_029",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_030",
+      "document_id": "DOC_RCA_SYN_030",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_031",
+      "document_id": "DOC_RCA_SYN_031",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_032",
+      "document_id": "DOC_RCA_SYN_032",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_033",
+      "document_id": "DOC_RCA_SYN_033",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_034",
+      "document_id": "DOC_RCA_SYN_034",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_035",
+      "document_id": "DOC_RCA_SYN_035",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_036",
+      "document_id": "DOC_RCA_SYN_036",
+      "document_type": "RCA_CASE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_CMP_001",
+      "document_id": "SOP_SYN_CMP_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_CMP_002",
+      "document_id": "SOP_SYN_CMP_002",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_CVD_001",
+      "document_id": "SOP_SYN_CVD_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_LITHO_001",
+      "document_id": "SOP_SYN_LITHO_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_ETCH_001",
+      "document_id": "SOP_SYN_ETCH_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_IMPLANT_001",
+      "document_id": "SOP_SYN_IMPLANT_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_DIFF_001",
+      "document_id": "SOP_SYN_DIFF_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_PVD_001",
+      "document_id": "SOP_SYN_PVD_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_WET_001",
+      "document_id": "SOP_SYN_WET_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_CROSS_001",
+      "document_id": "SOP_SYN_CROSS_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_METROLOGY_001",
+      "document_id": "SOP_SYN_METROLOGY_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "SOP_SYN_FDC_001",
+      "document_id": "SOP_SYN_FDC_001",
+      "document_type": "SOP",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_CMP_001",
+      "document_id": "NOTE_SYN_CMP_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_CMP_002",
+      "document_id": "NOTE_SYN_CMP_002",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_CVD_001",
+      "document_id": "NOTE_SYN_CVD_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_LITHO_001",
+      "document_id": "NOTE_SYN_LITHO_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_ETCH_001",
+      "document_id": "NOTE_SYN_ETCH_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_IMPLANT_001",
+      "document_id": "NOTE_SYN_IMPLANT_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_DIFF_001",
+      "document_id": "NOTE_SYN_DIFF_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_PVD_001",
+      "document_id": "NOTE_SYN_PVD_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_WET_001",
+      "document_id": "NOTE_SYN_WET_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_CROSS_001",
+      "document_id": "NOTE_SYN_CROSS_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_METROLOGY_001",
+      "document_id": "NOTE_SYN_METROLOGY_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "NOTE_SYN_KNOWLEDGE_001",
+      "document_id": "NOTE_SYN_KNOWLEDGE_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "CONFIRMED"
+    },
+    {
+      "asset_id": "RCA_SYN_DRAFT_001",
+      "document_id": "DOC_RCA_SYN_DRAFT_001",
+      "document_type": "RCA_CASE",
+      "validation_status": "DRAFT"
+    },
+    {
+      "asset_id": "SOP_SYN_DRAFT_001",
+      "document_id": "SOP_SYN_DRAFT_001",
+      "document_type": "SOP",
+      "validation_status": "DRAFT"
+    },
+    {
+      "asset_id": "NOTE_SYN_DRAFT_001",
+      "document_id": "NOTE_SYN_DRAFT_001",
+      "document_type": "ENGINEERING_NOTE",
+      "validation_status": "DRAFT"
+    }
+  ],
+  "canonical_sha256": "384a18d3938f9d120f0e0aaafc7c5f067db4b27f81a74464144fd0f2fa46c715",
+  "corpus_version": "synthetic-semiconductor-knowledge-v1",
+  "counts": {
+    "answerable_queries": 96,
+    "confirmed_engineering_notes": 12,
+    "confirmed_rca_cases": 36,
+    "confirmed_sops": 12,
+    "no_answer_queries": 18,
+    "total_queries": 114,
+    "unapproved_assets": 3
+  },
+  "dataset_created_at": "2026-08-08T00:00:00+08:00",
+  "generation": {
+    "document_prompt": "synthetic_knowledge_document_v1",
+    "model": "none",
+    "paid_call_count": 0,
+    "provider": "deterministic_template",
+    "qrels_generated_by_python": true,
+    "query_prompt": "synthetic_knowledge_query_v1",
+    "query_root_cause_exposed": false
+  },
+  "publication_policy": "BUILTIN_SYNTHETIC_SEED",
+  "schema_version": "1.0",
+  "synthetic": true
+}

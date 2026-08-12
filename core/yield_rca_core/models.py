@@ -35,10 +35,17 @@ from yield_rca_core.evidence_models import (
 )
 from yield_rca_core.investigation_models import (
     ActionRecord,
+    CapabilityNotice,
     ConclusionLevel,
     GoalStatus,
     InvestigationAction,
     InvestigationGoal,
+    InvestigationQuestion,
+    PlannerDecision,
+    QuestionEvidenceLink,
+    QuestionUpdateDisposition,
+    QuestionUpdateReview,
+    RunEvaluation,
     StopReason,
 )
 
@@ -56,10 +63,14 @@ class LotNotFoundError(LotDrivenRCAError):
 
 
 class TaskStatus(StrEnum):
+    QUEUED = "queued"
     PENDING = "pending"
     RUNNING = "running"
+    RETRY_WAIT = "retry_wait"
+    CANCEL_REQUESTED = "cancel_requested"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
     SKIPPED = "skipped"
 
 
@@ -819,11 +830,17 @@ class RCAState:
     llm_usage: list[LLMUsageEvent] = field(default_factory=list)
     execution_metadata: dict[str, Any] = field(default_factory=dict)
     investigation_goal: InvestigationGoal | None = None
+    capability_notices: list[CapabilityNotice] = field(default_factory=list)
+    investigation_questions: list[InvestigationQuestion] = field(default_factory=list)
+    question_evidence_links: list[QuestionEvidenceLink] = field(default_factory=list)
     action_history: list[ActionRecord] = field(default_factory=list)
+    planner_decisions: list[PlannerDecision] = field(default_factory=list)
+    question_update_reviews: list[QuestionUpdateReview] = field(default_factory=list)
     goal_status: str | None = None
     conclusion_level: str | None = None
     evidence_gaps: list[str] = field(default_factory=list)
     stop_reason: str | None = None
+    run_evaluation: RunEvaluation | None = None
     schema_version: str = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
@@ -851,9 +868,44 @@ class RCAState:
             self.investigation_goal, InvestigationGoal
         ):
             raise ModelValidationError("investigation_goal must be an InvestigationGoal")
+        if not isinstance(self.capability_notices, list) or any(
+            not isinstance(notice, CapabilityNotice)
+            for notice in self.capability_notices
+        ):
+            raise ModelValidationError(
+                "capability_notices must contain CapabilityNotice instances"
+            )
+        if not isinstance(self.investigation_questions, list):
+            raise ModelValidationError("investigation_questions must be a list")
+        for question in self.investigation_questions:
+            if not isinstance(question, InvestigationQuestion):
+                raise ModelValidationError(
+                    "investigation_questions must contain InvestigationQuestion instances"
+                )
+        if not isinstance(self.question_evidence_links, list) or any(
+            not isinstance(link, QuestionEvidenceLink)
+            for link in self.question_evidence_links
+        ):
+            raise ModelValidationError(
+                "question_evidence_links must contain QuestionEvidenceLink instances"
+            )
         for record in self.action_history:
             if not isinstance(record, ActionRecord):
                 raise ModelValidationError("action_history must contain ActionRecord instances")
+        if not isinstance(self.planner_decisions, list):
+            raise ModelValidationError("planner_decisions must be a list")
+        for decision in self.planner_decisions:
+            if not isinstance(decision, PlannerDecision):
+                raise ModelValidationError(
+                    "planner_decisions must contain PlannerDecision instances"
+                )
+        if not isinstance(self.question_update_reviews, list):
+            raise ModelValidationError("question_update_reviews must be a list")
+        for review in self.question_update_reviews:
+            if not isinstance(review, QuestionUpdateReview):
+                raise ModelValidationError(
+                    "question_update_reviews must contain QuestionUpdateReview instances"
+                )
         if self.goal_status is not None:
             try:
                 GoalStatus(self.goal_status)
@@ -870,9 +922,14 @@ class RCAState:
                 StopReason(self.stop_reason)
             except ValueError as exc:
                 raise ModelValidationError("stop_reason is invalid") from exc
+        if self.run_evaluation is not None and not isinstance(
+            self.run_evaluation, RunEvaluation
+        ):
+            raise ModelValidationError("run_evaluation must be a RunEvaluation")
         _validate_json_object(self.execution_metadata, "execution_metadata")
         self._validate_evidence_references()
         self._validate_task_references()
+        self._validate_investigation_trace()
 
     @property
     def evidence_by_id(self) -> dict[str, Evidence]:
@@ -1000,6 +1057,175 @@ class RCAState:
                     f"finding_kind does not match task {finding.task_id!r}"
                 )
 
+    def _validate_investigation_trace(self) -> None:
+        question_ids = [
+            question.question_id for question in self.investigation_questions
+        ]
+        duplicate_question_ids = {
+            question_id
+            for question_id in question_ids
+            if question_ids.count(question_id) > 1
+        }
+        if duplicate_question_ids:
+            raise ModelValidationError(
+                "duplicate investigation question_id values: "
+                f"{sorted(duplicate_question_ids)}"
+            )
+
+        decision_ids = [
+            decision.decision_id for decision in self.planner_decisions
+        ]
+        duplicate_decision_ids = {
+            decision_id
+            for decision_id in decision_ids
+            if decision_ids.count(decision_id) > 1
+        }
+        if duplicate_decision_ids:
+            raise ModelValidationError(
+                f"duplicate planner decision_id values: {sorted(duplicate_decision_ids)}"
+            )
+
+        if (
+            self.investigation_goal is None
+            and (
+                self.investigation_questions
+                or self.question_evidence_links
+                or self.planner_decisions
+                or self.question_update_reviews
+                or self.run_evaluation is not None
+            )
+        ):
+            raise ModelValidationError(
+                "investigation trace and run_evaluation require investigation_goal"
+            )
+        if self.investigation_goal is None:
+            return
+
+        goal_id = self.investigation_goal.goal_id
+        for question in self.investigation_questions:
+            if question.goal_id != goal_id:
+                raise ModelValidationError(
+                    "investigation question goal_id must match investigation_goal"
+                )
+            self._validate_reference_set(
+                question.evidence_ids,
+                set(self.evidence_by_id),
+                "investigation question",
+            )
+
+        known_question_ids = set(question_ids)
+        known_action_ids = {
+            record.action.action_id for record in self.action_history
+        }
+        known_evidence_ids = set(self.evidence_by_id)
+        seen_links: set[tuple[str, str, str, str]] = set()
+        for link in self.question_evidence_links:
+            if link.question_id not in known_question_ids:
+                raise ModelValidationError(
+                    "QuestionEvidenceLink references an unknown Question: "
+                    f"{link.question_id!r}"
+                )
+            if link.evidence_id not in known_evidence_ids:
+                raise ModelValidationError(
+                    "QuestionEvidenceLink references unknown Evidence: "
+                    f"{link.evidence_id!r}"
+                )
+            if link.action_id not in known_action_ids:
+                raise ModelValidationError(
+                    "QuestionEvidenceLink references an unknown ActionRecord: "
+                    f"{link.action_id!r}"
+                )
+            key = (link.question_id, link.evidence_id, link.action_id, link.relation)
+            if key in seen_links:
+                raise ModelValidationError(
+                    "duplicate QuestionEvidenceLink relationships are not allowed"
+                )
+            seen_links.add(key)
+        decisions_by_id = {
+            decision.decision_id: decision for decision in self.planner_decisions
+        }
+        for decision in self.planner_decisions:
+            if decision.goal_id != goal_id:
+                raise ModelValidationError(
+                    "planner decision goal_id must match investigation_goal"
+                )
+            missing_questions = (
+                set(decision.target_question_ids) - known_question_ids
+            )
+            if missing_questions:
+                raise ModelValidationError(
+                    "planner decision references unknown investigation question_ids: "
+                    f"{sorted(missing_questions)}"
+                )
+            unknown_new_questions = {
+                question.question_id
+                for question in decision.new_questions
+                if question.question_id not in known_question_ids
+            }
+            if unknown_new_questions:
+                raise ModelValidationError(
+                    "planner decision new_questions must be present in "
+                    "investigation_questions: "
+                    f"{sorted(unknown_new_questions)}"
+                )
+            unknown_question_updates = {
+                question.question_id
+                for question in decision.question_updates
+                if question.question_id not in known_question_ids
+            }
+            if unknown_question_updates:
+                raise ModelValidationError(
+                    "planner decision question_updates must reference "
+                    "investigation_questions: "
+                    f"{sorted(unknown_question_updates)}"
+                )
+
+        for review in self.question_update_reviews:
+            decision = decisions_by_id.get(review.decision_id)
+            if decision is None:
+                raise ModelValidationError(
+                    "QuestionUpdate review references an unknown planner decision: "
+                    f"{review.decision_id!r}"
+                )
+            if review.disposition != QuestionUpdateDisposition.ACCEPTED.value:
+                continue
+            matching_update = next(
+                (
+                    update
+                    for update in decision.question_updates
+                    if update.question_id == review.question_id
+                    and update.status == review.claimed_status
+                ),
+                None,
+            )
+            if matching_update is None:
+                raise ModelValidationError(
+                    "accepted QuestionUpdate review must match a committed "
+                    "planner decision question_update"
+                )
+
+        if self.run_evaluation is None:
+            return
+        if self.run_evaluation.goal_id != goal_id:
+            raise ModelValidationError(
+                "run_evaluation goal_id must match investigation_goal"
+            )
+        evaluation_decision_ids = [
+            evaluation.decision_id
+            for evaluation in self.run_evaluation.decision_evaluations
+        ]
+        if evaluation_decision_ids != decision_ids:
+            raise ModelValidationError(
+                "run_evaluation decision_evaluations must match "
+                "planner_decisions in number and order"
+            )
+        for evaluation in self.run_evaluation.decision_evaluations:
+            self._validate_reference_set(
+                evaluation.new_evidence_ids,
+                known_evidence_ids,
+                "decision evaluation",
+            )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "job": self.job.to_dict(),
@@ -1022,16 +1248,43 @@ class RCAState:
             "investigation_goal": (
                 self.investigation_goal.to_dict() if self.investigation_goal else None
             ),
+            "capability_notices": [
+                notice.to_dict() for notice in self.capability_notices
+            ],
+            "investigation_questions": [
+                item.to_dict() for item in self.investigation_questions
+            ],
+            "question_evidence_links": [
+                item.to_dict() for item in self.question_evidence_links
+            ],
             "action_history": [item.to_dict() for item in self.action_history],
+            "planner_decisions": [
+                item.to_dict() for item in self.planner_decisions
+            ],
+            "question_update_reviews": [
+                item.to_dict() for item in self.question_update_reviews
+            ],
             "goal_status": self.goal_status,
             "conclusion_level": self.conclusion_level,
             "evidence_gaps": list(self.evidence_gaps),
             "stop_reason": self.stop_reason,
+            "run_evaluation": (
+                self.run_evaluation.to_dict() if self.run_evaluation else None
+            ),
             "schema_version": self.schema_version,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
+        raw_investigation_questions = data.get("investigation_questions", [])
+        if not isinstance(raw_investigation_questions, list):
+            raise ModelValidationError("investigation_questions must be a list")
+        raw_planner_decisions = data.get("planner_decisions", [])
+        if not isinstance(raw_planner_decisions, list):
+            raise ModelValidationError("planner_decisions must be a list")
+        raw_question_update_reviews = data.get("question_update_reviews", [])
+        if not isinstance(raw_question_update_reviews, list):
+            raise ModelValidationError("question_update_reviews must be a list")
         return cls(
             job=RCAJob.from_dict(data["job"]),
             task_plan=TaskPlan.from_dict(data["task_plan"]) if data.get("task_plan") else None,
@@ -1051,13 +1304,25 @@ class RCAState:
             llm_usage=[LLMUsageEvent.from_dict(item) for item in data.get("llm_usage", [])],
             execution_metadata=dict(data.get("execution_metadata", {})),
             investigation_goal=(
-                InvestigationGoal(**dict(data["investigation_goal"]))
+                InvestigationGoal.from_dict(data["investigation_goal"])
                 if data.get("investigation_goal")
                 else None
             ),
+            capability_notices=[
+                CapabilityNotice.from_dict(item)
+                for item in data.get("capability_notices", [])
+            ],
+            investigation_questions=[
+                InvestigationQuestion.from_dict(item)
+                for item in raw_investigation_questions
+            ],
+            question_evidence_links=[
+                QuestionEvidenceLink.from_dict(item)
+                for item in data.get("question_evidence_links", [])
+            ],
             action_history=[
                 ActionRecord(
-                    action=InvestigationAction(**dict(item["action"])),
+                    action=InvestigationAction.from_dict(item["action"]),
                     status=item["status"],
                     produced_finding_ids=list(item.get("produced_finding_ids", [])),
                     produced_evidence_ids=list(item.get("produced_evidence_ids", [])),
@@ -1065,9 +1330,22 @@ class RCAState:
                 )
                 for item in data.get("action_history", [])
             ],
+            planner_decisions=[
+                PlannerDecision.from_dict(item)
+                for item in raw_planner_decisions
+            ],
+            question_update_reviews=[
+                QuestionUpdateReview.from_dict(item)
+                for item in raw_question_update_reviews
+            ],
             goal_status=data.get("goal_status"),
             conclusion_level=data.get("conclusion_level"),
             evidence_gaps=list(data.get("evidence_gaps", [])),
             stop_reason=data.get("stop_reason"),
+            run_evaluation=(
+                RunEvaluation.from_dict(data["run_evaluation"])
+                if data.get("run_evaluation") is not None
+                else None
+            ),
             schema_version=data.get("schema_version", SCHEMA_VERSION),
         )

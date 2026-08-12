@@ -1,0 +1,95 @@
+{
+  "dataset_id": "synthetic-semiconductor-causal-v2",
+  "gates": {
+    "data_quality": {
+      "errors": [],
+      "human_review_complete": true,
+      "passed": true,
+      "pending_qrel_reviews": 0,
+      "pending_scenario_reviews": 0,
+      "status": "PASS",
+      "structural_pass": true
+    },
+    "governance": {
+      "historical_only_root_cause_promotions": 0,
+      "historical_overreach_rate": 0.0,
+      "passed": true,
+      "source_and_time_scope_boundaries": true,
+      "status": "PASS",
+      "unapproved_knowledge_leakage": 0,
+      "unsupported_source_recall": 1.0
+    },
+    "rca_quality": {
+      "controlled_compatibility": {
+        "impact_mismatch_scenario_ids": [],
+        "note": "Controlled ReAct is a safety/compatibility baseline. Fewer Specialist actions may intentionally downgrade supported conclusions.",
+        "passed": true,
+        "status": "PASS",
+        "unsafe_false_support_scenario_ids": []
+      },
+      "fixed_reference_complete": true,
+      "passed": false,
+      "reason": "Paid real-Qwen evaluation requires both --run-real-qwen and --confirm-paid-qwen with DASHSCOPE_API_KEY.",
+      "status": "BLOCKED"
+    },
+    "retrieval_quality": {
+      "causal_scope": {
+        "cross_module_strictly_improved": true,
+        "promoted": true,
+        "same_module_non_regressing": true
+      },
+      "hybrid_non_regression": false,
+      "passed": false,
+      "reranker": {
+        "evaluated": false,
+        "ndcg_strictly_improved": false,
+        "primary_metrics_non_regressing": false,
+        "promoted": false
+      },
+      "selected_runtime": {
+        "causal_scope_enabled": true,
+        "reranker_enabled": false,
+        "retriever": "chunk_keyword"
+      },
+      "status": "FAIL"
+    }
+  },
+  "interview_safe_claims": [
+    {
+      "boundary": "Reviewed Synthetic V2 retrieval Test partition only.",
+      "claim": "Four-lane causal Scope raised cross-Module Recall@5 from 16.67% to 71.67%, while same-Module Recall@5 remained 100.00%."
+    },
+    {
+      "boundary": "Hybrid failed its non-regression gate and is not the selected runtime.",
+      "claim": "Hybrid-RRF measured Recall@5 79.76%, nDCG@10 0.6222, hard-negative pairwise 57.14%, and in-scope No-answer 100.00%."
+    },
+    {
+      "boundary": "Reviewed Synthetic V2 RCA Test partition; this is a deterministic reference, not a real-Qwen or production-Fab accuracy claim.",
+      "claim": "The deterministic fixed reference achieved 6/6 supported root causes, 100.00% Impact precision, 100.00% Impact recall, and 100.00% correct abstention."
+    }
+  ],
+  "passed": false,
+  "release_decision": {
+    "causal_scope": {
+      "cross_module_strictly_improved": true,
+      "promoted": true,
+      "same_module_non_regressing": true
+    },
+    "hybrid_promoted": false,
+    "reranker": {
+      "enabled": false,
+      "evaluated": false,
+      "ndcg_strictly_improved": false,
+      "primary_metrics_non_regressing": false,
+      "promoted": false,
+      "reason": "Local bge-reranker-v2-m3 weights were unavailable and no strict measured nDCG uplift was established."
+    },
+    "selected_runtime": {
+      "causal_scope_enabled": true,
+      "reranker_enabled": false,
+      "retriever": "chunk_keyword"
+    }
+  },
+  "release_status": "NOT_READY",
+  "synthetic": true
+}

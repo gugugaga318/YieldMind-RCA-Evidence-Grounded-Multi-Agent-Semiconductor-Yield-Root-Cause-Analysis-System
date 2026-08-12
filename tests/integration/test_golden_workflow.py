@@ -52,6 +52,7 @@ class GoldenWorkflowIntegrationTest(unittest.TestCase):
         self.assertIn("## Recipe Optimization Recommendations", self.state.report.markdown)
         self.assertIn("## Memory Status", self.state.report.markdown)
         self.assertIn("use the Memory Approval API", self.state.report.markdown)
+        self.assertIsNone(self.state.run_evaluation)
 
     def test_final_state_round_trip_preserves_report_and_evidence(self) -> None:
         restored = RCAState.from_dict(self.state.to_dict())

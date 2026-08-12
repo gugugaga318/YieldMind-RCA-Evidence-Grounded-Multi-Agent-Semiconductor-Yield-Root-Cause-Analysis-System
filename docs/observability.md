@@ -62,8 +62,8 @@ serialized `RCAState` objects.
 
 ```powershell
 $env:YIELD_RCA_AGENT_MODE="fake"
-docker compose --profile tools run --rm seed
-docker compose up --build -d backend frontend
+docker compose --profile tools run --rm --build seed
+docker compose up --build -d backend worker frontend
 Invoke-RestMethod http://127.0.0.1:8000/ready
 Invoke-WebRequest http://127.0.0.1:8000/metrics
 ```

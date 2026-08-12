@@ -12,6 +12,7 @@ from yield_rca_core.investigation_models import (  # noqa: E402
     InvestigationIntent,
 )
 from yield_rca_core.models import InvestigationMode, RCAJob  # noqa: E402
+from yield_rca_core.tool_layer import capture_tool_latencies  # noqa: E402
 from yield_rca_core.workflow import build_csv_workflow  # noqa: E402
 
 
@@ -66,7 +67,39 @@ class ControlledReactWorkflowIntegrationTest(unittest.TestCase):
             {item.evidence_id for item in state.evidence},
         )
         self.assertEqual(state.execution_metadata, {})
+        self.assertIsNone(state.run_evaluation)
         self.assertIsNotNone(state.report)
+
+    def test_controlled_fallback_stops_before_an_action_would_cross_tool_budget(
+        self,
+    ) -> None:
+        workflow = build_csv_workflow(ROOT / "data" / "seeds" / "golden_case")
+        with capture_tool_latencies() as tool_latencies:
+            state = workflow.supervisor.execute_controlled(
+                RCAJob(
+                    job_id="JOB_CONTROLLED_REACT_BUDGET",
+                    user_query="Investigate LOT_A_001 scratch in Cu CMP.",
+                    investigation_mode=InvestigationMode.LOT.value,
+                    source_lot_id="LOT_A_001",
+                ),
+                InvestigationGoal(
+                    goal_id="GOAL_CONTROLLED_REACT_BUDGET",
+                    intent=InvestigationIntent.ROOT_CAUSE.value,
+                    summary="Respect the global Tool budget while investigating.",
+                    known_facts={"lot_id": "LOT_A_001", "defect": "scratch"},
+                    max_tool_calls=2,
+                ),
+                tool_latencies=tool_latencies,
+            )
+
+        self.assertEqual(
+            [record.action.kind for record in state.action_history],
+            ["inspect_defect_pattern"],
+        )
+        self.assertEqual(len(tool_latencies), 1)
+        self.assertEqual(state.goal_status, "budget_exhausted")
+        self.assertEqual(state.stop_reason, "budget_exhausted")
+        self.assertIsNone(state.run_evaluation)
 
 
 if __name__ == "__main__":

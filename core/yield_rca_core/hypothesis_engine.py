@@ -47,7 +47,77 @@ def _specialist(findings: list[AgentFinding], agent: str) -> AgentFinding | None
     return next((finding for finding in findings if finding.agent == agent), None)
 
 
-def _signature_candidate(mes: AgentFinding | None, fdc: AgentFinding | None) -> str | None:
+def _compact(value: str) -> str:
+    return "".join(re.findall(r"[a-z0-9]+", value.lower()))
+
+
+def _parameter_tokens(parameter: str) -> set[str]:
+    ignored = {
+        "bias",
+        "drop",
+        "error",
+        "index",
+        "motor",
+        "parameter",
+        "proxy",
+        "rate",
+        "signal",
+        "speed",
+    }
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", parameter.lower())
+        if len(token) >= 3 and token not in ignored
+    }
+
+
+def _operationally_aligned_knowledge_candidate(
+    mes: AgentFinding | None,
+    fdc: AgentFinding | None,
+    discovery: AgentFinding | None,
+) -> str | None:
+    """Bind a Knowledge hypothesis to current-Lot equipment and mechanism Evidence."""
+
+    if mes is None or fdc is None or discovery is None:
+        return None
+    equipment_id = str(
+        mes.details.get("target_commonality", {}).get("equipment_id", "")
+    ).strip()
+    if not equipment_id:
+        return None
+    mechanism_tokens = {
+        token
+        for item in fdc.details.get("parameter_summary", [])
+        if isinstance(item, dict)
+        and abs(float(item.get("avg_delta_percent", 0.0))) >= 5.0
+        for token in _parameter_tokens(str(item.get("parameter_name", "")))
+    }
+    if not mechanism_tokens:
+        return None
+
+    candidates: list[tuple[int, float, str]] = []
+    for case in discovery.details.get("cases", []):
+        if not isinstance(case, dict):
+            continue
+        root_cause = str(case.get("root_cause", "")).strip()
+        if not root_cause or _compact(equipment_id) not in _compact(root_cause):
+            continue
+        overlap = mechanism_tokens & _mechanism_tokens(root_cause)
+        if not overlap:
+            continue
+        candidates.append(
+            (len(overlap), float(case.get("similarity", 0.0)), root_cause)
+        )
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: (item[0], item[1], item[2]))[2]
+
+
+def _signature_candidate(
+    mes: AgentFinding | None,
+    fdc: AgentFinding | None,
+    discovery: AgentFinding | None,
+) -> str | None:
     if mes is None or fdc is None:
         return None
     chamber = str(mes.details.get("target_commonality", {}).get("chamber_id", "")).strip()
@@ -59,7 +129,7 @@ def _signature_candidate(mes: AgentFinding | None, fdc: AgentFinding | None) -> 
     for parameter, failure_mode in _SIGNATURE_RULES:
         if chamber and parameters.get(parameter, 0.0) <= -5.0:
             return f"{chamber} {failure_mode}"
-    return None
+    return _operationally_aligned_knowledge_candidate(mes, fdc, discovery)
 
 
 def _recipe_candidate(mes: AgentFinding | None) -> str | None:
@@ -101,15 +171,14 @@ def _mes_strength(finding: AgentFinding | None) -> float:
 def _fdc_strength(finding: AgentFinding | None) -> float:
     if finding is None:
         return 0.0
-    signals = sorted(
-        [
-            min(1.0, abs(float(item.get("avg_delta_percent", 0.0))) / 10.0)
-            for item in finding.details.get("parameter_summary", [])
-            if isinstance(item, dict)
-        ],
-        reverse=True,
-    )[:3]
-    parameter_signal = sum(signals) / len(signals) if signals else 0.0
+    signals = [
+        min(1.0, abs(float(item.get("avg_delta_percent", 0.0))) / 10.0)
+        for item in finding.details.get("parameter_summary", [])
+        if isinstance(item, dict)
+    ]
+    # Independent normal traces are useful exclusion Evidence; they must not
+    # dilute a separate, strongly abnormal causal parameter into a false miss.
+    parameter_signal = max(signals, default=0.0)
     ooc_signal = 1.0 if int(finding.details.get("event_count", 0)) > 0 else 0.0
     return 0.8 * parameter_signal + 0.2 * ooc_signal
 
@@ -127,18 +196,45 @@ def _defect_wat_strength(finding: AgentFinding | None) -> float:
     return (float(defect_signal) + float(wat_signal) + float(defect_signal and wat_signal)) / 3
 
 
-def _has_conflicting_physics(finding: AgentFinding | None) -> bool:
-    if finding is None:
+def _has_conflicting_physics(
+    mes: AgentFinding | None,
+    fdc: AgentFinding | None,
+) -> bool:
+    if fdc is None:
         return False
     parameters = {
         str(item.get("parameter_name", "")): float(item.get("avg_delta_percent", 0.0))
-        for item in finding.details.get("parameter_summary", [])
+        for item in fdc.details.get("parameter_summary", [])
         if isinstance(item, dict)
     }
-    return (
+    if (
         parameters.get("slurry_flow", 0.0) <= -5.0
         and parameters.get("estimated_removal_rate", 0.0) >= 5.0
-    )
+    ):
+        return True
+    abnormal_tokens = {
+        token
+        for parameter, delta in parameters.items()
+        if abs(delta) >= 5.0
+        for token in _parameter_tokens(parameter)
+    }
+    normal_tokens: set[str] = set()
+    if mes is not None:
+        normal_tokens = {
+            token
+            for evidence in mes.evidence
+            if evidence.evidence_type == "negative_signal"
+            # Later recovery and passing-control observations describe containment
+            # after the excursion.  They support the time-bounded causal story and
+            # must not be treated as simultaneous physics that contradicts it.
+            and not evidence.evidence_id.startswith(
+                ("EV_MES_RECOVERY_CONTROLS", "EV_WAT_PASSING_CONTROLS")
+            )
+            for entity in evidence.entities
+            if entity.entity_type == "parameter"
+            for token in _parameter_tokens(entity.entity_id)
+        }
+    return bool(abnormal_tokens & normal_tokens)
 
 
 def _candidate_payload(
@@ -148,14 +244,27 @@ def _candidate_payload(
     basis: str,
     base_score: float,
     core_evidence_ids: list[str],
+    non_supporting_evidence_ids: list[str],
     discovery: AgentFinding | None,
     validation: AgentFinding | None,
     signature_root_cause: str | None,
 ) -> dict[str, Any]:
-    supporting = list(core_evidence_ids) if root_cause == signature_root_cause else []
+    supporting = (
+        [
+            evidence_id
+            for evidence_id in core_evidence_ids
+            if evidence_id not in non_supporting_evidence_ids
+        ]
+        if root_cause == signature_root_cause
+        else []
+    )
     if basis == "recipe_change":
         supporting.extend(core_evidence_ids)
-    neutral: list[str] = []
+    neutral: list[str] = (
+        list(non_supporting_evidence_ids)
+        if root_cause == signature_root_cause
+        else []
+    )
     contradicting: list[str] = []
     validation_results = []
 
@@ -189,14 +298,6 @@ def _candidate_payload(
                 base_score = max(0.0, base_score - 0.20)
             else:
                 neutral.extend(result_evidence)
-
-    # Explicit normal/exclusion evidence is contradictory only for a candidate
-    # in that same module; it must never be silently discarded.
-    if "CMP" in root_cause.upper():
-        for evidence_id in core_evidence_ids:
-            if "CMP_NORMAL_EXCLUSION" in evidence_id:
-                contradicting.append(evidence_id)
-                base_score = max(0.0, base_score - 0.25)
 
     supporting = _unique(supporting)
     contradicting = _unique(contradicting)
@@ -252,13 +353,22 @@ class HypothesisEngine:
         defect_wat = _specialist(findings, AgentKind.DEFECT_WAT.value)
         discovery = by_kind.get(FindingKind.KNOWLEDGE_DISCOVERY.value)
         validation = by_kind.get(FindingKind.KNOWLEDGE_VALIDATION.value)
-        signature_root_cause = _signature_candidate(mes, fdc)
+        signature_root_cause = _signature_candidate(mes, fdc, discovery)
         core_evidence_ids = _unique(
             [
                 evidence_id
                 for finding in (mes, fdc, defect_wat)
                 if finding is not None
                 for evidence_id in finding.evidence_ids
+            ]
+        )
+        non_supporting_evidence_ids = _unique(
+            [
+                evidence.evidence_id
+                for finding in (mes, fdc, defect_wat)
+                if finding is not None
+                for evidence in finding.evidence
+                if evidence.evidence_type in {"data_missing", "negative_signal"}
             ]
         )
         candidates: dict[str, dict[str, Any]] = {}
@@ -272,6 +382,7 @@ class HypothesisEngine:
                 basis=basis,
                 base_score=score,
                 core_evidence_ids=core_evidence_ids,
+                non_supporting_evidence_ids=non_supporting_evidence_ids,
                 discovery=discovery,
                 validation=validation,
                 signature_root_cause=signature_root_cause,
@@ -327,7 +438,7 @@ class HypothesisEngine:
         supported = (
             selected is not None
             and selected["status"] == "supported"
-            and not _has_conflicting_physics(fdc)
+            and not _has_conflicting_physics(mes, fdc)
             and (equipment_signature_supported or recipe_supported)
         )
         decision = {
@@ -341,7 +452,7 @@ class HypothesisEngine:
                 if supported
                 else ["No ranked hypothesis passed the deterministic decision gate."]
             ),
-            "conflicting_physics": _has_conflicting_physics(fdc),
+            "conflicting_physics": _has_conflicting_physics(mes, fdc),
         }
         return {
             "engine": "hypothesis_v1",

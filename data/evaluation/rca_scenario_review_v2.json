@@ -1,0 +1,163 @@
+{
+  "dataset_id": "synthetic-semiconductor-causal-v2",
+  "instructions": "Review observation realism, causal truth, operational Evidence chain, and impact scope before Long Task C.",
+  "review_gate": "HUMAN_DATASET_REVIEW_REQUIRED",
+  "reviews": [
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_001",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_001"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_002",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_002"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_003",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_003"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_004",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_004"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_005",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_005"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_006",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_006"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_007",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_007"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_008",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_008"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_009",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_009"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_010",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_010"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_011",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_011"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_012",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_012"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_013",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_013"
+    },
+    {
+      "decision": "ACCEPTED",
+      "evidence_chain_review": "ACCEPTED",
+      "impact_scope_review": "ACCEPTED",
+      "incident_family_id": "IF_V2_014",
+      "notes": "Root cause, Evidence chain, and impact scope reviewed case by case.",
+      "reviewed_at": "2026-08-09T19:40:33+00:00",
+      "reviewer": "ybt",
+      "root_cause_review": "ACCEPTED",
+      "scenario_id": "RCA_V2_IF_V2_014"
+    }
+  ],
+  "schema_version": "2.0",
+  "synthetic": true
+}

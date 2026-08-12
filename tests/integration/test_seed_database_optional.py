@@ -7,7 +7,6 @@ import sys
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 SEED_DIR = ROOT / "data" / "seeds" / "golden_case"
 
@@ -74,8 +73,24 @@ class OptionalSeedDatabaseTest(unittest.TestCase):
                     """
                 )
                 self.assertEqual(cursor.fetchone()[0], 0)
-                cursor.execute("SELECT count(*) FROM hold_history WHERE hold_comment ILIKE '%slurry%'")
+                cursor.execute(
+                    "SELECT count(*) FROM hold_history WHERE hold_comment ILIKE '%slurry%'"
+                )
                 self.assertEqual(cursor.fetchone()[0], 20)
+                cursor.execute(
+                    """
+                    SELECT count(*) FROM knowledge_document
+                    WHERE publication_policy = 'BUILTIN_SYNTHETIC_SEED'
+                      AND validation_status = 'CONFIRMED'
+                    """
+                )
+                self.assertEqual(cursor.fetchone()[0], 60)
+                cursor.execute(
+                    "SELECT count(*) FROM knowledge_document WHERE document_id LIKE '%DRAFT%'"
+                )
+                self.assertEqual(cursor.fetchone()[0], 0)
+                cursor.execute("SELECT count(*) FROM active_knowledge_chunk")
+                self.assertGreater(cursor.fetchone()[0], 0)
 
 
 if __name__ == "__main__":

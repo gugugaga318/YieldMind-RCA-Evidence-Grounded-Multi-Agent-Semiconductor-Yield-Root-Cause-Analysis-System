@@ -1,6 +1,29 @@
-export type TaskStatus = "pending" | "running" | "completed" | "failed" | "skipped";
+export type TaskStatus =
+  | "pending"
+  | "queued"
+  | "running"
+  | "retry_wait"
+  | "cancel_requested"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "skipped";
 export type InvestigationMode = "product_window" | "lot";
-export type OrchestrationMode = "fixed" | "controlled_react";
+export type WorkspaceMode = InvestigationMode | "knowledge";
+export type KnowledgeQuestionKind =
+  | "historical_match"
+  | "procedure_guidance"
+  | "engineering_note_lookup";
+export type KnowledgeDocumentType = "RCA_CASE" | "SOP" | "ENGINEERING_NOTE";
+export type OrchestrationMode = "fixed" | "controlled_react" | "llm_react";
+export type EvidenceGapStatus = "open" | "closed" | "unavailable";
+export type GoalStatus = "in_progress" | "satisfied" | "blocked" | "budget_exhausted";
+export type ConclusionLevel =
+  | "signal"
+  | "candidate"
+  | "supported"
+  | "conflicted"
+  | "inconclusive";
 export type FindingKind =
   | "specialist_observation"
   | "knowledge_discovery"
@@ -22,7 +45,10 @@ export interface RCAJobCreated {
   investigation_mode: InvestigationMode;
   source_lot_id: string | null;
   state_url: string;
+  events_url: string;
   report_url: string;
+  cancel_url: string;
+  idempotency_key: string | null;
   memory_candidate_id: string | null;
   memory_candidate_url: string | null;
 }
@@ -43,6 +69,131 @@ export interface AgentTask {
   status: TaskStatus;
   inputs: Record<string, unknown>;
   finding_kind: FindingKind;
+}
+
+export interface InvestigationAction {
+  action_id: string;
+  kind: string;
+  agent: string;
+  reason: string;
+  inputs: Record<string, unknown>;
+  scope: Record<string, unknown>;
+  required_evidence_ids: string[];
+  max_attempts: number;
+}
+
+export interface ActionRecord {
+  action: InvestigationAction;
+  status: "completed" | "skipped" | "failed";
+  produced_finding_ids: string[];
+  produced_evidence_ids: string[];
+  decision_summary: string;
+}
+
+export interface InvestigationQuestion {
+  question_id: string;
+  goal_id: string;
+  question: string;
+  rationale: string;
+  question_kind?: string;
+  scope: Record<string, unknown>;
+  status: EvidenceGapStatus;
+  answer: string | null;
+  evidence_ids: string[];
+  unavailable_reason: string | null;
+  satisfied_evidence_groups?: string[];
+  missing_evidence_groups?: string[];
+  compatible_action_kinds?: string[];
+  evidence_links?: QuestionEvidenceLink[];
+}
+
+export interface CapabilityNotice {
+  capability: string;
+  supported: boolean;
+  reason: string;
+  available_alternatives: string[];
+  request_source: "user" | "qwen" | "system";
+}
+
+export interface QuestionEvidenceLink {
+  question_id: string;
+  evidence_id: string;
+  action_id: string;
+  relation: "supports" | "contradicts" | "context" | "unavailable";
+  matched_evidence_group: string;
+  reason: string;
+}
+
+export interface QuestionUpdate {
+  question_id: string;
+  status: "closed" | "unavailable";
+  answer: string | null;
+  evidence_ids: string[];
+  unavailable_reason: string | null;
+}
+
+export type QuestionUpdateReasonCode =
+  | "accepted"
+  | "malformed_collection"
+  | "too_many_updates"
+  | "malformed_update"
+  | "non_terminal_status"
+  | "duplicate_question"
+  | "unknown_question"
+  | "new_question_conflict"
+  | "terminal_question"
+  | "target_overlap"
+  | "unknown_evidence"
+  | "evidence_not_applicable"
+  | "insufficient_evidence_coverage"
+  | "unsupported_capability"
+  | "missing_unavailability_evidence";
+
+export interface QuestionUpdateReview {
+  decision_id: string;
+  disposition: "accepted" | "rejected";
+  reason_code: QuestionUpdateReasonCode;
+  reason: string;
+  update_index: number | null;
+  question_id: string | null;
+  claimed_status: string | null;
+}
+
+export interface PlannerDecision {
+  decision_id: string;
+  goal_id: string;
+  decision_type: "act" | "stop";
+  reason: string;
+  goal_status: GoalStatus;
+  proposed_conclusion_level: ConclusionLevel;
+  next_action: InvestigationAction | null;
+  target_question_ids: string[];
+  new_questions: InvestigationQuestion[];
+  question_updates: QuestionUpdate[];
+  stop_reason:
+    | "goal_satisfied"
+    | "critical_contradiction"
+    | "no_allowed_action"
+    | "budget_exhausted"
+    | "data_unavailable"
+    | null;
+}
+
+export interface DecisionEvaluation {
+  decision_id: string;
+  decision_valid: boolean;
+  evidence_gain: boolean;
+  redundant: boolean;
+  reason: string;
+  new_evidence_ids: string[];
+}
+
+export interface RunEvaluation {
+  goal_id: string;
+  goal_success: boolean;
+  stop_correct: boolean;
+  summary: string;
+  decision_evaluations: DecisionEvaluation[];
 }
 
 export interface EvidenceEntity {
@@ -121,6 +272,48 @@ export interface LLMUsageEvent {
   status: "success" | "failed";
 }
 
+export interface ToolLatencyRecord {
+  tool_name: string;
+  tool_request_id: string;
+  agent: string;
+  outcome: "success" | "failed";
+  duration_ms: number;
+}
+
+export type PlannerFailureCategory =
+  | "transport_provider_failure"
+  | "output_parse_error"
+  | "contract_validation_error"
+  | "semantic_validation_error";
+
+export type IntentPlannerReasonCode =
+  | "goal_id_changed"
+  | "intent_invalid"
+  | "budget_changed"
+  | "known_fact_removed"
+  | "known_fact_changed"
+  | "forbidden_known_fact_added"
+  | "unsupported_question_kind"
+  | "unrequested_material_trace"
+  | "source_lot_scope_mismatch"
+  | "malformed_output";
+
+export interface PlannerAttemptDiagnostic {
+  stage: "intent_planning";
+  attempt: number;
+  prompt_name: string;
+  prompt_version: string;
+  outcome: "success" | "failure";
+  failure_category: PlannerFailureCategory | null;
+  reason_code: IntentPlannerReasonCode | null;
+  field_path: string | null;
+  message: string | null;
+  repair_feedback_sent: boolean;
+  candidate_summary: Record<string, unknown>;
+  baseline_diff: Record<string, unknown>;
+  provider_request_id: string | null;
+}
+
 export interface ExecutionMetadata {
   agent_mode?: "deterministic" | "fake" | "llm";
   provider?: string | null;
@@ -135,13 +328,12 @@ export interface ExecutionMetadata {
   orchestration_mode?: OrchestrationMode;
   orchestration_requested_mode?: OrchestrationMode;
   orchestration_fallback_reason?: string;
-  tool_latencies?: Array<{
-    tool_name: string;
-    tool_request_id: string;
-    agent: string;
-    outcome: "success" | "failed";
-    duration_ms: number;
-  }>;
+  orchestration_fallback_stage?: "intent_planning" | "next_action_planning";
+  orchestration_fallback_after_action_count?: number;
+  orchestration_fallback_attempt_count?: number;
+  orchestration_fallback_validation_errors?: string[];
+  intent_planner_attempt_diagnostics?: PlannerAttemptDiagnostic[];
+  tool_latencies?: ToolLatencyRecord[];
 }
 
 export interface RCAState {
@@ -175,6 +367,7 @@ export interface RCAState {
   report: RCAReport | null;
   llm_usage: LLMUsageEvent[];
   execution_metadata: ExecutionMetadata;
+  capability_notices?: CapabilityNotice[];
   investigation_goal?: {
     goal_id: string;
     intent: string;
@@ -184,37 +377,142 @@ export interface RCAState {
     max_steps: number;
     max_tool_calls: number;
   } | null;
-  action_history?: Array<{
-    action: {
-      action_id: string;
-      kind: string;
-      agent: string;
-      reason: string;
-      inputs: Record<string, unknown>;
-      required_evidence_ids: string[];
-      max_attempts: number;
-    };
-    status: "completed" | "skipped" | "failed";
-    produced_finding_ids: string[];
-    produced_evidence_ids: string[];
-    decision_summary: string;
-  }>;
-  goal_status?: "in_progress" | "satisfied" | "blocked" | "budget_exhausted" | null;
-  conclusion_level?:
-    | "signal"
-    | "candidate"
-    | "supported"
-    | "conflicted"
-    | "inconclusive"
-    | null;
+  investigation_questions?: InvestigationQuestion[];
+  question_evidence_links?: QuestionEvidenceLink[];
+  action_history?: ActionRecord[];
+  planner_decisions?: PlannerDecision[];
+  question_update_reviews?: QuestionUpdateReview[];
+  run_evaluation?: RunEvaluation | null;
+  goal_status?: GoalStatus | null;
+  conclusion_level?: ConclusionLevel | null;
   evidence_gaps?: string[];
   stop_reason?: string | null;
+}
+
+export type AgentTraceOrigin =
+  | "llm_react"
+  | "controlled_react"
+  | "controlled_fallback"
+  | "fixed"
+  | "legacy";
+
+export type AgentTraceEvaluationStatus =
+  | "available"
+  | "pending"
+  | "not_applicable"
+  | "fallback"
+  | "unavailable";
+
+export interface SpecialistToolStepViewModel {
+  key: string;
+  stepId: string;
+  stepIndex: number;
+  actionId: string;
+  specialistDecisionId: string;
+  candidateId: string;
+  toolName: string;
+  parameters: Record<string, unknown>;
+  reason: string;
+  evidenceIds: string[];
+  evidence: Evidence[];
+  outputSummary: string;
+  status: "completed" | "failed";
+  superseded: boolean;
+  toolRequestId: string;
+  latency: ToolLatencyRecord | null;
+  integrityIssues: string[];
+}
+
+export interface SpecialistTraceViewModel {
+  findingId: string;
+  version: string | null;
+  actionId: string;
+  agent: string;
+  toolCallCount: number;
+  stopReason: string | null;
+  analysisSource: "qwen" | "deterministic_fallback" | null;
+  fallbackReason: string | null;
+  validationRetryCount: number;
+  localFallback: boolean;
+  engineeringInterpretation: string | null;
+  supersededStepIds: string[];
+  toolSteps: SpecialistToolStepViewModel[];
+  integrityIssues: string[];
+}
+
+export interface AgentTraceNodeViewModel {
+  key: string;
+  origin: AgentTraceOrigin;
+  task: AgentTask | null;
+  decision: PlannerDecision | null;
+  evaluation: DecisionEvaluation | null;
+  targetQuestions: InvestigationQuestion[];
+  newQuestions: InvestigationQuestion[];
+  questionUpdates: QuestionUpdate[];
+  questionUpdateReviews: QuestionUpdateReview[];
+  action: InvestigationAction | null;
+  actionRecord: ActionRecord | null;
+  findings: AgentFinding[];
+  evidence: Evidence[];
+  newEvidence: Evidence[];
+  specialistTraces: SpecialistTraceViewModel[];
+  integrityIssues: string[];
+}
+
+export interface AgentTraceViewModel {
+  requestedMode: OrchestrationMode | null;
+  actualMode: OrchestrationMode | null;
+  evaluationStatus: AgentTraceEvaluationStatus;
+  runEvaluation: RunEvaluation | null;
+  goal: RCAState["investigation_goal"];
+  questions: InvestigationQuestion[];
+  capabilityNotices: CapabilityNotice[];
+  questionEvidenceLinks: QuestionEvidenceLink[];
+  nodes: AgentTraceNodeViewModel[];
+  fallbackReason: string | null;
+  fallbackStage: "intent_planning" | "next_action_planning" | null;
+  fallbackAfterActionCount: number | null;
+  fallbackAttemptCount: number | null;
+  fallbackValidationErrors: string[];
+  intentPlannerAttempts: PlannerAttemptDiagnostic[];
+  integrityIssues: string[];
 }
 
 export interface RCAJobResponse {
   job_id: string;
   status: TaskStatus;
   state: RCAState;
+  queue: RCAJobQueueMetadata | null;
+}
+
+export interface RCAJobQueueMetadata {
+  priority: number;
+  attempt_count: number;
+  max_attempts: number;
+  next_attempt_at: string | null;
+  lease_expires_at: string | null;
+  cancel_requested_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  error: { error_code?: string; message?: string; retryable?: boolean } | null;
+  version: number;
+}
+
+export interface RCAJobEvent {
+  job_id: string;
+  sequence: number;
+  event_type: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export type JobStreamConnection = "connecting" | "live" | "reconnecting" | "closed";
+
+export interface CancelRCAJobResponse {
+  job_id: string;
+  status: TaskStatus;
+  cancel_requested_at: string;
+  state_url: string;
 }
 
 export interface RCAReportResponse {
@@ -341,6 +639,224 @@ export interface MemoryCandidateResponse {
 }
 
 export interface MemoryApprovalRequest {
+  engineer_id: string;
+  engineer_role: EngineerRole;
+  decision: "approve" | "reject";
+  comment: string;
+}
+
+export interface KnowledgeLookupRequest {
+  query: string;
+  question_kind: KnowledgeQuestionKind;
+  document_type?: KnowledgeDocumentType;
+  module?: string;
+  equipment_type?: string;
+  operation?: string;
+  defect_type?: string;
+  tags?: string[];
+  source_lot_id?: string;
+  product_id?: string;
+  detected_at?: string;
+  symptom_types?: string[];
+  explicit_module_limit?: boolean;
+  top_k?: number;
+}
+
+export type CausalLane =
+  | "same_step"
+  | "upstream_route"
+  | "shared_resource"
+  | "global_semantic";
+
+export interface ScopeFilters {
+  module: string;
+  equipment_type: string;
+  operation: string;
+  defect_type: string;
+  tags: string[];
+}
+
+export interface ObservationScope {
+  source_lot_id: string;
+  product_id: string;
+  detected_module: string;
+  detected_operation: string;
+  detected_equipment_id: string;
+  detected_equipment_type: string;
+  detected_at: string;
+  symptom_types: string[];
+  known_measurements: string[];
+  known_defect_attributes: string[];
+}
+
+export interface CausalLaneContext {
+  lane: CausalLane;
+  available: boolean;
+  reason: string;
+  modules: string[];
+  equipment_types: string[];
+  route_distance: number | null;
+  shared_resource_types: string[];
+}
+
+export interface CausalSearchScope {
+  mode: "legacy_hard" | "causal_wide" | "explicit_hard";
+  hard_constraints: ScopeFilters;
+  soft_hints: ScopeFilters;
+  expansion_lanes: CausalLaneContext[];
+  available_lanes: CausalLane[];
+  explicit_user_limits: string[];
+  time_boundary: string;
+  candidate_budget: number;
+  lane_minimum: number;
+  scope_reason: string;
+}
+
+export interface KnowledgeDocument {
+  document_id: string;
+  case_id: string | null;
+  evaluation_asset_id: string;
+  document_type: KnowledgeDocumentType;
+  title: string;
+  content: string;
+  module: string;
+  equipment_type: string;
+  operation: string;
+  defect_type: string;
+  tags: string[];
+  source_format: string;
+  content_sha256: string;
+  validation_status: "CONFIRMED";
+  publication_policy: string;
+  source_candidate_id: string | null;
+  created_at: string;
+  schema_version: string;
+}
+
+export interface KnowledgeLookupHit {
+  rank: number;
+  document: KnowledgeDocument;
+  score: number;
+  matched_chunk_ids: string[];
+  excerpt: string;
+  evidence_id: string;
+  relevance_reason: string;
+  retrieval_strategy: string;
+  score_components: Partial<
+    Record<"keyword" | "lexical" | "vector" | "fusion" | "reranker", number>
+  >;
+  calibrated_relevance: number | null;
+  source_confidence: number | null;
+  candidate_lanes: CausalLane[];
+  scope_reasons: string[];
+  route_distance: number | null;
+  shared_resource_types: string[];
+  scope_fusion_score: number | null;
+}
+
+export interface KnowledgeAgentTrace {
+  agent: "knowledge";
+  action: string;
+  execution_reason: string;
+  inputs: Record<string, unknown>;
+  output_evidence_ids: string[];
+  stop_reason: string;
+}
+
+export interface KnowledgeLookupResult {
+  lookup_id: string;
+  intent: "knowledge_lookup";
+  question_kind: KnowledgeQuestionKind;
+  status: "completed" | "no_match";
+  plan: {
+    intent: "knowledge_lookup";
+    question_kind: KnowledgeQuestionKind;
+    action: string;
+    query: string;
+    allowed_document_types: KnowledgeDocumentType[];
+    reason: string;
+    module: string;
+    equipment_type: string;
+    operation: string;
+    defect_type: string;
+    tags: string[];
+    observation_scope: ObservationScope | null;
+    causal_search_scope: CausalSearchScope | null;
+    explicit_module_limit: boolean;
+    top_k: number;
+  };
+  hits: KnowledgeLookupHit[];
+  agent_trace: KnowledgeAgentTrace[];
+  answer_boundary: string;
+  warnings: string[];
+  root_cause_conclusion: null;
+  created_at: string;
+}
+
+export interface KnowledgeChunk {
+  chunk_id: string;
+  document_id: string | null;
+  candidate_id: string | null;
+  chunk_index: number;
+  section_type: string;
+  heading: string;
+  content?: string;
+  content_preview?: string;
+  token_count: number;
+  metadata: Record<string, unknown>;
+  validation_status: "STAGED" | "CONFIRMED";
+  embedding_status: string;
+  schema_version: string;
+}
+
+export interface KnowledgeIngestionApproval {
+  approval_id: string;
+  candidate_id: string;
+  engineer_id: string;
+  engineer_role: EngineerRole;
+  decision: "approve" | "reject";
+  comment: string;
+  decided_at: string;
+  schema_version: string;
+}
+
+export interface KnowledgeIngestionCandidate {
+  candidate_id: string;
+  filename: string;
+  source_format: string;
+  document_type: KnowledgeDocumentType;
+  case_id: string | null;
+  title: string;
+  parsed_content?: string;
+  content_preview?: string;
+  content_sha256: string;
+  module: string;
+  equipment_type: string;
+  operation: string;
+  defect_type: string;
+  tags: string[];
+  status: "pending_approval" | "published" | "rejected";
+  chunks: KnowledgeChunk[];
+  chunk_count: number;
+  approvals: KnowledgeIngestionApproval[];
+  approval_count: number;
+  required_approval_count: number;
+  published_document_id: string | null;
+  publication_policy: string;
+  created_at: string;
+  updated_at: string;
+  schema_version: string;
+}
+
+export interface KnowledgeIngestionResponse {
+  candidate: KnowledgeIngestionCandidate;
+}
+
+export interface KnowledgeIngestionListResponse {
+  candidates: KnowledgeIngestionCandidate[];
+}
+
+export interface KnowledgeApprovalRequest {
   engineer_id: string;
   engineer_role: EngineerRole;
   decision: "approve" | "reject";

@@ -18,9 +18,12 @@ class ComposeContractTest(unittest.TestCase):
         self.assertIn("  backend:", compose)
         self.assertIn("  frontend:", compose)
         self.assertIn("  seed:", compose)
+        self.assertIn("  knowledge-index:", compose)
         self.assertIn("profiles: [tools]", compose)
-        self.assertIn("target: runtime", compose)
+        self.assertIn("target: ${YIELD_RCA_BACKEND_TARGET:-runtime}", compose)
         self.assertIn("target: seed", compose)
+        self.assertIn("target: knowledge-index", compose)
+        self.assertIn("image: pgvector/pgvector:pg16", compose)
 
     def test_runtime_startup_does_not_generate_or_seed_data(self) -> None:
         compose = COMPOSE.read_text(encoding="utf-8").lower()
@@ -28,6 +31,7 @@ class ComposeContractTest(unittest.TestCase):
 
         self.assertNotIn("generate_synthetic", runtime_section)
         self.assertNotIn("seed_database.py", runtime_section)
+        self.assertNotIn("index_knowledge_embeddings.py", runtime_section)
         self.assertNotIn("--reset-schema", runtime_section)
         self.assertIn("--reset-schema", seed_section)
 
@@ -57,6 +61,10 @@ class ComposeContractTest(unittest.TestCase):
         self.assertIn("FROM nginx:", frontend)
         self.assertIn("location /api/", nginx)
         self.assertIn("proxy_pass http://backend:8000/", nginx)
+        self.assertIn("proxy_buffering off;", nginx)
+        self.assertIn("proxy_cache off;", nginx)
+        self.assertIn("proxy_send_timeout 600s;", nginx)
+        self.assertIn("proxy_read_timeout 600s;", nginx)
 
 
 if __name__ == "__main__":

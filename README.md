@@ -31,6 +31,7 @@ The project design is defined in:
 - [docs/architecture/system-overview.md](docs/architecture/system-overview.md)
 - [docs/architecture/agent-architecture.md](docs/architecture/agent-architecture.md)
 - [docs/architecture/data-architecture.md](docs/architecture/data-architecture.md)
+- [docs/autonomous-qwen-react-spec.md](docs/autonomous-qwen-react-spec.md)
 
 Implementation work must follow these documents unless an ADR explicitly changes the design.
 
@@ -212,16 +213,37 @@ $body = @{
 $job = Invoke-RestMethod `
   -Method Post `
   -Uri "http://127.0.0.1:8000/rca/jobs" `
+  -Headers @{ "Idempotency-Key" = "demo-job-001" } `
   -ContentType "application/json" `
   -Body $body
 
 Invoke-RestMethod -Uri "http://127.0.0.1:8000$($job.state_url)"
-Invoke-RestMethod -Uri "http://127.0.0.1:8000$($job.report_url)"
 ```
 
-Approve the generated memory candidate with two different engineers:
+Batch 23.0 changes this endpoint to an asynchronous acceptance contract. It
+returns `202 Accepted` with `status=queued` immediately; it does not execute the
+Workflow in the HTTP request. The optional `Idempotency-Key` safely reuses the
+same Job for the same normalized request and returns `409 idempotency_conflict`
+if the key is reused for different input. `GET /rca/jobs/{job_id}` exposes
+non-secret queue metadata. A report request returns structured
+`409 job_not_completed` until a later Worker completes the Job.
+
+Batch 23.1 adds the separate leased Worker, transient-only bounded retry,
+cooperative cancellation, stale-lease recovery, Attempt history, and ordered
+Job Events. Batch 23.2 streams those persisted public Events over SSE and gives
+the frontend asynchronous submission, reconnect, progress, cancellation,
+terminal result, and structured error handling. The FastAPI
+`execute_jobs_inline=True` adapter exists only for explicit regression tests
+and is never enabled by the default runtime app.
+
+After Batch 23.1 has completed the queued Job, approve an eligible generated
+memory candidate with two different engineers:
 
 ```powershell
+$memoryCandidate = Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/rca/jobs/$($job.job_id)/memory-candidate"
+$candidateId = $memoryCandidate.candidate.candidate_id
+
 $firstApproval = @{
   engineer_id = "YE001"
   engineer_role = "yield_engineer"
@@ -231,7 +253,7 @@ $firstApproval = @{
 
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:8000/memory/candidates/$($job.memory_candidate_id)/approvals" `
+  -Uri "http://127.0.0.1:8000/memory/candidates/$candidateId/approvals" `
   -ContentType "application/json" `
   -Body $firstApproval
 
@@ -244,7 +266,7 @@ $secondApproval = @{
 
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:8000/memory/candidates/$($job.memory_candidate_id)/approvals" `
+  -Uri "http://127.0.0.1:8000/memory/candidates/$candidateId/approvals" `
   -ContentType "application/json" `
   -Body $secondApproval
 ```
@@ -264,10 +286,11 @@ $job = Invoke-RestMethod `
   -Body $body
 
 Invoke-RestMethod -Uri "http://127.0.0.1:8000$($job.state_url)"
-Invoke-RestMethod -Uri "http://127.0.0.1:8000$($job.report_url)"
 ```
 
-Step 11 executes `POST /rca/jobs` synchronously and stores completed `RCAState` objects in process memory. Restarting the API clears those jobs. Durable job persistence and asynchronous workers are later production extensions.
+The original Step 11 synchronous behavior is retained only as an explicit test
+adapter. Batch 23.0 makes the default HTTP path a durable PostgreSQL-backed
+enqueue operation; Batch 23.1 executes it in a separate leased Worker.
 
 By default, the API reads the existing files under `data/seeds/golden_case`. It does not invoke the Synthetic Fab generator. To query an already seeded PostgreSQL database instead, set:
 
@@ -411,8 +434,8 @@ Copy `.env.example` to `.env`, replace the local PostgreSQL password, then run:
 
 ```powershell
 docker compose up -d db
-docker compose --profile tools run --rm seed
-docker compose up --build -d backend frontend
+docker compose --profile tools run --rm --build seed
+docker compose up --build -d backend worker frontend
 ```
 
 Open the dashboard at `http://127.0.0.1:5173` and API documentation at
@@ -427,12 +450,14 @@ Validate the complete LLM path without a paid API call:
 
 ```powershell
 $env:YIELD_RCA_AGENT_MODE="fake"
+$env:YIELD_RCA_ORCHESTRATION_MODE="llm_react"
 ```
 
 Run against Qwen after adding the key to the local `.env` file:
 
 ```text
 YIELD_RCA_AGENT_MODE=llm
+YIELD_RCA_ORCHESTRATION_MODE=llm_react
 YIELD_RCA_LLM_MODEL=qwen-plus
 DASHSCOPE_API_KEY=<local-secret>
 ```
@@ -440,13 +465,200 @@ DASHSCOPE_API_KEY=<local-secret>
 Reapply the explicit local seed/migrations before restarting the containers:
 
 ```powershell
-docker compose --profile tools run --rm seed
-docker compose up --build -d backend frontend
+docker compose --profile tools run --rm --build seed
+docker compose up --build -d backend worker frontend
 ```
 
 The Dashboard displays Agent mode, model, prompt version, token usage, LLM
 latency, and Tool call count. API keys are runtime-only and are never included
 in logs or frontend responses.
+
+### Batch 21.2 product-surface and semantic final evaluation
+
+Run the repeatable Fake-Qwen autonomous matrix together with the preserved
+Controlled ReAct path, fixed-workflow compatibility baseline, and semantic
+negative cases:
+
+```powershell
+& .\.venv\Scripts\python.exe scripts\run_autonomous_qwen_evaluation.py
+```
+
+The command performs no paid network call. A passing run reports Autonomous
+Fake `10/10`, Controlled ReAct `PASS`, Fixed Workflow `10/10`, and a passing
+material-trace negative case. It writes stable, secret-free artifacts to:
+
+```text
+outputs/autonomous_qwen_react_evaluation/results.json
+outputs/autonomous_qwen_react_evaluation/report.md
+```
+
+The optional real-Qwen status remains separate from deterministic acceptance.
+
+### Optional paid Qwen smoke test
+
+The real-Qwen integration smoke test runs a bounded `LOT_A_001` impact-scope
+investigation through Intent Planner, Next-action Planner, Specialist V2, and
+the final deterministic decision evaluation. It is skipped unless both a
+non-empty `DASHSCOPE_API_KEY` and the explicit opt-in
+`RUN_REAL_QWEN_TEST=1` are present. The test can make paid DashScope requests;
+it disables HTTP retries and stops before a thirteenth LLM call.
+
+Run it from the repository root without putting the key in shell history:
+
+```powershell
+$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
+$previousRunFlag = [Environment]::GetEnvironmentVariable("RUN_REAL_QWEN_TEST", "Process")
+$qwenSecret = Read-Host "DashScope API key" -AsSecureString
+try {
+    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+    $env:RUN_REAL_QWEN_TEST = "1"
+    & .\.venv\Scripts\python.exe tests\integration\test_qwen_optional.py -v
+} finally {
+    if ($null -eq $previousApiKey) {
+        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+    } else {
+        $env:DASHSCOPE_API_KEY = $previousApiKey
+    }
+    if ($null -eq $previousRunFlag) {
+        Remove-Item Env:RUN_REAL_QWEN_TEST -ErrorAction SilentlyContinue
+    } else {
+        $env:RUN_REAL_QWEN_TEST = $previousRunFlag
+    }
+    Remove-Variable qwenSecret, previousApiKey, previousRunFlag -ErrorAction SilentlyContinue
+}
+```
+
+Without the key or opt-in flag, the same command reports the paid smoke test as
+skipped rather than passed. Do not commit `.env`, test output containing raw
+model responses, or any API credential.
+
+### Real Qwen Intent Planner diagnosis
+
+When an `llm_react` request hands off during Intent Planning, run the isolated
+diagnostic before changing a Prompt or validation rule. It executes the same
+Scratch + Cu CMP full-RCA request prefilled by the frontend (root cause plus
+impact Lots) at the Intent Planner boundary, never enters Next Action
+Planning or any Specialist/Tool path, and permits at most two paid calls per
+run. Three runs therefore have a hard maximum of six paid calls.
+
+```powershell
+$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
+$qwenSecret = Read-Host "DashScope API key" -AsSecureString
+try {
+    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+    & .\.venv\Scripts\python.exe scripts\run_qwen_intent_diagnosis.py `
+        --confirm-paid-qwen `
+        --runs 3
+} finally {
+    if ($null -eq $previousApiKey) {
+        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+    } else {
+        $env:DASHSCOPE_API_KEY = $previousApiKey
+    }
+    Remove-Variable qwenSecret, previousApiKey -ErrorAction SilentlyContinue
+}
+```
+
+The runner distinguishes provider failure, JSON/output parsing, typed contract
+validation, and semantic guard rejection. It aggregates stable reason codes and
+field paths under `outputs/qwen_intent_diagnosis/`. Results contain only bounded
+candidate shape summaries, safe invalid `question_kind` indexes/tokens, and
+baseline differences; the API key, complete
+Prompt, user-query payload, and raw Qwen response are never written.
+
+### Repeated Qwen Planner-review reliability evaluation
+
+The single impact-scope smoke test is intentionally cheap. After changing the
+Planner output contract, use the stricter Scratch + Cu CMP reliability runner to
+exercise observation, re-planning, QuestionUpdate review, and the final stop
+three consecutive times. Every run has an independent hard limit of 20 paid LLM
+calls, hidden Gateway HTTP retries are disabled, and the command refuses to
+start without the explicit `--confirm-paid-qwen` flag. The Next-action Planner
+may retry one transient transport, 408, 429, or 5xx failure through the capped
+client, so that paid retry is visible inside the same 20-call boundary.
+
+```powershell
+$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
+$qwenSecret = Read-Host "DashScope API key" -AsSecureString
+try {
+    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+    & .\.venv\Scripts\python.exe scripts\run_qwen_reliability_evaluation.py `
+        --confirm-paid-qwen `
+        --runs 3 `
+        --max-llm-calls-per-run 20
+} finally {
+    if ($null -eq $previousApiKey) {
+        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+    } else {
+        $env:DASHSCOPE_API_KEY = $previousApiKey
+    }
+    Remove-Variable qwenSecret, previousApiKey -ErrorAction SilentlyContinue
+}
+```
+
+Acceptance requires all three runs to remain on `llm_react`, start with defect
+inspection, re-plan after the first observation, keep accepted updates as compact
+terminal `QuestionUpdate` deltas, audit every accepted or rejected claim, respect
+the call cap, and pass the existing Goal Success and Stop Correct checks. A
+rejected ancillary update does not fail a run when its legal Agent action was
+preserved; an invalid core Decision or Action still triggers controlled fallback
+and fails the reliability boundary. The report counts accepted and rejected
+updates by stable reason code without storing prompts or raw model responses.
+Failure diagnostics distinguish transport/provider errors, invalid JSON or
+response envelopes, and typed core Decision validation. A recovered transient
+retry remains on `llm_react`; a second call failure keeps bounded provider
+diagnostics and fails through the existing controlled compatibility handoff.
+
+Secret-free summaries are written under
+`outputs/qwen_question_update_reliability/`; the directory is ignored by Git.
+Goal Success permits an explicitly unavailable optional Question only when at
+least one Question is Evidence-backed and closed, no Question remains open, no
+Evidence gap remains, and the existing Evidence/Hypothesis gate supports the
+conclusion. `QuestionUpdateReview` is persisted in `RCAState`, exposed by the
+API, and rendered in the Agent Trace. No rejected update is silently converted
+into `closed` or `unavailable`.
+
+### Evaluation V2 causal Scope and four release gates
+
+Run the reviewed Retrieval V2 ablation with the pinned local `bge-m3` model,
+then run deterministic/Controlled RCA references and combine the four gates:
+
+```powershell
+& .\.venv\Scripts\python.exe scripts\run_evaluation_v2_retrieval.py `
+    --embedding-backend sentence-transformers `
+    --device auto
+& .\.venv\Scripts\python.exe scripts\run_evaluation_v2_rca.py
+& .\.venv\Scripts\python.exe scripts\run_evaluation_v2_release.py
+```
+
+The measured runtime selection is Chunk Keyword + causal-wide Scope, with
+Hybrid-RRF and the Reranker left behind Feature Flags. The final report uses
+independent Data Quality, Governance, Retrieval Quality, and RCA Quality gates;
+it does not collapse them into a misleading overall `PASS`. Without an
+explicitly paid real-Qwen run, the RCA gate is `BLOCKED`, never replaced by a
+Fake-LLM result.
+
+To run the seven Test-partition scenarios with real Qwen, enter the key without
+putting it in shell history and keep the per-scenario call cap:
+
+```powershell
+$qwenSecret = Read-Host "DashScope API key" -AsSecureString
+try {
+    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+    & .\.venv\Scripts\python.exe scripts\run_evaluation_v2_rca.py `
+        --run-real-qwen `
+        --confirm-paid-qwen `
+        --max-qwen-calls-per-scenario 16
+    & .\.venv\Scripts\python.exe scripts\run_evaluation_v2_release.py
+} finally {
+    Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+    Remove-Variable qwenSecret -ErrorAction SilentlyContinue
+}
+```
+
+See [docs/evaluation-v2-causal-scope-spec.md](docs/evaluation-v2-causal-scope-spec.md)
+and [docs/retrieval-evaluation.md](docs/retrieval-evaluation.md) for the measured
+results, failed cases, and Synthetic-only claim boundary.
 
 ## RCA Reasoning Engine
 

@@ -13,6 +13,8 @@ dependencies = [
   "httpx>=0.27,<1.0",
   "prometheus-client>=0.21,<1.0",
   "psycopg[binary]>=3.2,<4.0",
+  "pypdf>=5.0,<7.0",
+  "python-multipart>=0.0.12,<1.0",
   "uvicorn>=0.30,<1.0",
 ]
 
@@ -22,6 +24,9 @@ dev = [
   "pytest>=8.0",
   "ruff>=0.6",
   "mypy>=1.10",
+]
+retrieval = [
+  "sentence-transformers>=3.3,<6.0",
 ]
 
 [tool.setuptools.packages.find]

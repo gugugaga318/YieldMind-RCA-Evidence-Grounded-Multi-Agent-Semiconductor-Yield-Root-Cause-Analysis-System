@@ -1,0 +1,16 @@
+feature_id,equipment_id,chamber_id,operation_no,parameter_name,alarm_type,severity,triggered_at,description
+OOC_IF_V2_001,CMP_CU_11,CMP_CU_11_CH01,6400,conditioner_motor_torque,SYNTHETIC_V2_OOC,HIGH,2026-06-02T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_002,PLATE_CU_04,PLATE_CU_04_CH01,6000,anode_contact_voltage,SYNTHETIC_V2_OOC,HIGH,2026-06-03T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_003,CMP_CU_13,CMP_CU_13_CH01,6400,carrier_head_orbit_runout,SYNTHETIC_V2_OOC,HIGH,2026-06-04T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_004,MET_FILM_03,MET_FILM_03_CH01,8000,reference_wafer_offset,SYNTHETIC_V2_OOC,HIGH,2026-06-05T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_005,CMP_CU_15,CMP_CU_15_CH01,6400,slurry_pump_pressure_drop_index,SYNTHETIC_V2_OOC,HIGH,2026-06-06T10:00:00+00:00,Synthetic candidate signal; independent evidence is required.
+OOC_IF_V2_007,CVD_FILM_07,CVD_FILM_07_CH01,5000,chamber_temperature_bias,SYNTHETIC_V2_OOC,HIGH,2026-06-08T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_008,PLATE_CU_09,PLATE_CU_09_CH01,6000,electrolyte_agitation_speed,SYNTHETIC_V2_OOC,HIGH,2026-06-09T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_009,CMP_CU_22,CMP_CU_22_CH01,6400,rinse_nozzle_particle_index,SYNTHETIC_V2_OOC,HIGH,2026-06-10T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_010,IMP_WELL_03,IMP_WELL_03_CH01,3000,beam_dose_integrator,SYNTHETIC_V2_OOC,HIGH,2026-06-11T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_011,LITHO_SCN_06,LITHO_SCN_06_CH01,1000,reticle_scatter_index,SYNTHETIC_V2_OOC,HIGH,2026-06-12T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_012,CVD_ILD_17,CVD_ILD_17_CH01,5000,susceptor_temperature_error,SYNTHETIC_V2_OOC,HIGH,2026-06-13T10:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_013_DETECTED_01,CMP_CU_23,CMP_CU_23_CH01,6400,endpoint_extension,SYNTHETIC_V2_OBSERVED_OOC,HIGH,2026-06-14T10:00:00+00:00,Synthetic detected-step excursion; this is not causal attribution.
+OOC_IF_V2_013_DETECTED_02,CMP_CU_23,CMP_CU_23_CH01,6400,removal_rate_drop_index,SYNTHETIC_V2_OBSERVED_OOC,HIGH,2026-06-14T10:00:00+00:00,Synthetic detected-step excursion; this is not causal attribution.
+OOC_IF_V2_014,WAT_CELL_12,WAT_CELL_12_CH01,9000,probe_contact_repeatability,SYNTHETIC_V2_OOC,HIGH,2026-06-15T20:00:00+00:00,Synthetic current-Lot operational confirmation.
+OOC_IF_V2_014_DIAGNOSTIC_01,WAT_CELL_12,WAT_CELL_12_CH01,9000,probe_card_contamination_index,SYNTHETIC_V2_EQUIPMENT_DIAGNOSTIC,HIGH,2026-06-15T20:35:00+00:00,Synthetic equipment inspection confirmation after independent retest.

@@ -784,6 +784,23 @@ class FindImpactLotsTool(BaseTool):
             chamber_id=source_exposure["chamber_id"],
             operation_no=target_operation_no,
         )
+        source_lot: Row = next(
+            (
+                row
+                for row in self.repository.rows("lot_master")
+                if row["lot_id"] == lot_id
+            ),
+            {},
+        )
+        source_analysis_cutoff = str(
+            source_lot.get("finished_at") or max(
+                row["ended_at"] for row in source_process_rows
+            )
+        )
+        analysis_cutoff = max(
+            source_analysis_cutoff,
+            *(row["triggered_at"] for row in matching_ooc_events),
+        )
         warnings: list[Warning] = []
         chamber_abnormal_features = [
             row
@@ -792,9 +809,9 @@ class FindImpactLotsTool(BaseTool):
             and row["equipment_id"] == source_exposure["equipment_id"]
             and row["chamber_id"] == source_exposure["chamber_id"]
             and row["severity"] != "NORMAL"
+            and row["measured_at"] <= analysis_cutoff
         ]
         if matching_ooc_events and chamber_abnormal_features:
-            event_end = max(row["triggered_at"] for row in matching_ooc_events)
             abnormal_wafer_ids = {row["wafer_id"] for row in chamber_abnormal_features}
             abnormal_process_rows = [
                 row
@@ -802,7 +819,7 @@ class FindImpactLotsTool(BaseTool):
                 if row["operation_no"] == target_operation_no
                 and row["wafer_id"] in abnormal_wafer_ids
                 and row["chamber_id"] == source_exposure["chamber_id"]
-                and row["started_at"] <= event_end
+                and row["started_at"] <= analysis_cutoff
             ]
             excursion_start = min(row["started_at"] for row in abnormal_process_rows)
             excursion_end = max(row["ended_at"] for row in abnormal_process_rows)
@@ -857,6 +874,20 @@ class FindImpactLotsTool(BaseTool):
             impact_wafers = [item for item in affected_wafers if not item.startswith(f"{lot_id}_")]
         else:
             impact_wafers = []
+        normal_control_features = [
+            row
+            for row in self.repository.rows("fdc_feature")
+            if row["lot_id"] not in exposed_lots
+            and row["operation_no"] == target_operation_no
+            and row["equipment_id"] == source_exposure["equipment_id"]
+            and row["chamber_id"] == source_exposure["chamber_id"]
+            and row["severity"] == "NORMAL"
+            and row["ooc_flag"] == "false"
+            and row["measured_at"] > excursion_end
+        ]
+        recovery_control_lots = sorted(
+            {row["lot_id"] for row in normal_control_features}
+        )
         criteria = {
             "operation_no": target_operation_no,
             "equipment_id": source_exposure["equipment_id"],
@@ -866,6 +897,7 @@ class FindImpactLotsTool(BaseTool):
             "excursion_end": excursion_end,
             "selection_rule": "same operation/equipment/chamber with process-time overlap",
             "source_wafer_id": source_wafer_id,
+            "analysis_cutoff": analysis_cutoff,
         }
 
         evidence: list[Evidence] = []
@@ -920,6 +952,62 @@ class FindImpactLotsTool(BaseTool):
                     metadata={
                         "event_count": len(matching_ooc_events),
                         "excursion_start": excursion_start,
+                        "excursion_end": excursion_end,
+                        "analysis_cutoff": analysis_cutoff,
+                    },
+                )
+            )
+        if recovery_control_lots:
+            evidence.append(
+                EvidenceBuilder.from_tool(
+                    tool_input=tool_input,
+                    evidence_id="EV_MES_RECOVERY_CONTROLS",
+                    evidence_type=EvidenceType.NEGATIVE_SIGNAL,
+                    source_type=EvidenceSourceType.ANALYTICS,
+                    observation=(
+                        f"Found {len(recovery_control_lots)} later control Lots with normal "
+                        f"FDC on {source_exposure['equipment_id']}/"
+                        f"{source_exposure['chamber_id']} after the excursion."
+                    ),
+                    entities=[
+                        *[
+                            EvidenceEntity(
+                                entity_type=EntityType.LOT.value,
+                                entity_id=control_lot_id,
+                                attributes={"role": "recovery_control"},
+                            )
+                            for control_lot_id in recovery_control_lots
+                        ],
+                        EvidenceEntity(
+                            entity_type=EntityType.EQUIPMENT.value,
+                            entity_id=source_exposure["equipment_id"],
+                        ),
+                        EvidenceEntity(
+                            entity_type=EntityType.CHAMBER.value,
+                            entity_id=source_exposure["chamber_id"],
+                        ),
+                        *[
+                            EvidenceEntity(
+                                entity_type=EntityType.PARAMETER.value,
+                                entity_id=parameter_name,
+                            )
+                            for parameter_name in sorted(
+                                {row["parameter_name"] for row in normal_control_features}
+                            )
+                        ],
+                    ],
+                    confidence=0.95,
+                    source_id=(
+                        f"recovery_controls:{source_exposure['equipment_id']}:"
+                        f"{source_exposure['chamber_id']}:{target_operation_no}"
+                    ),
+                    source_table="fdc_feature",
+                    timestamp=max(
+                        row["measured_at"] for row in normal_control_features
+                    ),
+                    metadata={
+                        "control_lots": recovery_control_lots,
+                        "normal_feature_count": len(normal_control_features),
                         "excursion_end": excursion_end,
                     },
                 )
@@ -1008,6 +1096,7 @@ class FindImpactLotsTool(BaseTool):
                 "target_operation_no": target_operation_no,
                 "source_exposure": source_exposure,
                 "impact_criteria": criteria,
+                "recovery_control_lots": recovery_control_lots,
             },
             evidence,
             warnings,
@@ -2739,6 +2828,7 @@ class SummarizeDefectWatTool(BaseTool):
         defect_patterns = Counter(row["pattern_type"] for row in defect_rows)
         wat_fail_modes = Counter(row["fail_mode"] for row in wat_rows if row["fail_mode"])
         failed_wat_rows = [row for row in wat_rows if row["pass_fail"] == "false"]
+        passing_wat_rows = [row for row in wat_rows if row["pass_fail"] == "true"]
         failed_wat_lot_ids = sorted({row["lot_id"] for row in failed_wat_rows})
         wat_fail_count = len(failed_wat_lot_ids)
         wat_fail_record_count = len(failed_wat_rows)
@@ -2828,6 +2918,88 @@ class SummarizeDefectWatTool(BaseTool):
                         "wat_fail_count": wat_fail_count,
                         "wat_fail_lot_count": wat_fail_count,
                         "wat_fail_record_count": wat_fail_record_count,
+                        "test_equipment_ids": sorted(
+                            {
+                                row.get("test_equipment_id", "")
+                                for row in failed_wat_rows
+                                if row.get("test_equipment_id", "")
+                            }
+                        ),
+                        "test_items": sorted(
+                            {
+                                row.get("test_item", "")
+                                for row in failed_wat_rows
+                                if row.get("test_item", "")
+                            }
+                        ),
+                        "parameter_names": sorted(
+                            {
+                                row.get("parameter_name", "")
+                                for row in failed_wat_rows
+                                if row.get("parameter_name", "")
+                            }
+                        ),
+                    },
+                )
+            )
+        if passing_wat_rows:
+            passing_lot_ids = sorted({row["lot_id"] for row in passing_wat_rows})
+            evidence.append(
+                EvidenceBuilder.from_tool(
+                    tool_input=tool_input,
+                    evidence_id=f"EV_WAT_PASSING_CONTROLS{scope_suffix}",
+                    evidence_type=EvidenceType.NEGATIVE_SIGNAL,
+                    source_type=EvidenceSourceType.WAT,
+                    observation=(
+                        f"{len(passing_wat_rows)} passing WAT control records are available "
+                        f"across {len(passing_lot_ids)} selected Lots."
+                    ),
+                    entities=[
+                        *[
+                            EvidenceEntity(
+                                entity_type=EntityType.LOT.value,
+                                entity_id=passing_lot_id,
+                            )
+                            for passing_lot_id in passing_lot_ids
+                        ],
+                        *[
+                            EvidenceEntity(
+                                entity_type=EntityType.WAT_ITEM.value,
+                                entity_id=parameter_name,
+                            )
+                            for parameter_name in sorted(
+                                {row["parameter_name"] for row in passing_wat_rows}
+                            )
+                        ],
+                    ],
+                    confidence=1.0,
+                    source_id="wat_result:selected_lots:passing_controls",
+                    source_table="wat_result",
+                    source_field="pass_fail",
+                    timestamp=max(row["tested_at"] for row in passing_wat_rows),
+                    metadata={
+                        "pass_record_count": len(passing_wat_rows),
+                        "test_equipment_ids": sorted(
+                            {
+                                row.get("test_equipment_id", "")
+                                for row in passing_wat_rows
+                                if row.get("test_equipment_id", "")
+                            }
+                        ),
+                        "test_items": sorted(
+                            {
+                                row.get("test_item", "")
+                                for row in passing_wat_rows
+                                if row.get("test_item", "")
+                            }
+                        ),
+                        "parameter_names": sorted(
+                            {
+                                row.get("parameter_name", "")
+                                for row in passing_wat_rows
+                                if row.get("parameter_name", "")
+                            }
+                        ),
                     },
                 )
             )
@@ -2907,7 +3079,15 @@ class SummarizeDefectWatTool(BaseTool):
                     metadata=summary,
                 )
             )
-        if not evidence:
+        has_quality_impact = bool(
+            defect_rows
+            or failed_wat_rows
+            or any(
+                int(summary["fail_count"]) > 0
+                for summary in metrology_summaries
+            )
+        )
+        if not has_quality_impact:
             quality_data_available = bool(defect_rows or wat_rows or metrology_rows)
             observed_quality_lot_ids = sorted(
                 {row["lot_id"] for row in [*defect_rows, *wat_rows, *metrology_rows]}
@@ -3025,6 +3205,28 @@ class RetrieveSimilarCaseTool(BaseTool):
             raise ModelValidationError("query must be a non-empty string")
         module = str(tool_input.parameters.get("module", "")).lower()
         equipment_type = str(tool_input.parameters.get("equipment_type", "")).lower()
+        source_lot_id = str(tool_input.parameters.get("source_lot_id", "")).strip().upper()
+        product_id = str(tool_input.parameters.get("product_id", "")).strip()
+        detected_operation = str(
+            tool_input.parameters.get("detected_operation", "")
+        ).strip()
+        detected_equipment_id = str(
+            tool_input.parameters.get("detected_equipment_id", "")
+        ).strip()
+        detected_at = str(tool_input.parameters.get("detected_at", "")).strip()
+        raw_symptom_types = tool_input.parameters.get("symptom_types", [])
+        if not isinstance(raw_symptom_types, list):
+            raise ModelValidationError("symptom_types must be a list")
+        symptom_types = tuple(
+            dict.fromkeys(
+                str(item).strip() for item in raw_symptom_types if str(item).strip()
+            )
+        )
+        explicit_module_limit = tool_input.parameters.get(
+            "explicit_module_limit", False
+        )
+        if not isinstance(explicit_module_limit, bool):
+            raise ModelValidationError("explicit_module_limit must be a boolean")
         match_evidence_id = str(
             tool_input.parameters.get("match_evidence_id", "EV_KNOWLEDGE_MATCH")
         )
@@ -3036,7 +3238,28 @@ class RetrieveSimilarCaseTool(BaseTool):
         )
 
         retrieval_result = self.retriever.retrieve(
-            RetrievalQuery(query=query, module=module, equipment_type=equipment_type)
+            RetrievalQuery(
+                query=query,
+                module=module,
+                equipment_type=equipment_type,
+                source_lot_id=source_lot_id,
+                product_id=product_id,
+                detected_operation=detected_operation,
+                detected_equipment_id=detected_equipment_id,
+                detected_at=detected_at,
+                symptom_types=symptom_types,
+                explicit_module_limit=explicit_module_limit,
+            )
+        )
+        observation_scope = (
+            retrieval_result.observation_scope.to_dict()
+            if retrieval_result.observation_scope
+            else None
+        )
+        causal_search_scope = (
+            retrieval_result.causal_search_scope.to_dict()
+            if retrieval_result.causal_search_scope
+            else None
         )
         cases = [hit.to_legacy_case() for hit in retrieval_result.hits]
         if not cases:
@@ -3063,7 +3286,24 @@ class RetrieveSimilarCaseTool(BaseTool):
             )
             return _tool_output(
                 tool_input,
-                {"query": query, "cases": [], "top_case": None, "documents": []},
+                {
+                    "query": query,
+                    "cases": [],
+                    "top_case": None,
+                    "documents": [],
+                    "retrieval_strategy": "no_match",
+                    "score_components": {},
+                    "calibrated_relevance": None,
+                    "source_confidence": None,
+                    "matched_chunk_ids": [],
+                    "candidate_lanes": [],
+                    "scope_reasons": [],
+                    "route_distance": None,
+                    "shared_resource_types": [],
+                    "scope_fusion_score": None,
+                    "observation_scope": observation_scope,
+                    "causal_search_scope": causal_search_scope,
+                },
                 [missing_evidence],
                 [
                     Warning(
@@ -3129,6 +3369,18 @@ class RetrieveSimilarCaseTool(BaseTool):
                     "root_cause": best_case["root_cause"],
                     "validation_status": best_case.get("validation_status", "CONFIRMED"),
                     "documents": documents,
+                    "retrieval_strategy": best_hit.retrieval_strategy,
+                    "score_components": dict(best_hit.score_components),
+                    "calibrated_relevance": best_hit.calibrated_relevance,
+                    "source_confidence": best_hit.source_confidence,
+                    "matched_chunk_ids": list(best_hit.matched_chunk_ids),
+                    "candidate_lanes": list(best_hit.candidate_lanes),
+                    "scope_reasons": list(best_hit.scope_reasons),
+                    "route_distance": best_hit.route_distance,
+                    "shared_resource_types": list(best_hit.shared_resource_types),
+                    "scope_fusion_score": best_hit.scope_fusion_score,
+                    "observation_scope": observation_scope,
+                    "causal_search_scope": causal_search_scope,
                 },
             )
         ]
@@ -3139,6 +3391,18 @@ class RetrieveSimilarCaseTool(BaseTool):
                 "cases": cases,
                 "top_case": best_case,
                 "documents": documents,
+                "retrieval_strategy": best_hit.retrieval_strategy,
+                "score_components": dict(best_hit.score_components),
+                "calibrated_relevance": best_hit.calibrated_relevance,
+                "source_confidence": best_hit.source_confidence,
+                "matched_chunk_ids": list(best_hit.matched_chunk_ids),
+                "candidate_lanes": list(best_hit.candidate_lanes),
+                "scope_reasons": list(best_hit.scope_reasons),
+                "route_distance": best_hit.route_distance,
+                "shared_resource_types": list(best_hit.shared_resource_types),
+                "scope_fusion_score": best_hit.scope_fusion_score,
+                "observation_scope": observation_scope,
+                "causal_search_scope": causal_search_scope,
             },
             evidence,
         )

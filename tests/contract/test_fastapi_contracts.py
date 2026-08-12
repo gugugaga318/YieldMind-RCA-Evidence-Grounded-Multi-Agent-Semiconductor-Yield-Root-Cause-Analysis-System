@@ -10,7 +10,15 @@ sys.path.insert(0, str(ROOT / "core"))
 sys.path.insert(0, str(ROOT / "backend"))
 
 from yield_rca_api.app import create_app  # noqa: E402
-from yield_rca_api.schemas import CreateRCAJobRequest  # noqa: E402
+from yield_rca_api.schemas import (  # noqa: E402
+    CreateRCAJobRequest,
+    DecisionEvaluationResponse,
+    ExecutionMetadataResponse,
+    PlannerAttemptDiagnosticResponse,
+    QuestionUpdateReviewResponse,
+    RCAJobStateResponse,
+    RunEvaluationResponse,
+)
 
 
 class FastAPIContractTest(unittest.TestCase):
@@ -25,7 +33,28 @@ class FastAPIContractTest(unittest.TestCase):
         self.assertIn(("POST", "/rca/jobs"), routes)
         self.assertIn(("GET", "/rca/jobs/{job_id}"), routes)
         self.assertIn(("GET", "/rca/jobs/{job_id}/report"), routes)
+        self.assertIn(("POST", "/rca/jobs/{job_id}/cancel"), routes)
+        self.assertIn(("GET", "/rca/jobs/{job_id}/events"), routes)
         self.assertIn(("GET", "/ready"), routes)
+
+    def test_create_job_openapi_uses_async_acceptance_response(self) -> None:
+        operation = create_app().openapi()["paths"]["/rca/jobs"]["post"]
+        self.assertIn("202", operation["responses"])
+        self.assertNotIn("201", operation["responses"])
+        properties = create_app().openapi()["components"]["schemas"][
+            "CreateRCAJobResponse"
+        ]["properties"]
+        self.assertIn("events_url", properties)
+        self.assertIn("cancel_url", properties)
+        self.assertIn("idempotency_key", properties)
+        cancel_operation = create_app().openapi()["paths"][
+            "/rca/jobs/{job_id}/cancel"
+        ]["post"]
+        self.assertIn("202", cancel_operation["responses"])
+        events_operation = create_app().openapi()["paths"][
+            "/rca/jobs/{job_id}/events"
+        ]["get"]
+        self.assertIn("text/event-stream", events_operation["responses"]["200"]["content"])
 
     def test_create_request_normalizes_query_and_rejects_unknown_fields(self) -> None:
         request = CreateRCAJobRequest(user_query="  Analyze the July yield drop.  ")
@@ -60,6 +89,194 @@ class FastAPIContractTest(unittest.TestCase):
         self.assertIn("entities", evidence_schema)
         self.assertIn("confidence", evidence_schema)
         self.assertIn("evidence_schema_version", evidence_schema)
+
+    def test_execution_metadata_exposes_typed_intent_planner_diagnostics(self) -> None:
+        diagnostic = PlannerAttemptDiagnosticResponse(
+            stage="intent_planning",
+            attempt=1,
+            prompt_name="intent_planner",
+            prompt_version="v1",
+            outcome="failure",
+            failure_category="semantic_validation_error",
+            reason_code="known_fact_changed",
+            field_path="$.goal.known_facts.defect",
+            message="Qwen changed an explicit known fact.",
+            repair_feedback_sent=True,
+            candidate_summary={"intent": "root_cause"},
+            baseline_diff={"known_fact_keys_changed": ["defect"]},
+            provider_request_id=None,
+        )
+        metadata = ExecutionMetadataResponse.model_validate(
+            {
+                "agent_mode": "llm",
+                "intent_planner_attempt_diagnostics": [diagnostic.model_dump()],
+            }
+        )
+        state = RCAJobStateResponse(
+            job={"job_id": "JOB_INTENT_DIAGNOSTIC"},
+            execution_metadata=metadata,
+        )
+        payload = state.model_dump()["execution_metadata"]
+
+        self.assertEqual(payload["agent_mode"], "llm")
+        self.assertEqual(
+            payload["intent_planner_attempt_diagnostics"][0]["reason_code"],
+            "known_fact_changed",
+        )
+        components = create_app().openapi()["components"]["schemas"]
+        metadata_properties = components["ExecutionMetadataResponse"]["properties"]
+        diagnostic_properties = components["PlannerAttemptDiagnosticResponse"][
+            "properties"
+        ]
+        self.assertIn("intent_planner_attempt_diagnostics", metadata_properties)
+        self.assertEqual(
+            set(diagnostic_properties),
+            {
+                "stage",
+                "attempt",
+                "prompt_name",
+                "prompt_version",
+                "outcome",
+                "failure_category",
+                "reason_code",
+                "field_path",
+                "message",
+                "repair_feedback_sent",
+                "candidate_summary",
+                "baseline_diff",
+                "provider_request_id",
+            },
+        )
+        with self.assertRaises(ValueError):
+            PlannerAttemptDiagnosticResponse(
+                **{
+                    **diagnostic.model_dump(),
+                    "outcome": "success",
+                    "repair_feedback_sent": False,
+                }
+            )
+
+    def test_job_state_accepts_typed_run_evaluation_and_legacy_omission(
+        self,
+    ) -> None:
+        evaluation = RunEvaluationResponse(
+            goal_id="GOAL_LOT_01",
+            goal_success=True,
+            stop_correct=True,
+            summary="The impact-scope goal was answered before stopping.",
+            decision_evaluations=[
+                DecisionEvaluationResponse(
+                    decision_id="DECISION_MES_01",
+                    decision_valid=True,
+                    evidence_gain=True,
+                    redundant=False,
+                    reason="The MES action added new impact-lot Evidence.",
+                    new_evidence_ids=["EV_MES_IMPACT_LOTS"],
+                )
+            ],
+        )
+
+        state = RCAJobStateResponse(
+            job={"job_id": "JOB_EVALUATED"},
+            run_evaluation=evaluation,
+        )
+        legacy_state = RCAJobStateResponse(job={"job_id": "JOB_LEGACY"})
+
+        run_evaluation = state.run_evaluation
+        assert run_evaluation is not None
+        self.assertIsInstance(run_evaluation, RunEvaluationResponse)
+        self.assertEqual(run_evaluation.goal_id, "GOAL_LOT_01")
+        self.assertEqual(
+            run_evaluation.decision_evaluations[0].new_evidence_ids,
+            ["EV_MES_IMPACT_LOTS"],
+        )
+        self.assertIsNone(legacy_state.run_evaluation)
+
+    def test_run_evaluation_response_rejects_unagreed_score_fields(self) -> None:
+        with self.assertRaises(ValueError):
+            RunEvaluationResponse(
+                goal_id="GOAL_LOT_01",
+                goal_success=True,
+                stop_correct=True,
+                summary="Only the five agreed boolean metrics are exposed.",
+                decision_evaluations=[
+                    DecisionEvaluationResponse(
+                        decision_id="DECISION_STOP",
+                        decision_valid=True,
+                        evidence_gain=False,
+                        redundant=False,
+                        reason="The typed stop decision passed runtime checks.",
+                    )
+                ],
+                weighted_score=0.95,  # type: ignore[call-arg]
+            )
+
+    def test_openapi_exposes_nested_run_evaluation_contracts(self) -> None:
+        components = create_app().openapi()["components"]["schemas"]
+
+        state_properties = components["RCAJobStateResponse"]["properties"]
+        run_properties = components["RunEvaluationResponse"]["properties"]
+        decision_properties = components["DecisionEvaluationResponse"]["properties"]
+
+        self.assertIn("run_evaluation", state_properties)
+        self.assertEqual(
+            set(run_properties),
+            {
+                "goal_id",
+                "goal_success",
+                "stop_correct",
+                "summary",
+                "decision_evaluations",
+            },
+        )
+        self.assertEqual(
+            set(decision_properties),
+            {
+                "decision_id",
+                "decision_valid",
+                "evidence_gain",
+                "redundant",
+                "reason",
+                "new_evidence_ids",
+            },
+        )
+
+    def test_job_state_exposes_question_update_review_contract(self) -> None:
+        review = QuestionUpdateReviewResponse(
+            decision_id="DECISION_01",
+            disposition="rejected",
+            reason_code="non_terminal_status",
+            reason="QuestionUpdate status=open was rejected.",
+            update_index=0,
+            question_id="Q_ROOT_CAUSE",
+            claimed_status="open",
+        )
+
+        state = RCAJobStateResponse(
+            job={"job_id": "JOB_REVIEWED"},
+            question_update_reviews=[review],
+        )
+        legacy_state = RCAJobStateResponse(job={"job_id": "JOB_LEGACY"})
+        components = create_app().openapi()["components"]["schemas"]
+
+        self.assertEqual(state.question_update_reviews, [review])
+        self.assertEqual(legacy_state.question_update_reviews, [])
+        self.assertIn(
+            "question_update_reviews",
+            components["RCAJobStateResponse"]["properties"],
+        )
+        self.assertEqual(
+            set(components["QuestionUpdateReviewResponse"]["properties"]),
+            {
+                "decision_id",
+                "disposition",
+                "reason_code",
+                "reason",
+                "update_index",
+                "question_id",
+                "claimed_status",
+            },
+        )
 
 
 if __name__ == "__main__":

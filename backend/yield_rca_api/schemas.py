@@ -55,7 +55,7 @@ class CreateRCAJobRequest(APIModel):
 
 
 class CreateRCAJobResponse(APIModel):
-    """Identity and terminal status returned after synchronous execution."""
+    """Identity and status returned when an RCA job is accepted."""
 
     job_id: str
     status: str
@@ -63,7 +63,10 @@ class CreateRCAJobResponse(APIModel):
     investigation_mode: str
     source_lot_id: str | None
     state_url: str
+    events_url: str
     report_url: str
+    cancel_url: str
+    idempotency_key: str | None = None
     memory_candidate_id: str | None = None
     memory_candidate_url: str | None = None
 
@@ -129,6 +132,152 @@ class TaskPlanResponse(APIModel):
     schema_version: str | None = None
 
 
+class InvestigationActionResponse(APIModel):
+    """One registry-backed action selected by an investigation planner."""
+
+    action_id: str
+    kind: str
+    agent: str
+    reason: str
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    scope: dict[str, Any] = Field(default_factory=dict)
+    required_evidence_ids: list[str] = Field(default_factory=list)
+    max_attempts: int = 1
+
+
+class InvestigationQuestionResponse(APIModel):
+    """One typed evidence question and its current lifecycle state."""
+
+    question_id: str
+    goal_id: str
+    question: str
+    rationale: str
+    question_kind: str = "unsupported"
+    scope: dict[str, Any] = Field(default_factory=dict)
+    status: Literal["open", "closed", "unavailable"] = "open"
+    answer: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+    unavailable_reason: str | None = None
+    # These are derived, read-only product projections of the Python-owned
+    # capability registry.  They are intentionally not accepted as Planner
+    # input or persisted as mutable Question facts.
+    satisfied_evidence_groups: list[str] = Field(default_factory=list)
+    missing_evidence_groups: list[str] = Field(default_factory=list)
+    compatible_action_kinds: list[str] = Field(default_factory=list)
+    evidence_links: list[QuestionEvidenceLinkResponse] = Field(default_factory=list)
+
+
+class CapabilityNoticeResponse(APIModel):
+    """Typed notice for a requested capability absent from this deployment."""
+
+    capability: str
+    supported: bool
+    reason: str
+    available_alternatives: list[str] = Field(default_factory=list)
+    request_source: Literal["user", "qwen", "system"] = "user"
+
+
+class QuestionEvidenceLinkResponse(APIModel):
+    """Typed relation connecting a Question to applicable Evidence."""
+
+    question_id: str
+    evidence_id: str
+    action_id: str
+    relation: Literal["supports", "contradicts", "context", "unavailable"]
+    matched_evidence_group: str
+    reason: str
+
+
+class QuestionUpdateResponse(APIModel):
+    """A terminal lifecycle delta for an existing investigation question."""
+
+    question_id: str
+    status: Literal["closed", "unavailable"]
+    answer: str | None = None
+    evidence_ids: list[str] = Field(default_factory=list)
+    unavailable_reason: str | None = None
+
+
+class PlannerDecisionResponse(APIModel):
+    """One auditable LLM planner decision in the state trace."""
+
+    decision_id: str
+    goal_id: str
+    decision_type: Literal["act", "stop"]
+    reason: str
+    goal_status: Literal["in_progress", "satisfied", "blocked", "budget_exhausted"]
+    proposed_conclusion_level: Literal[
+        "signal",
+        "candidate",
+        "supported",
+        "conflicted",
+        "inconclusive",
+    ]
+    next_action: InvestigationActionResponse | None = None
+    target_question_ids: list[str] = Field(default_factory=list)
+    new_questions: list[InvestigationQuestionResponse] = Field(default_factory=list)
+    question_updates: list[QuestionUpdateResponse] = Field(default_factory=list)
+    stop_reason: (
+        Literal[
+            "goal_satisfied",
+            "critical_contradiction",
+            "no_allowed_action",
+            "budget_exhausted",
+            "data_unavailable",
+        ]
+        | None
+    ) = None
+
+
+class QuestionUpdateReviewResponse(APIModel):
+    """Runtime acceptance or rejection of one model-proposed QuestionUpdate."""
+
+    decision_id: str
+    disposition: Literal["accepted", "rejected"]
+    reason_code: Literal[
+        "accepted",
+        "malformed_collection",
+        "too_many_updates",
+        "malformed_update",
+        "non_terminal_status",
+        "duplicate_question",
+        "unknown_question",
+        "new_question_conflict",
+        "terminal_question",
+        "target_overlap",
+        "unknown_evidence",
+        "evidence_not_applicable",
+        "insufficient_evidence_coverage",
+        "unsupported_capability",
+        "missing_unavailability_evidence",
+    ]
+    reason: str
+    update_index: int | None = None
+    question_id: str | None = None
+    claimed_status: str | None = None
+
+
+class DecisionEvaluationResponse(APIModel):
+    """Deterministic quality metrics for one committed planner decision."""
+
+    decision_id: str
+    decision_valid: bool
+    evidence_gain: bool
+    redundant: bool
+    reason: str
+    new_evidence_ids: list[str] = Field(default_factory=list)
+
+
+class RunEvaluationResponse(APIModel):
+    """Run-level outcome metrics and their per-decision audit records."""
+
+    goal_id: str
+    goal_success: bool
+    stop_correct: bool
+    summary: str
+    decision_evaluations: list[DecisionEvaluationResponse] = Field(min_length=1)
+
+
 class AgentFindingResponse(APIModel):
     """Serialized AgentFinding with task identity and first-class Evidence."""
 
@@ -192,6 +341,82 @@ class LLMUsageEventResponse(APIModel):
     schema_version: str | None = None
 
 
+class PlannerAttemptDiagnosticResponse(APIModel):
+    """Bounded validation trace for one Qwen Planner output attempt."""
+
+    stage: Literal["intent_planning"]
+    attempt: int = Field(ge=1)
+    prompt_name: str
+    prompt_version: str
+    outcome: Literal["success", "failure"]
+    failure_category: (
+        Literal[
+            "transport_provider_failure",
+            "output_parse_error",
+            "contract_validation_error",
+            "semantic_validation_error",
+        ]
+        | None
+    ) = None
+    reason_code: (
+        Literal[
+            "goal_id_changed",
+            "intent_invalid",
+            "budget_changed",
+            "known_fact_removed",
+            "known_fact_changed",
+            "forbidden_known_fact_added",
+            "unsupported_question_kind",
+            "unrequested_material_trace",
+            "source_lot_scope_mismatch",
+            "malformed_output",
+        ]
+        | None
+    ) = None
+    field_path: str | None = None
+    message: str | None = None
+    repair_feedback_sent: bool
+    candidate_summary: dict[str, Any] = Field(default_factory=dict)
+    baseline_diff: dict[str, Any] = Field(default_factory=dict)
+    provider_request_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_outcome_details(self) -> PlannerAttemptDiagnosticResponse:
+        failure_details = (
+            self.failure_category,
+            self.reason_code,
+            self.field_path,
+            self.message,
+        )
+        if self.outcome == "success":
+            if any(value is not None for value in failure_details):
+                raise ValueError("a successful Planner attempt cannot carry failure details")
+            if self.repair_feedback_sent:
+                raise ValueError("a successful Planner attempt cannot send repair feedback")
+            return self
+        if (
+            self.failure_category is None
+            or self.reason_code is None
+            or self.message is None
+            or not self.message.strip()
+        ):
+            raise ValueError("a failed Planner attempt requires category, reason_code, and message")
+        return self
+
+
+class ExecutionMetadataResponse(APIModel):
+    """Extensible runtime metadata with typed Planner handoff diagnostics."""
+
+    # Runtime metadata predates the typed public trace and contains optional
+    # observability fields from multiple execution modes. Preserve those keys
+    # while making the new Planner diagnostic collection explicit in OpenAPI.
+    model_config = ConfigDict(extra="allow")
+
+    intent_planner_attempt_diagnostics: list[PlannerAttemptDiagnosticResponse] = Field(
+        default_factory=list
+    )
+
+
 class RCAJobStateResponse(APIModel):
     """Complete serialized domain state returned by the job endpoint."""
 
@@ -211,14 +436,35 @@ class RCAJobStateResponse(APIModel):
     warnings: list[WarningResponse] = Field(default_factory=list)
     report: ReportResponse | None = None
     llm_usage: list[LLMUsageEventResponse] = Field(default_factory=list)
-    execution_metadata: dict[str, Any] = Field(default_factory=dict)
+    execution_metadata: ExecutionMetadataResponse = Field(default_factory=ExecutionMetadataResponse)
     investigation_goal: dict[str, Any] | None = None
+    capability_notices: list[CapabilityNoticeResponse] = Field(default_factory=list)
+    investigation_questions: list[InvestigationQuestionResponse] = Field(default_factory=list)
+    question_evidence_links: list[QuestionEvidenceLinkResponse] = Field(default_factory=list)
     action_history: list[dict[str, Any]] = Field(default_factory=list)
+    planner_decisions: list[PlannerDecisionResponse] = Field(default_factory=list)
+    question_update_reviews: list[QuestionUpdateReviewResponse] = Field(default_factory=list)
+    run_evaluation: RunEvaluationResponse | None = None
     goal_status: str | None = None
     conclusion_level: str | None = None
     evidence_gaps: list[str] = Field(default_factory=list)
     stop_reason: str | None = None
     schema_version: str | None = None
+
+
+class RCAJobQueueMetadataResponse(APIModel):
+    """Public, non-secret queue metadata for polling clients."""
+
+    priority: int
+    attempt_count: int
+    max_attempts: int
+    next_attempt_at: str | None = None
+    lease_expires_at: str | None = None
+    cancel_requested_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    error: dict[str, Any] | None = None
+    version: int
 
 
 class RCAJobResponse(APIModel):
@@ -227,6 +473,16 @@ class RCAJobResponse(APIModel):
     job_id: str
     status: str
     state: RCAJobStateResponse
+    queue: RCAJobQueueMetadataResponse | None = None
+
+
+class CancelRCAJobResponse(APIModel):
+    """Cancellation acknowledgement for a queued or running RCA Job."""
+
+    job_id: str
+    status: str
+    cancel_requested_at: str
+    state_url: str
 
 
 class RCAReportResponse(APIModel):
@@ -268,3 +524,233 @@ class MemoryCandidateResponse(APIModel):
     """Candidate content, approval state, and publication identity."""
 
     candidate: dict[str, Any]
+
+
+class KnowledgeLookupRequest(APIModel):
+    """One independent governed Knowledge Agent query."""
+
+    query: str = Field(min_length=1, max_length=4000)
+    question_kind: Literal[
+        "historical_match",
+        "procedure_guidance",
+        "engineering_note_lookup",
+    ]
+    document_type: Literal["RCA_CASE", "SOP", "ENGINEERING_NOTE"] | None = None
+    module: str = Field(default="", max_length=200)
+    equipment_type: str = Field(default="", max_length=200)
+    operation: str = Field(default="", max_length=200)
+    defect_type: str = Field(default="", max_length=200)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    source_lot_id: str = Field(default="", max_length=100)
+    product_id: str = Field(default="", max_length=100)
+    detected_at: str = Field(default="", max_length=100)
+    symptom_types: list[str] = Field(default_factory=list, max_length=20)
+    explicit_module_limit: bool = False
+    top_k: int = Field(default=5, ge=1, le=20)
+
+    @field_validator("query")
+    @classmethod
+    def normalize_lookup_query(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("lookup query must not be blank")
+        return stripped
+
+    @field_validator(
+        "module",
+        "equipment_type",
+        "operation",
+        "defect_type",
+        "source_lot_id",
+        "product_id",
+        "detected_at",
+    )
+    @classmethod
+    def strip_lookup_filter(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_lookup_tags(cls, value: list[str]) -> list[str]:
+        normalized = list(dict.fromkeys(item.strip() for item in value if item.strip()))
+        if any(len(item) > 100 for item in normalized):
+            raise ValueError("knowledge tags must not exceed 100 characters")
+        return normalized
+
+    @field_validator("symptom_types")
+    @classmethod
+    def normalize_symptom_types(cls, value: list[str]) -> list[str]:
+        normalized = list(dict.fromkeys(item.strip() for item in value if item.strip()))
+        if any(len(item) > 100 for item in normalized):
+            raise ValueError("symptom types must not exceed 100 characters")
+        return normalized
+
+
+class KnowledgeDocumentResponse(APIModel):
+    document_id: str
+    case_id: str | None
+    asset_id: str | None
+    evaluation_asset_id: str
+    document_type: str
+    title: str
+    content: str
+    module: str
+    equipment_type: str
+    operation: str
+    defect_type: str
+    tags: list[str]
+    source_format: str
+    content_sha256: str
+    validation_status: str
+    publication_policy: str
+    source_candidate_id: str | None
+    created_at: str
+    schema_version: str
+
+
+class KnowledgeLookupPlanResponse(APIModel):
+    intent: Literal["knowledge_lookup"]
+    question_kind: str
+    action: str
+    query: str
+    allowed_document_types: list[str]
+    reason: str
+    module: str
+    equipment_type: str
+    operation: str
+    defect_type: str
+    tags: list[str]
+    observation_scope: dict[str, Any] | None
+    causal_search_scope: dict[str, Any] | None
+    explicit_module_limit: bool
+    top_k: int
+
+
+class KnowledgeLookupHitResponse(APIModel):
+    rank: int
+    document: KnowledgeDocumentResponse
+    score: float
+    matched_chunk_ids: list[str]
+    excerpt: str
+    evidence_id: str
+    relevance_reason: str
+    retrieval_strategy: str
+    score_components: dict[str, float]
+    calibrated_relevance: float | None
+    source_confidence: float | None
+    candidate_lanes: list[str]
+    scope_reasons: list[str]
+    route_distance: int | None
+    shared_resource_types: list[str]
+    scope_fusion_score: float | None
+
+
+class KnowledgeAgentTraceResponse(APIModel):
+    agent: Literal["knowledge"]
+    action: str
+    execution_reason: str
+    inputs: dict[str, Any]
+    output_evidence_ids: list[str]
+    stop_reason: str
+
+
+class KnowledgeLookupResponse(APIModel):
+    lookup_id: str
+    intent: Literal["knowledge_lookup"]
+    question_kind: str
+    status: Literal["completed", "no_match"]
+    plan: KnowledgeLookupPlanResponse
+    hits: list[KnowledgeLookupHitResponse]
+    agent_trace: list[KnowledgeAgentTraceResponse]
+    answer_boundary: str
+    warnings: list[str]
+    root_cause_conclusion: None
+    created_at: str
+
+
+class KnowledgeChunkResponse(APIModel):
+    chunk_id: str
+    document_id: str | None
+    candidate_id: str | None
+    chunk_index: int
+    section_type: str
+    heading: str
+    content: str | None = None
+    content_preview: str | None = None
+    token_count: int
+    metadata: dict[str, Any]
+    validation_status: str
+    embedding_status: str
+    schema_version: str
+
+
+class KnowledgeIngestionApprovalResponse(APIModel):
+    approval_id: str
+    candidate_id: str
+    engineer_id: str
+    engineer_role: str
+    decision: str
+    comment: str
+    decided_at: str
+    schema_version: str
+
+
+class KnowledgeIngestionCandidateResponse(APIModel):
+    candidate_id: str
+    filename: str
+    source_format: str
+    document_type: str
+    case_id: str | None
+    title: str
+    parsed_content: str | None = None
+    content_preview: str | None = None
+    content_sha256: str
+    module: str
+    equipment_type: str
+    operation: str
+    defect_type: str
+    tags: list[str]
+    status: str
+    chunks: list[KnowledgeChunkResponse]
+    chunk_count: int
+    approvals: list[KnowledgeIngestionApprovalResponse]
+    approval_count: int
+    required_approval_count: int
+    published_document_id: str | None
+    publication_policy: str
+    created_at: str
+    updated_at: str
+    schema_version: str
+
+
+class KnowledgeIngestionResponse(APIModel):
+    candidate: KnowledgeIngestionCandidateResponse
+
+
+class KnowledgeIngestionListResponse(APIModel):
+    candidates: list[KnowledgeIngestionCandidateResponse]
+
+
+class KnowledgeApprovalRequest(APIModel):
+    engineer_id: str = Field(min_length=1, max_length=100)
+    engineer_role: Literal[
+        "yield_engineer",
+        "process_engineer",
+        "equipment_engineer",
+        "quality_engineer",
+    ]
+    decision: Literal["approve", "reject"]
+    comment: str = Field(default="", max_length=2000)
+
+    @field_validator("engineer_id")
+    @classmethod
+    def normalize_knowledge_engineer_id(cls, value: str) -> str:
+        stripped = value.strip().upper()
+        if not stripped:
+            raise ValueError("engineer_id must not be blank")
+        return stripped
+
+    @field_validator("comment")
+    @classmethod
+    def normalize_knowledge_comment(cls, value: str) -> str:
+        return value.strip()

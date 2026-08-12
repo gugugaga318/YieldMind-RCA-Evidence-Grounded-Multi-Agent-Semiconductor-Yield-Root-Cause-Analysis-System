@@ -26,11 +26,21 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 "004_advanced_spc_analytics.up.sql",
                 "005_runtime_resilience.up.sql",
                 "006_memory_snapshot_index_update.up.sql",
+                "007_knowledge_ingestion.up.sql",
+                "008_hybrid_retrieval.up.sql",
+                "009_pgvector_knowledge_index.up.sql",
+                "010_wat_test_equipment_provenance.up.sql",
+                "011_async_job_queue.up.sql",
             )
         ]
         down_sql = [
             (ROOT / "db" / "migrations" / name).read_text(encoding="utf-8")
             for name in (
+                "011_async_job_queue.down.sql",
+                "010_wat_test_equipment_provenance.down.sql",
+                "009_pgvector_knowledge_index.down.sql",
+                "008_hybrid_retrieval.down.sql",
+                "007_knowledge_ingestion.down.sql",
                 "006_memory_snapshot_index_update.down.sql",
                 "005_runtime_resilience.down.sql",
                 "004_advanced_spc_analytics.down.sql",
@@ -56,8 +66,96 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 self.assertEqual(cursor.fetchone()[0], "spc_baseline_profile")
                 cursor.execute("SELECT to_regclass('public.rca_job_state')")
                 self.assertEqual(cursor.fetchone()[0], "rca_job_state")
+                cursor.execute("SELECT to_regclass('public.rca_job_attempt')")
+                self.assertEqual(cursor.fetchone()[0], "rca_job_attempt")
+                cursor.execute("SELECT to_regclass('public.rca_job_event')")
+                self.assertEqual(cursor.fetchone()[0], "rca_job_event")
+                cursor.execute("SELECT to_regclass('public.rca_worker_heartbeat')")
+                self.assertEqual(cursor.fetchone()[0], "rca_worker_heartbeat")
+                cursor.execute(
+                    """
+                    INSERT INTO rca_job_state (
+                        job_id, status, state, request, request_hash,
+                        idempotency_key, runtime_config, created_at
+                    ) VALUES (
+                        'RCA_QUEUE_MIGRATION',
+                        'queued',
+                        jsonb_build_object(
+                            'job', jsonb_build_object(
+                                'job_id', 'RCA_QUEUE_MIGRATION',
+                                'user_query', 'migration',
+                                'status', 'queued'
+                            )
+                        ),
+                        jsonb_build_object(
+                            'investigation_mode', 'product_window',
+                            'user_query', 'migration',
+                            'lot_id', NULL
+                        ),
+                        repeat('a', 64),
+                        'migration-idempotency-key',
+                        '{"agent_mode":"deterministic"}'::jsonb,
+                        now()
+                    )
+                    """
+                )
+                cursor.execute(
+                    "SELECT status, request_hash, idempotency_key "
+                    "FROM rca_job_state WHERE job_id = 'RCA_QUEUE_MIGRATION'"
+                )
+                self.assertEqual(
+                    cursor.fetchone(),
+                    ("queued", "a" * 64, "migration-idempotency-key"),
+                )
+                cursor.execute(
+                    """
+                    WITH candidate AS (
+                        SELECT job_id
+                        FROM rca_job_state
+                        WHERE status = 'queued'
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT 1
+                    )
+                    UPDATE rca_job_state AS job
+                    SET status = 'running',
+                        state = jsonb_set(
+                            state, '{job,status}', '"running"'::jsonb, true
+                        ),
+                        attempt_count = attempt_count + 1,
+                        lease_owner = 'migration-worker',
+                        lease_expires_at = now() + interval '1 minute'
+                    FROM candidate
+                    WHERE job.job_id = candidate.job_id
+                    RETURNING job.status, job.attempt_count, job.lease_owner
+                    """
+                )
+                self.assertEqual(
+                    cursor.fetchone(),
+                    ("running", 1, "migration-worker"),
+                )
                 cursor.execute("SELECT to_regclass('public.knowledge_index_update')")
                 self.assertEqual(cursor.fetchone()[0], "knowledge_index_update")
+                cursor.execute("SELECT to_regclass('public.knowledge_ingestion_candidate')")
+                self.assertEqual(cursor.fetchone()[0], "knowledge_ingestion_candidate")
+                cursor.execute("SELECT to_regclass('public.knowledge_chunk')")
+                self.assertEqual(cursor.fetchone()[0], "knowledge_chunk")
+                cursor.execute("SELECT to_regclass('public.active_knowledge_chunk')")
+                self.assertEqual(cursor.fetchone()[0], "active_knowledge_chunk")
+                cursor.execute("SELECT to_regclass('public.idx_knowledge_chunk_search_vector')")
+                self.assertEqual(cursor.fetchone()[0], "idx_knowledge_chunk_search_vector")
+                cursor.execute(
+                    "SELECT is_generated FROM information_schema.columns "
+                    "WHERE table_name = 'knowledge_chunk' AND column_name = 'search_vector'"
+                )
+                self.assertEqual(cursor.fetchone()[0], "ALWAYS")
+                cursor.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+                self.assertIsNotNone(cursor.fetchone())
+                cursor.execute(
+                    "SELECT data_type, udt_name FROM information_schema.columns "
+                    "WHERE table_name = 'knowledge_chunk' AND column_name = 'embedding'"
+                )
+                embedding_column = cursor.fetchone()
+                self.assertEqual(embedding_column[1], "vector")
                 cursor.execute(
                     """
                     INSERT INTO audit_event (
@@ -86,6 +184,10 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 self.assertIsNone(cursor.fetchone()[0])
                 cursor.execute("SELECT to_regclass('public.knowledge_index_update')")
                 self.assertIsNone(cursor.fetchone()[0])
+                cursor.execute("SELECT to_regclass('public.knowledge_ingestion_candidate')")
+                self.assertIsNone(cursor.fetchone()[0])
+                cursor.execute("SELECT to_regclass('public.knowledge_chunk')")
+                self.assertIsNone(cursor.fetchone()[0])
                 for statement in up_sql:
                     cursor.execute(statement)
                 cursor.execute("SELECT to_regclass('public.equipment_capability')")
@@ -100,6 +202,12 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 self.assertEqual(cursor.fetchone()[0], "rca_job_state")
                 cursor.execute("SELECT to_regclass('public.knowledge_index_update')")
                 self.assertEqual(cursor.fetchone()[0], "knowledge_index_update")
+                cursor.execute("SELECT to_regclass('public.active_knowledge_chunk')")
+                self.assertEqual(cursor.fetchone()[0], "active_knowledge_chunk")
+                cursor.execute("SELECT to_regclass('public.idx_knowledge_chunk_search_vector')")
+                self.assertEqual(cursor.fetchone()[0], "idx_knowledge_chunk_search_vector")
+                cursor.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+                self.assertIsNotNone(cursor.fetchone())
                 for statement in down_sql:
                     cursor.execute(statement)
             connection.commit()

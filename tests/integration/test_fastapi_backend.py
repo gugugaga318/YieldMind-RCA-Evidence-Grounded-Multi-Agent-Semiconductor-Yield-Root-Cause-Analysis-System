@@ -37,7 +37,7 @@ class FastAPIBackendIntegrationTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.seed_hashes_before = seed_hashes()
-        app = create_app(workflow=build_csv_workflow(SEED_DIR))
+        app = create_app(workflow=build_csv_workflow(SEED_DIR), execute_jobs_inline=True)
         cls.client = TestClient(app)
         cls.create_response = cls.client.post("/rca/jobs", json={"user_query": QUERY})
         cls.create_payload = cls.create_response.json()
@@ -89,7 +89,7 @@ class FastAPIBackendIntegrationTest(unittest.TestCase):
         )
 
     def test_memory_candidate_requires_two_engineers_and_process_role(self) -> None:
-        app = create_app(workflow=build_csv_workflow(SEED_DIR))
+        app = create_app(workflow=build_csv_workflow(SEED_DIR), execute_jobs_inline=True)
         with TestClient(app) as client:
             created = client.post("/rca/jobs", json={"user_query": QUERY}).json()
             candidate_id = created["memory_candidate_id"]
@@ -165,6 +165,7 @@ class FastAPIBackendIntegrationTest(unittest.TestCase):
         app = create_app(
             workflow=build_csv_workflow(SEED_DIR),
             runtime_dataset="golden_case",
+            execute_jobs_inline=True,
         )
         with TestClient(app) as client:
             payload = client.get("/ready").json()
@@ -180,6 +181,7 @@ class FastAPIBackendIntegrationTest(unittest.TestCase):
                 orchestration_mode="controlled_react",
             ),
             runtime_dataset="golden_case",
+            execute_jobs_inline=True,
         )
         with TestClient(app) as client:
             ready = client.get("/ready").json()

@@ -9,6 +9,8 @@ env/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.hf-cache/
+.workbuddy/
 
 .env
 !.env.example
@@ -19,6 +21,10 @@ build/
 
 outputs/golden_rca_run/
 outputs/demo/
+outputs/qwen_question_update_reliability/
+outputs/qwen_intent_diagnosis/
+outputs/qwen_full_replay_diagnostic.json
+outputs/long_task_4_evaluation/reranker_logits_cache.json
 
 .pnpm-store/
 frontend/node_modules/
