@@ -1659,7 +1659,7 @@ docker compose up -d db
 docker compose --profile tools run --rm --build seed
 
 # 4. 构建并启动应用
-docker compose up --build -d backend frontend
+docker compose up --build -d backend worker frontend
 
 # 5. 查看状态
 docker compose ps

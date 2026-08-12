@@ -105,7 +105,7 @@ YIELD_RCA_KNOWLEDGE_RERANKER_ENABLED=0
 
 ```powershell
 docker compose --profile tools run --rm knowledge-index
-docker compose up --build -d backend frontend
+docker compose up --build -d backend worker frontend
 ```
 
 The indexer reads only `active_knowledge_chunk`, so staged or rejected uploads
@@ -177,7 +177,7 @@ Generation is never invoked by Compose, Nginx, FastAPI, or React.
 Build and start the runtime after seeding:
 
 ```powershell
-docker compose up --build -d backend frontend
+docker compose up --build -d backend worker frontend
 docker compose ps
 ```
 
@@ -200,13 +200,20 @@ the HTTP request no longer waits for Qwen or the RCA Workflow. An optional
 same normalized request returns the original Job; changing the request returns
 `409 idempotency_conflict`.
 
-This is a staged cutover. Batch 23.0 contains the queue contract but not the
-Worker, cancellation endpoint, SSE endpoint, or frontend polling/streaming UX.
-The response reserves `events_url` and `cancel_url`, but those routes become
-active only in Batch 23.1/23.2. Until then the Docker frontend is not an
-end-to-end asynchronous RCA demo; use the pure Python runner for completed
-results. No API key, Authorization header, or hidden model reasoning is stored
-in the queue.
+Batch 23.1 runs a separate `worker` service. It claims with
+`FOR UPDATE SKIP LOCKED`, renews leases, retries only transient provider or
+transport failures, recovers expired leases, and honors
+`POST /api/rca/jobs/{job_id}/cancel`. The API response's `events_url` is still
+reserved for Batch 23.2 SSE; the frontend polling/streaming UX is also deferred
+to that Batch. No API key, Authorization header, or hidden model reasoning is
+stored in the queue.
+
+When upgrading an existing local PostgreSQL volume, apply migration
+`011_async_job_queue` before starting the new backend and Worker. The backend
+readiness check intentionally returns `503` while that migration or its Queue
+tables are missing. The demo `seed` tool applies every migration with
+`--reset-schema`; back up data that must be preserved before using that reset
+path.
 
 PostgreSQL is intentionally not published on a host port. Backend and seed
 containers reach it through the private Compose network at `db:5432`, avoiding
@@ -217,7 +224,7 @@ conflicts with an existing PostgreSQL installation on the host.
 Inspect service output:
 
 ```powershell
-docker compose logs -f backend frontend db
+docker compose logs -f backend worker frontend db
 ```
 
 Stop services while preserving PostgreSQL data:
@@ -250,14 +257,13 @@ stage.
 
 ## Current Limitations
 
-- RCA Job requests and state are durable in PostgreSQL, but Batch 23.0 does not
-  yet include the Worker that consumes queued Jobs.
+- RCA Job requests, state, attempts, and events are durable in PostgreSQL.
 - Memory candidates and approvals are durable only in PostgreSQL mode; CSV mode
   uses a process-local demonstration store.
 - Engineer identity is request data until the Security and Permissions phase
   connects approval to authenticated identity and role mapping.
-- Compose currently runs one API process and no queue Worker; Batch 23.1 adds
-  leased execution and recovery.
+- Compose runs separate API and leased Worker processes. Horizontal Worker
+  scale shares the same PostgreSQL queue and lock boundary.
 - The health check verifies the HTTP process, not a full RCA transaction.
 - Credentials use local `.env` configuration rather than a secret manager.
 - Ports bind only to `127.0.0.1`; shared deployment requires an authenticated

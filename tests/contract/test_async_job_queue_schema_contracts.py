@@ -46,6 +46,8 @@ class AsyncJobQueueSchemaContractTest(unittest.TestCase):
         self.assertIn("011_async_job_queue", DOWN_SQL)
         self.assertIn("011_async_job_queue", STORE)
         self.assertIn("idx_rca_job_state_idempotency_key", UP_SQL)
+        self.assertIn("UNIQUE (job_id, attempt_number)", UP_SQL)
+        self.assertIn("UNIQUE (job_id, sequence)", UP_SQL)
 
     def test_queue_schema_does_not_name_secret_or_hidden_reasoning_fields(self) -> None:
         contract = UP_SQL.lower()

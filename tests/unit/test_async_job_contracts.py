@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -17,6 +18,8 @@ from yield_rca_api.store import (  # noqa: E402
     IdempotencyConflictError,
     InMemoryRCAJobStore,
     InvalidJobTransitionError,
+    JobLeaseLostError,
+    JobNotCancellableError,
     RCAJobQueueRecord,
     validate_job_transition,
 )
@@ -215,6 +218,156 @@ class AsyncJobContractTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["status"], "completed")
+
+    def test_queue_claim_retry_complete_and_attempt_event_audit(self) -> None:
+        store = InMemoryRCAJobStore()
+        store.enqueue(queue_record("RCA_LEASED"))
+        started = datetime.now(UTC)
+
+        first = store.claim_next(
+            worker_id="worker-one",
+            lease_seconds=60,
+            now=started,
+        )
+        assert first is not None
+        self.assertEqual(first.state.job.status, "running")
+        self.assertEqual(first.attempt_count, 1)
+        self.assertEqual(first.lease_owner, "worker-one")
+        self.assertIsNotNone(
+            store.heartbeat(
+                worker_id="worker-one",
+                job_id="RCA_LEASED",
+                lease_seconds=60,
+                now=started + timedelta(seconds=20),
+            )
+        )
+
+        retry = store.fail_attempt(
+            worker_id="worker-one",
+            job_id="RCA_LEASED",
+            error={"error_code": "LLM_RATE_LIMITED", "retryable": True},
+            retryable=True,
+            retry_after_seconds=5,
+            now=started + timedelta(seconds=21),
+        )
+        self.assertEqual(retry.state.job.status, "retry_wait")
+        self.assertIsNone(
+            store.claim_next(
+                worker_id="worker-two",
+                lease_seconds=60,
+                now=started + timedelta(seconds=24),
+            )
+        )
+        second = store.claim_next(
+            worker_id="worker-two",
+            lease_seconds=60,
+            now=started + timedelta(seconds=26),
+        )
+        assert second is not None
+        completed_state = replace(
+            second.state,
+            job=replace(second.state.job, status=TaskStatus.COMPLETED.value),
+        )
+        completed = store.complete(
+            worker_id="worker-two",
+            job_id="RCA_LEASED",
+            state=completed_state,
+            checkpoint={"stage": "workflow_completed"},
+        )
+        self.assertEqual(completed.state.job.status, "completed")
+        self.assertEqual(completed.attempt_count, 2)
+        self.assertEqual(
+            [attempt.status for attempt in store.list_attempts("RCA_LEASED")],
+            ["failed", "completed"],
+        )
+        self.assertEqual(
+            [event.event_type for event in store.list_events("RCA_LEASED")],
+            ["job_queued", "job_started", "job_retry_scheduled", "job_started", "job_completed"],
+        )
+
+    def test_lease_expiry_recovery_discards_old_worker_commit(self) -> None:
+        store = InMemoryRCAJobStore()
+        store.enqueue(queue_record("RCA_STALE"))
+        started = datetime.now(UTC)
+        claimed = store.claim_next(
+            worker_id="dead-worker",
+            lease_seconds=10,
+            now=started,
+        )
+        assert claimed is not None
+
+        recovered = store.recover_stale_leases(
+            now=started + timedelta(seconds=11),
+            retry_after_seconds=2,
+        )
+        self.assertEqual(recovered, 1)
+        self.assertEqual(store.get("RCA_STALE").job.status, "retry_wait")
+        with self.assertRaises(JobLeaseLostError):
+            store.complete(
+                worker_id="dead-worker",
+                job_id="RCA_STALE",
+                state=replace(
+                    claimed.state,
+                    job=replace(claimed.state.job, status="completed"),
+                ),
+            )
+        self.assertEqual(store.list_attempts("RCA_STALE")[0].status, "abandoned")
+
+    def test_cancel_is_immediate_before_claim_and_cooperative_while_running(self) -> None:
+        store = InMemoryRCAJobStore()
+        store.enqueue(queue_record("RCA_CANCEL_QUEUED"))
+        cancelled = store.request_cancel("RCA_CANCEL_QUEUED")
+        assert cancelled is not None
+        self.assertEqual(cancelled.state.job.status, "cancelled")
+
+        store.enqueue(queue_record("RCA_CANCEL_RUNNING"))
+        claimed = store.claim_next(
+            worker_id="worker",
+            lease_seconds=60,
+        )
+        assert claimed is not None
+        requested = store.request_cancel("RCA_CANCEL_RUNNING")
+        assert requested is not None
+        self.assertEqual(requested.state.job.status, "cancel_requested")
+        committed = store.complete(
+            worker_id="worker",
+            job_id="RCA_CANCEL_RUNNING",
+            state=replace(
+                claimed.state,
+                job=replace(claimed.state.job, status="completed"),
+            ),
+        )
+        self.assertEqual(committed.state.job.status, "cancelled")
+
+        store.enqueue(queue_record("RCA_NOT_CANCELLABLE"))
+        active = store.claim_next(worker_id="worker", lease_seconds=60)
+        assert active is not None
+        store.complete(
+            worker_id="worker",
+            job_id="RCA_NOT_CANCELLABLE",
+            state=replace(
+                active.state,
+                job=replace(active.state.job, status="completed"),
+            ),
+        )
+        with self.assertRaises(JobNotCancellableError):
+            store.request_cancel("RCA_NOT_CANCELLABLE")
+
+    def test_cancel_api_returns_cancelled_and_is_idempotent(self) -> None:
+        app = create_app(
+            workflow=build_csv_workflow(SEED_DIR),
+            store=InMemoryRCAJobStore(),
+        )
+        with TestClient(app) as client:
+            created = client.post("/rca/jobs", json={"user_query": QUERY}).json()
+            first = client.post(created["cancel_url"])
+            repeated = client.post(created["cancel_url"])
+            state = client.get(created["state_url"])
+
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(first.json()["status"], "cancelled")
+        self.assertEqual(repeated.status_code, 202)
+        self.assertEqual(state.json()["status"], "cancelled")
 
 
 if __name__ == "__main__":

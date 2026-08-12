@@ -476,6 +476,15 @@ class RCAJobResponse(APIModel):
     queue: RCAJobQueueMetadataResponse | None = None
 
 
+class CancelRCAJobResponse(APIModel):
+    """Cancellation acknowledgement for a queued or running RCA Job."""
+
+    job_id: str
+    status: str
+    cancel_requested_at: str
+    state_url: str
+
+
 class RCAReportResponse(APIModel):
     """Stored Markdown report and its evidence references."""
 

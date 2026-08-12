@@ -107,6 +107,32 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                     cursor.fetchone(),
                     ("queued", "a" * 64, "migration-idempotency-key"),
                 )
+                cursor.execute(
+                    """
+                    WITH candidate AS (
+                        SELECT job_id
+                        FROM rca_job_state
+                        WHERE status = 'queued'
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT 1
+                    )
+                    UPDATE rca_job_state AS job
+                    SET status = 'running',
+                        state = jsonb_set(
+                            state, '{job,status}', '"running"'::jsonb, true
+                        ),
+                        attempt_count = attempt_count + 1,
+                        lease_owner = 'migration-worker',
+                        lease_expires_at = now() + interval '1 minute'
+                    FROM candidate
+                    WHERE job.job_id = candidate.job_id
+                    RETURNING job.status, job.attempt_count, job.lease_owner
+                    """
+                )
+                self.assertEqual(
+                    cursor.fetchone(),
+                    ("running", 1, "migration-worker"),
+                )
                 cursor.execute("SELECT to_regclass('public.knowledge_index_update')")
                 self.assertEqual(cursor.fetchone()[0], "knowledge_index_update")
                 cursor.execute("SELECT to_regclass('public.knowledge_ingestion_candidate')")

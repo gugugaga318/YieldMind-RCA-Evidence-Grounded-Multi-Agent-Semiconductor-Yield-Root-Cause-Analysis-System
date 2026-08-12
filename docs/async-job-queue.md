@@ -1,4 +1,4 @@
-# Batch 23.0 Async Job Contract and PostgreSQL Queue
+# Batch 23.0-23.1 Async Job Contract and Leased PostgreSQL Worker
 
 ## Scope
 
@@ -84,13 +84,83 @@ action reasons, evidence summaries, and stop reasons only.
 
 `GET /rca/jobs/{job_id}` supports partial queued state and returns non-secret
 queue metadata. `GET /rca/jobs/{job_id}/report` returns structured
-`409 job_not_completed` until a report exists. The `events_url` and
-`cancel_url` fields reserve the stable URLs; Batch 23.1 and 23.2 activate those
-routes.
+`409 job_not_completed` until a report exists. The `cancel_url` is active in
+Batch 23.1. `events_url` reserves the stable URL that Batch 23.2 activates as
+SSE.
 
-## Next batches
+## Batch 23.1 execution
 
-- Batch 23.1: leased Worker, heartbeat, retry/backoff, cancellation, and stale
-  lease recovery using `FOR UPDATE SKIP LOCKED`.
+Batch 23.1 adds a separate Worker process. Each loop:
+
+1. records the Worker heartbeat;
+2. recovers a bounded set of expired leases;
+3. claims one eligible Job with `FOR UPDATE SKIP LOCKED`;
+4. changes it to `running`, increments `attempt_count`, and creates an Attempt;
+5. renews the lease from a heartbeat thread while the bounded Workflow runs;
+6. commits the complete `RCAState` only if the same Worker still owns a valid
+   lease;
+7. appends a structured public Job Event and terminal/retry Attempt result.
+
+Multiple Worker processes can run against the same database. Row locking and
+lease ownership prevent concurrent claims and prevent a late Worker from
+overwriting a recovered Job.
+
+Retry is deliberately narrow:
+
+- provider timeout/transport failure, HTTP 429, and provider HTTP 5xx can retry;
+- authentication, authorization, billing, structured-output validation, known
+  scope/data errors, and other Workflow errors fail without retry;
+- retry uses bounded exponential backoff and stops at the persisted
+  `max_attempts` value, currently three.
+
+Cancellation is cooperative. A queued or waiting Job becomes `cancelled`
+immediately. A running Job becomes `cancel_requested`; the active LLM/Tool call
+is not forcibly killed, but its eventual Workflow result is discarded at the
+commit boundary and the Job becomes `cancelled`. This protects Evidence and
+Report integrity.
+
+The Worker writes checkpoints only at safe attempt boundaries. It does not
+resume inside a partially executed Agent chain; a retry re-runs the bounded
+Workflow attempt from its immutable request and runtime configuration.
+Before execution, the Worker verifies that Agent mode, provider, model,
+orchestration mode, and dataset match that immutable snapshot. A mismatch is a
+terminal configuration error and never runs the Workflow against the wrong
+runtime.
+
+## Operation
+
+The normal Compose runtime starts API and Worker as separate processes:
+
+```powershell
+docker compose up --build -d backend worker frontend
+docker compose logs -f backend worker
+```
+
+For a host-side diagnostic Worker, set the same database and runtime variables
+used by the API, then run:
+
+```powershell
+$env:YIELD_RCA_DATABASE_URL = "postgresql://..."
+& .\.venv\Scripts\python.exe scripts\run_rca_worker.py
+
+# Claim at most one eligible Job, then exit.
+& .\.venv\Scripts\python.exe scripts\run_rca_worker.py --once
+```
+
+Cancel with the stable URL returned by Job creation:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8000/rca/jobs/<job-id>/cancel"
+```
+
+An existing PostgreSQL volume must have migration `011_async_job_queue`
+applied before the new backend or Worker will accept traffic.
+The repository's documented seed command reapplies all migrations but resets
+the demo schema, so back up any local data that must be preserved before using
+that reset path.
+
+## Remaining batch
+
 - Batch 23.2: SSE Agent Trace plus frontend submission, reconnect, progress,
   cancellation, terminal result, and error UX.

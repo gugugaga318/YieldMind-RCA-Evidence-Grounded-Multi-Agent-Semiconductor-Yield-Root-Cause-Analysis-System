@@ -33,6 +33,7 @@ class FastAPIContractTest(unittest.TestCase):
         self.assertIn(("POST", "/rca/jobs"), routes)
         self.assertIn(("GET", "/rca/jobs/{job_id}"), routes)
         self.assertIn(("GET", "/rca/jobs/{job_id}/report"), routes)
+        self.assertIn(("POST", "/rca/jobs/{job_id}/cancel"), routes)
         self.assertIn(("GET", "/ready"), routes)
 
     def test_create_job_openapi_uses_async_acceptance_response(self) -> None:
@@ -45,6 +46,10 @@ class FastAPIContractTest(unittest.TestCase):
         self.assertIn("events_url", properties)
         self.assertIn("cancel_url", properties)
         self.assertIn("idempotency_key", properties)
+        cancel_operation = create_app().openapi()["paths"][
+            "/rca/jobs/{job_id}/cancel"
+        ]["post"]
+        self.assertIn("202", cancel_operation["responses"])
 
     def test_create_request_normalizes_query_and_rejects_unknown_fields(self) -> None:
         request = CreateRCAJobRequest(user_query="  Analyze the July yield drop.  ")

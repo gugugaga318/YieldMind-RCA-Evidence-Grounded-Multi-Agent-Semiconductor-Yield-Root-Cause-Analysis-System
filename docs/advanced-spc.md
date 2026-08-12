@@ -81,7 +81,7 @@ Docker Compose:
 # Set YIELD_RCA_DATASET=spc_case in .env first.
 docker compose up -d db
 docker compose --profile tools run --rm --build seed
-docker compose up --build -d backend frontend
+docker compose up --build -d backend worker frontend
 ```
 
 The Dashboard SPC panel shows control and specification limits, highlighted

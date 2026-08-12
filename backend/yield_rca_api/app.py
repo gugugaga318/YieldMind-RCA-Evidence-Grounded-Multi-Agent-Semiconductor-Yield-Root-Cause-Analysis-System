@@ -71,6 +71,7 @@ from yield_rca_api.memory import (
 )
 from yield_rca_api.observability import RCAMetrics, configure_logging
 from yield_rca_api.schemas import (
+    CancelRCAJobResponse,
     CreateRCAJobRequest,
     CreateRCAJobResponse,
     KnowledgeApprovalRequest,
@@ -90,6 +91,7 @@ from yield_rca_api.store import (
     DuplicateJobError,
     IdempotencyConflictError,
     InMemoryRCAJobStore,
+    JobNotCancellableError,
     PostgresRCAJobStore,
     RCAJobQueueRecord,
     RCAJobStore,
@@ -320,6 +322,29 @@ def _controlled_react_eligibility(request: CreateRCAJobRequest) -> tuple[bool, s
     if not any(term in query for term in ("scratch", "缺陷", "划伤", "刮伤")):
         return False, "controlled_react_requires_explicit_defect_clue"
     return True, None
+
+
+def select_orchestration_mode(
+    workflow: PurePythonRCAWorkflow,
+    *,
+    investigation_mode: str,
+    lot_id: str | None,
+    user_query: str,
+) -> tuple[str, str | None]:
+    """Resolve the bounded compatibility path shared by API and queue Worker."""
+
+    if workflow.orchestration_mode == "llm_react":
+        return "llm_react", None
+    if workflow.orchestration_mode == "controlled_react":
+        eligible, fallback_reason = _controlled_react_eligibility(
+            CreateRCAJobRequest(
+                investigation_mode=investigation_mode,
+                lot_id=lot_id,
+                user_query=user_query,
+            )
+        )
+        return ("controlled_react" if eligible else "fixed"), fallback_reason
+    return "fixed", None
 
 
 def _normalized_job_request(request: CreateRCAJobRequest) -> dict[str, object]:
@@ -631,14 +656,12 @@ def create_app(
         response.status_code = status.HTTP_201_CREATED
 
         try:
-            fallback_reason: str | None = None
-            if rca_workflow.orchestration_mode == "llm_react":
-                selected_mode = "llm_react"
-            elif rca_workflow.orchestration_mode == "controlled_react":
-                eligible, fallback_reason = _controlled_react_eligibility(request)
-                selected_mode = "controlled_react" if eligible else "fixed"
-            else:
-                selected_mode = "fixed"
+            selected_mode, fallback_reason = select_orchestration_mode(
+                rca_workflow,
+                investigation_mode=request.investigation_mode,
+                lot_id=request.lot_id,
+                user_query=user_query,
+            )
             completed_state = rca_workflow.run(
                 user_query,
                 job_id=job_id,
@@ -870,6 +893,45 @@ def create_app(
                 error=record.error,
                 version=record.version,
             ),
+        )
+
+    @application.post(
+        "/rca/jobs/{job_id}/cancel",
+        response_model=CancelRCAJobResponse,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    def cancel_rca_job(job_id: str, request: Request) -> CancelRCAJobResponse:
+        try:
+            record = job_store.request_cancel(job_id)
+        except JobNotCancellableError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error_code": exc.error_code, "message": str(exc)},
+            ) from exc
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"RCA job not found: {job_id}",
+            )
+        record_audit(
+            AuditEvent(
+                action=(
+                    "RCA_JOB_CANCELLED"
+                    if record.state.job.status == TaskStatus.CANCELLED.value
+                    else "RCA_JOB_CANCEL_REQUESTED"
+                ),
+                job_id=job_id,
+                correlation_id=str(request.state.correlation_id),
+                outcome=record.state.job.status,
+                details={"status": record.state.job.status},
+            )
+        )
+        assert record.cancel_requested_at is not None
+        return CancelRCAJobResponse(
+            job_id=job_id,
+            status=record.state.job.status,
+            cancel_requested_at=record.cancel_requested_at,
+            state_url=f"/rca/jobs/{job_id}",
         )
 
     @application.get("/rca/jobs/{job_id}/report", response_model=RCAReportResponse)

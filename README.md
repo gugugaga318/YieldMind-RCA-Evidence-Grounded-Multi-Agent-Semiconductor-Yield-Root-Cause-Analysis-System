@@ -228,12 +228,11 @@ if the key is reused for different input. `GET /rca/jobs/{job_id}` exposes
 non-secret queue metadata. A report request returns structured
 `409 job_not_completed` until a later Worker completes the Job.
 
-Batch 23.0 establishes the PostgreSQL queue and API contract only. Batch 23.1
-will add the leased Worker, retry, cancellation, and recovery loop; Batch 23.2
-will add SSE trace streaming and the matching frontend asynchronous UX. Until
-those batches are complete, use the pure Python scripts for an end-to-end RCA
-result. The FastAPI `execute_jobs_inline=True` adapter exists only for explicit
-regression tests and is never enabled by the default runtime app.
+Batch 23.1 adds the separate leased Worker, transient-only bounded retry,
+cooperative cancellation, stale-lease recovery, Attempt history, and ordered
+Job Events. Batch 23.2 will add SSE trace streaming and the matching frontend
+asynchronous UX. The FastAPI `execute_jobs_inline=True` adapter exists only for
+explicit regression tests and is never enabled by the default runtime app.
 
 After Batch 23.1 has completed the queued Job, approve an eligible generated
 memory candidate with two different engineers:
@@ -289,7 +288,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000$($job.state_url)"
 
 The original Step 11 synchronous behavior is retained only as an explicit test
 adapter. Batch 23.0 makes the default HTTP path a durable PostgreSQL-backed
-enqueue operation; Worker execution is added in Batch 23.1.
+enqueue operation; Batch 23.1 executes it in a separate leased Worker.
 
 By default, the API reads the existing files under `data/seeds/golden_case`. It does not invoke the Synthetic Fab generator. To query an already seeded PostgreSQL database instead, set:
 
@@ -434,7 +433,7 @@ Copy `.env.example` to `.env`, replace the local PostgreSQL password, then run:
 ```powershell
 docker compose up -d db
 docker compose --profile tools run --rm --build seed
-docker compose up --build -d backend frontend
+docker compose up --build -d backend worker frontend
 ```
 
 Open the dashboard at `http://127.0.0.1:5173` and API documentation at
@@ -465,7 +464,7 @@ Reapply the explicit local seed/migrations before restarting the containers:
 
 ```powershell
 docker compose --profile tools run --rm --build seed
-docker compose up --build -d backend frontend
+docker compose up --build -d backend worker frontend
 ```
 
 The Dashboard displays Agent mode, model, prompt version, token usage, LLM

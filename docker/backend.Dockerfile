@@ -24,6 +24,13 @@ EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "yield_rca_api.app:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000"]
 
 
+FROM base AS worker
+
+COPY --chown=app:app scripts/run_rca_worker.py ./scripts/run_rca_worker.py
+
+ENTRYPOINT ["python", "scripts/run_rca_worker.py"]
+
+
 FROM base AS retrieval-base
 
 USER root
@@ -36,6 +43,13 @@ FROM retrieval-base AS retrieval-runtime
 EXPOSE 8000
 
 CMD ["python", "-m", "uvicorn", "yield_rca_api.app:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000"]
+
+
+FROM retrieval-base AS retrieval-worker
+
+COPY --chown=app:app scripts/run_rca_worker.py ./scripts/run_rca_worker.py
+
+ENTRYPOINT ["python", "scripts/run_rca_worker.py"]
 
 
 FROM base AS seed
