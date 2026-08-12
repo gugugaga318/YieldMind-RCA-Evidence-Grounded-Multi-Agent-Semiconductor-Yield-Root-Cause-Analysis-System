@@ -31,6 +31,7 @@ class KnowledgeAPIIntegrationTest(unittest.TestCase):
             create_app(
                 workflow=build_csv_workflow(SEED_DIR),
                 knowledge_store=self.knowledge_store,
+                execute_jobs_inline=True,
             )
         )
 

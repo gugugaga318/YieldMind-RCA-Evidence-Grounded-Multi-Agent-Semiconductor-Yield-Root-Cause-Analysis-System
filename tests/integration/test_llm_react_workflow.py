@@ -735,6 +735,7 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         app = create_app(
             workflow=fake_llm_workflow(RecordingFakeClient()),
             runtime_dataset="golden_case",
+            execute_jobs_inline=True,
         )
 
         with TestClient(app) as client:
@@ -791,6 +792,7 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         app = create_app(
             workflow=fake_llm_workflow(InvalidNextActionAfterFirstClient()),
             runtime_dataset="golden_case",
+            execute_jobs_inline=True,
         )
 
         with TestClient(app) as client:
@@ -835,6 +837,7 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         app = create_app(
             workflow=fake_llm_workflow(InvalidIntentClient()),
             runtime_dataset="golden_case",
+            execute_jobs_inline=True,
         )
 
         with TestClient(app) as client:
@@ -869,6 +872,7 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         app = create_app(
             workflow=fake_llm_workflow(RejectedQuestionUpdateThenStopClient()),
             runtime_dataset="golden_case",
+            execute_jobs_inline=True,
         )
 
         with TestClient(app) as client:
@@ -903,6 +907,7 @@ class LLMReactAPIIntegrationTest(unittest.TestCase):
         app = create_app(
             workflow=fake_llm_workflow(ImmediateUnsupportedStopClient()),
             runtime_dataset="golden_case",
+            execute_jobs_inline=True,
         )
 
         with TestClient(app) as client:

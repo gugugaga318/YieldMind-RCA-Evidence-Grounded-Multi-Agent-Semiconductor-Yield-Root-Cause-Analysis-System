@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 from collections.abc import Awaitable, Callable
@@ -11,7 +13,18 @@ from time import perf_counter
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
 from yield_rca_core.knowledge_ingestion import (
@@ -67,6 +80,7 @@ from yield_rca_api.schemas import (
     KnowledgeLookupResponse,
     MemoryApprovalRequest,
     MemoryCandidateResponse,
+    RCAJobQueueMetadataResponse,
     RCAJobResponse,
     RCAJobStateResponse,
     RCAReportResponse,
@@ -74,8 +88,10 @@ from yield_rca_api.schemas import (
 )
 from yield_rca_api.store import (
     DuplicateJobError,
+    IdempotencyConflictError,
     InMemoryRCAJobStore,
     PostgresRCAJobStore,
+    RCAJobQueueRecord,
     RCAJobStore,
 )
 
@@ -306,6 +322,73 @@ def _controlled_react_eligibility(request: CreateRCAJobRequest) -> tuple[bool, s
     return True, None
 
 
+def _normalized_job_request(request: CreateRCAJobRequest) -> dict[str, object]:
+    return {
+        "investigation_mode": request.investigation_mode,
+        "user_query": request.resolved_user_query(),
+        "lot_id": request.lot_id,
+    }
+
+
+def _request_hash(request_payload: dict[str, object]) -> str:
+    canonical = json.dumps(
+        request_payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _normalize_idempotency_key(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "error_code": "invalid_idempotency_key",
+                "message": "Idempotency-Key must not be blank",
+            },
+        )
+    if len(normalized) > 200:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "error_code": "invalid_idempotency_key",
+                "message": "Idempotency-Key must contain at most 200 characters",
+            },
+        )
+    return normalized
+
+
+def _create_job_response(
+    record: RCAJobQueueRecord,
+    *,
+    memory_candidate_id: str | None = None,
+) -> CreateRCAJobResponse:
+    job = record.state.job
+    return CreateRCAJobResponse(
+        job_id=job.job_id,
+        status=job.status,
+        created_at=job.created_at,
+        investigation_mode=job.investigation_mode,
+        source_lot_id=job.source_lot_id,
+        state_url=f"/rca/jobs/{job.job_id}",
+        events_url=f"/rca/jobs/{job.job_id}/events",
+        report_url=f"/rca/jobs/{job.job_id}/report",
+        cancel_url=f"/rca/jobs/{job.job_id}/cancel",
+        idempotency_key=record.idempotency_key,
+        memory_candidate_id=memory_candidate_id,
+        memory_candidate_url=(
+            f"/memory/candidates/{memory_candidate_id}"
+            if memory_candidate_id is not None
+            else None
+        ),
+    )
+
+
 def create_app(
     *,
     workflow: PurePythonRCAWorkflow | None = None,
@@ -316,8 +399,9 @@ def create_app(
     knowledge_retriever: KnowledgeLookupRetriever | None = None,
     metrics: RCAMetrics | None = None,
     runtime_dataset: str | None = None,
+    execute_jobs_inline: bool = False,
 ) -> FastAPI:
-    """Create the HTTP adapter with injectable workflow and job storage."""
+    """Create the HTTP adapter; inline execution is an explicit test-only adapter."""
 
     governed_knowledge_store = knowledge_store or _default_knowledge_store()
     database_url = os.getenv("YIELD_RCA_DATABASE_URL", "").strip()
@@ -356,6 +440,7 @@ def create_app(
     application.state.knowledge_retriever = active_knowledge_retriever
     application.state.metrics = app_metrics
     application.state.runtime_dataset = dataset_name
+    application.state.execute_jobs_inline = execute_jobs_inline
 
     def record_audit(event: AuditEvent) -> None:
         try:
@@ -456,34 +541,66 @@ def create_app(
     @application.post(
         "/rca/jobs",
         response_model=CreateRCAJobResponse,
-        status_code=status.HTTP_201_CREATED,
+        status_code=status.HTTP_202_ACCEPTED,
     )
     def create_rca_job(
         request: CreateRCAJobRequest,
         http_request: Request,
+        response: Response,
+        idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> CreateRCAJobResponse:
         job_id = f"RCA_{uuid4().hex.upper()}"
         correlation_id = str(http_request.state.correlation_id)
         started = perf_counter()
         user_query = request.resolved_user_query()
+        normalized_idempotency_key = _normalize_idempotency_key(idempotency_key)
+        request_payload = _normalized_job_request(request)
+        runtime_config = {
+            "agent_mode": rca_workflow.llm_settings.agent_mode,
+            "provider": rca_workflow.llm_settings.provider,
+            "model": rca_workflow.llm_settings.model,
+            "orchestration_mode": rca_workflow.orchestration_mode,
+            "dataset": dataset_name,
+        }
         pending_state = RCAState(
             job=RCAJob(
                 job_id=job_id,
                 user_query=user_query,
                 investigation_mode=request.investigation_mode,
                 source_lot_id=request.lot_id,
-                status=TaskStatus.RUNNING.value,
+                status=(
+                    TaskStatus.RUNNING.value
+                    if execute_jobs_inline
+                    else TaskStatus.QUEUED.value
+                ),
             ),
             execution_metadata={
-                "agent_mode": rca_workflow.llm_settings.agent_mode,
-                "provider": rca_workflow.llm_settings.provider,
-                "model": rca_workflow.llm_settings.model,
+                **runtime_config,
+                "queue": {
+                    "priority": 0,
+                    "attempt_count": 0,
+                    "max_attempts": 3,
+                },
             },
         )
+        requested_record = RCAJobQueueRecord(
+            state=pending_state,
+            request=request_payload,
+            request_hash=_request_hash(request_payload),
+            idempotency_key=normalized_idempotency_key,
+            runtime_config=runtime_config,
+        )
         try:
-            job_store.create(pending_state)
+            queued_record = job_store.enqueue(requested_record)
+        except IdempotencyConflictError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error_code": exc.error_code, "message": str(exc)},
+            ) from exc
         except DuplicateJobError as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+        if queued_record.state.job.job_id != job_id:
+            return _create_job_response(queued_record)
         record_audit(
             AuditEvent(
                 action="RCA_JOB_CREATED",
@@ -497,6 +614,21 @@ def create_app(
                 },
             )
         )
+
+        if not execute_jobs_inline:
+            LOGGER.info(
+                "RCA job accepted by PostgreSQL queue",
+                extra={
+                    "correlation_id": correlation_id,
+                    "job_id": job_id,
+                    "lot_id": request.lot_id,
+                    "duration_ms": round((perf_counter() - started) * 1000.0, 3),
+                    "outcome": "queued",
+                },
+            )
+            return _create_job_response(queued_record)
+
+        response.status_code = status.HTTP_201_CREATED
 
         try:
             fallback_reason: str | None = None
@@ -706,36 +838,38 @@ def create_app(
                 "outcome": "success",
             },
         )
-        return CreateRCAJobResponse(
-            job_id=job_id,
-            status=completed_state.job.status,
-            created_at=completed_state.job.created_at,
-            investigation_mode=completed_state.job.investigation_mode,
-            source_lot_id=completed_state.job.source_lot_id,
-            state_url=f"/rca/jobs/{job_id}",
-            report_url=f"/rca/jobs/{job_id}/report",
-            memory_candidate_id=(
-                memory_candidate.candidate_id if memory_candidate is not None else None
-            ),
-            memory_candidate_url=(
-                f"/memory/candidates/{memory_candidate.candidate_id}"
-                if memory_candidate is not None
-                else None
-            ),
+        completed_record = job_store.get_record(job_id)
+        assert completed_record is not None
+        return _create_job_response(
+            completed_record,
+            memory_candidate_id=(memory_candidate.candidate_id if memory_candidate else None),
         )
 
     @application.get("/rca/jobs/{job_id}", response_model=RCAJobResponse)
     def get_rca_job(job_id: str) -> RCAJobResponse:
-        state = job_store.get(job_id)
-        if state is None:
+        record = job_store.get_record(job_id)
+        if record is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"RCA job not found: {job_id}",
             )
+        state = record.state
         return RCAJobResponse(
             job_id=job_id,
             status=state.job.status,
             state=RCAJobStateResponse.model_validate(_state_api_payload(state)),
+            queue=RCAJobQueueMetadataResponse(
+                priority=record.priority,
+                attempt_count=record.attempt_count,
+                max_attempts=record.max_attempts,
+                next_attempt_at=record.next_attempt_at,
+                lease_expires_at=record.lease_expires_at,
+                cancel_requested_at=record.cancel_requested_at,
+                started_at=record.started_at,
+                completed_at=record.completed_at,
+                error=record.error,
+                version=record.version,
+            ),
         )
 
     @application.get("/rca/jobs/{job_id}/report", response_model=RCAReportResponse)
@@ -749,7 +883,11 @@ def create_app(
         if state.report is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"RCA report is not available for job: {job_id}",
+                detail={
+                    "error_code": "job_not_completed",
+                    "message": f"RCA report is not available for job: {job_id}",
+                    "status": state.job.status,
+                },
             )
         record_audit(
             AuditEvent(

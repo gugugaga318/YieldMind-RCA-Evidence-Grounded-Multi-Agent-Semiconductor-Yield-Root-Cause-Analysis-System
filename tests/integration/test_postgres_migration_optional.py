@@ -29,11 +29,15 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 "007_knowledge_ingestion.up.sql",
                 "008_hybrid_retrieval.up.sql",
                 "009_pgvector_knowledge_index.up.sql",
+                "010_wat_test_equipment_provenance.up.sql",
+                "011_async_job_queue.up.sql",
             )
         ]
         down_sql = [
             (ROOT / "db" / "migrations" / name).read_text(encoding="utf-8")
             for name in (
+                "011_async_job_queue.down.sql",
+                "010_wat_test_equipment_provenance.down.sql",
                 "009_pgvector_knowledge_index.down.sql",
                 "008_hybrid_retrieval.down.sql",
                 "007_knowledge_ingestion.down.sql",
@@ -62,6 +66,47 @@ class OptionalPostgresMigrationTest(unittest.TestCase):
                 self.assertEqual(cursor.fetchone()[0], "spc_baseline_profile")
                 cursor.execute("SELECT to_regclass('public.rca_job_state')")
                 self.assertEqual(cursor.fetchone()[0], "rca_job_state")
+                cursor.execute("SELECT to_regclass('public.rca_job_attempt')")
+                self.assertEqual(cursor.fetchone()[0], "rca_job_attempt")
+                cursor.execute("SELECT to_regclass('public.rca_job_event')")
+                self.assertEqual(cursor.fetchone()[0], "rca_job_event")
+                cursor.execute("SELECT to_regclass('public.rca_worker_heartbeat')")
+                self.assertEqual(cursor.fetchone()[0], "rca_worker_heartbeat")
+                cursor.execute(
+                    """
+                    INSERT INTO rca_job_state (
+                        job_id, status, state, request, request_hash,
+                        idempotency_key, runtime_config, created_at
+                    ) VALUES (
+                        'RCA_QUEUE_MIGRATION',
+                        'queued',
+                        jsonb_build_object(
+                            'job', jsonb_build_object(
+                                'job_id', 'RCA_QUEUE_MIGRATION',
+                                'user_query', 'migration',
+                                'status', 'queued'
+                            )
+                        ),
+                        jsonb_build_object(
+                            'investigation_mode', 'product_window',
+                            'user_query', 'migration',
+                            'lot_id', NULL
+                        ),
+                        repeat('a', 64),
+                        'migration-idempotency-key',
+                        '{"agent_mode":"deterministic"}'::jsonb,
+                        now()
+                    )
+                    """
+                )
+                cursor.execute(
+                    "SELECT status, request_hash, idempotency_key "
+                    "FROM rca_job_state WHERE job_id = 'RCA_QUEUE_MIGRATION'"
+                )
+                self.assertEqual(
+                    cursor.fetchone(),
+                    ("queued", "a" * 64, "migration-idempotency-key"),
+                )
                 cursor.execute("SELECT to_regclass('public.knowledge_index_update')")
                 self.assertEqual(cursor.fetchone()[0], "knowledge_index_update")
                 cursor.execute("SELECT to_regclass('public.knowledge_ingestion_candidate')")

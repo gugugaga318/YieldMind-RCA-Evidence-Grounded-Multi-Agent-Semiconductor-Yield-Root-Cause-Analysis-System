@@ -35,6 +35,17 @@ class FastAPIContractTest(unittest.TestCase):
         self.assertIn(("GET", "/rca/jobs/{job_id}/report"), routes)
         self.assertIn(("GET", "/ready"), routes)
 
+    def test_create_job_openapi_uses_async_acceptance_response(self) -> None:
+        operation = create_app().openapi()["paths"]["/rca/jobs"]["post"]
+        self.assertIn("202", operation["responses"])
+        self.assertNotIn("201", operation["responses"])
+        properties = create_app().openapi()["components"]["schemas"][
+            "CreateRCAJobResponse"
+        ]["properties"]
+        self.assertIn("events_url", properties)
+        self.assertIn("cancel_url", properties)
+        self.assertIn("idempotency_key", properties)
+
     def test_create_request_normalizes_query_and_rejects_unknown_fields(self) -> None:
         request = CreateRCAJobRequest(user_query="  Analyze the July yield drop.  ")
         self.assertEqual(request.user_query, "Analyze the July yield drop.")

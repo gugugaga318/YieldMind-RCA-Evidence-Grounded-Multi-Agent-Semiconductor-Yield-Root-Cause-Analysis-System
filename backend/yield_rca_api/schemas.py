@@ -55,7 +55,7 @@ class CreateRCAJobRequest(APIModel):
 
 
 class CreateRCAJobResponse(APIModel):
-    """Identity and terminal status returned after synchronous execution."""
+    """Identity and status returned when an RCA job is accepted."""
 
     job_id: str
     status: str
@@ -63,7 +63,10 @@ class CreateRCAJobResponse(APIModel):
     investigation_mode: str
     source_lot_id: str | None
     state_url: str
+    events_url: str
     report_url: str
+    cancel_url: str
+    idempotency_key: str | None = None
     memory_candidate_id: str | None = None
     memory_candidate_url: str | None = None
 
@@ -449,12 +452,28 @@ class RCAJobStateResponse(APIModel):
     schema_version: str | None = None
 
 
+class RCAJobQueueMetadataResponse(APIModel):
+    """Public, non-secret queue metadata for polling clients."""
+
+    priority: int
+    attempt_count: int
+    max_attempts: int
+    next_attempt_at: str | None = None
+    lease_expires_at: str | None = None
+    cancel_requested_at: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    error: dict[str, Any] | None = None
+    version: int
+
+
 class RCAJobResponse(APIModel):
     """Stored job status and complete serialized domain state."""
 
     job_id: str
     status: str
     state: RCAJobStateResponse
+    queue: RCAJobQueueMetadataResponse | None = None
 
 
 class RCAReportResponse(APIModel):

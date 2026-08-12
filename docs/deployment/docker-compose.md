@@ -153,10 +153,13 @@ Hybrid-RRF regressed hard-negative pairwise ranking versus Chunk Keyword. The
 Reranker also remains disabled because no local-model evaluation established a
 strict nDCG uplift without primary-metric regression.
 
-Migration `005_runtime_resilience` adds durable `rca_job_state` storage. In
-PostgreSQL mode, job state and reports therefore survive backend restarts and
-are shared by multiple API workers. The backend readiness probe checks this
-migration and its required runtime tables before accepting traffic.
+Migration `005_runtime_resilience` originally added durable `rca_job_state`
+storage. Migration `011_async_job_queue` extends it with the normalized request,
+SHA-256 request identity, optional idempotency key, runtime configuration
+snapshot, retry counters, lease timestamps, checkpoint/error fields, and
+optimistic version. It also creates `rca_job_attempt`, `rca_job_event`, and
+`rca_worker_heartbeat`. The backend readiness probe now requires migration 011
+and all queue tables before accepting traffic.
 
 Generating or regenerating datasets remains a separate host-side operation:
 
@@ -191,12 +194,19 @@ The browser calls `/api`; Nginx removes that prefix and forwards the request to
 the internal `backend:8000` service. React does not connect directly to
 PostgreSQL or execute RCA logic.
 
-`POST /api/rca/jobs` is still synchronous. Real Qwen ReAct runs can take several
-minutes because bounded Planner and Specialist calls execute before the response
-is returned. The demo Nginx proxy therefore keeps send/read operations open for
-600 seconds. This prevents the proxy from returning `504` while FastAPI is still
-successfully completing a bounded run; it is not a substitute for an
-asynchronous job queue in a production deployment.
+`POST /api/rca/jobs` now returns `202 Accepted` after persisting a `queued` Job;
+the HTTP request no longer waits for Qwen or the RCA Workflow. An optional
+`Idempotency-Key` header prevents duplicate submissions. Reusing a key with the
+same normalized request returns the original Job; changing the request returns
+`409 idempotency_conflict`.
+
+This is a staged cutover. Batch 23.0 contains the queue contract but not the
+Worker, cancellation endpoint, SSE endpoint, or frontend polling/streaming UX.
+The response reserves `events_url` and `cancel_url`, but those routes become
+active only in Batch 23.1/23.2. Until then the Docker frontend is not an
+end-to-end asynchronous RCA demo; use the pure Python runner for completed
+results. No API key, Authorization header, or hidden model reasoning is stored
+in the queue.
 
 PostgreSQL is intentionally not published on a host port. Backend and seed
 containers reach it through the private Compose network at `db:5432`, avoiding
@@ -240,12 +250,14 @@ stage.
 
 ## Current Limitations
 
-- RCA jobs remain in Backend process memory and are lost on restart.
+- RCA Job requests and state are durable in PostgreSQL, but Batch 23.0 does not
+  yet include the Worker that consumes queued Jobs.
 - Memory candidates and approvals are durable only in PostgreSQL mode; CSV mode
   uses a process-local demonstration store.
 - Engineer identity is request data until the Security and Permissions phase
   connects approval to authenticated identity and role mapping.
-- Compose runs one synchronous Backend process.
+- Compose currently runs one API process and no queue Worker; Batch 23.1 adds
+  leased execution and recovery.
 - The health check verifies the HTTP process, not a full RCA transaction.
 - Credentials use local `.env` configuration rather than a secret manager.
 - Ports bind only to `127.0.0.1`; shared deployment requires an authenticated

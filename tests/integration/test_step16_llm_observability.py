@@ -134,7 +134,7 @@ class Step16LLMObservabilityTest(unittest.TestCase):
             SEED_DIR,
             llm_settings=LLMSettings(agent_mode="fake"),
         )
-        app = create_app(workflow=workflow, audit_sink=sink)
+        app = create_app(workflow=workflow, audit_sink=sink, execute_jobs_inline=True)
 
         with TestClient(app) as client:
             self.assertEqual(client.get("/health").json(), {"status": "healthy"})
@@ -168,7 +168,7 @@ class Step16LLMObservabilityTest(unittest.TestCase):
             llm_settings=LLMSettings(agent_mode="fake"),
             llm_client=AuthenticationFailureClient(),
         )
-        app = create_app(workflow=workflow)
+        app = create_app(workflow=workflow, execute_jobs_inline=True)
 
         with TestClient(app) as client:
             response = client.post("/rca/jobs", json={"user_query": QUERY})
@@ -182,7 +182,7 @@ class Step16LLMObservabilityTest(unittest.TestCase):
             llm_settings=LLMSettings(agent_mode="fake"),
             llm_client=BillingFailureClient(),
         )
-        app = create_app(workflow=workflow)
+        app = create_app(workflow=workflow, execute_jobs_inline=True)
 
         with TestClient(app) as client:
             response = client.post("/rca/jobs", json={"user_query": QUERY})
@@ -196,7 +196,7 @@ class Step16LLMObservabilityTest(unittest.TestCase):
             llm_settings=LLMSettings(agent_mode="fake"),
             llm_client=InvalidSpecialistClient(),
         )
-        app = create_app(workflow=workflow)
+        app = create_app(workflow=workflow, execute_jobs_inline=True)
 
         with TestClient(app) as client:
             response = client.post("/rca/jobs", json={"user_query": QUERY})

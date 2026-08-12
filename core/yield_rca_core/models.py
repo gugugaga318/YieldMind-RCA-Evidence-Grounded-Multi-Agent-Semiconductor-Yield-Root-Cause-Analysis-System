@@ -63,10 +63,14 @@ class LotNotFoundError(LotDrivenRCAError):
 
 
 class TaskStatus(StrEnum):
+    QUEUED = "queued"
     PENDING = "pending"
     RUNNING = "running"
+    RETRY_WAIT = "retry_wait"
+    CANCEL_REQUESTED = "cancel_requested"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
     SKIPPED = "skipped"
 
 

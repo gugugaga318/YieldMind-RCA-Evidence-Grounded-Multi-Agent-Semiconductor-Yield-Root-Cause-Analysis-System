@@ -31,10 +31,11 @@ class RuntimeResilienceSchemaContractTest(unittest.TestCase):
         self.assertIn("005_runtime_resilience.down.sql", SEED_SCRIPT)
         self.assertIn("http://127.0.0.1:8000/ready", COMPOSE)
 
-    def test_postgres_job_store_checks_schema_and_upserts_state(self) -> None:
+    def test_postgres_job_store_checks_schema_and_updates_locked_state(self) -> None:
         self.assertIn("class PostgresRCAJobStore", JOB_STORE)
-        self.assertIn("ON CONFLICT (job_id) DO UPDATE", JOB_STORE)
-        self.assertIn("005_runtime_resilience", JOB_STORE)
+        self.assertIn("FOR UPDATE", JOB_STORE)
+        self.assertIn("UPDATE rca_job_state", JOB_STORE)
+        self.assertIn("011_async_job_queue", JOB_STORE)
 
 
 if __name__ == "__main__":

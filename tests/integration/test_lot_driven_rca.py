@@ -77,7 +77,7 @@ class LotDrivenRCAIntegrationTest(unittest.TestCase):
         self.assertEqual(raised.exception.error_code, "LOT_NOT_FOUND")
 
     def test_http_api_accepts_lot_only_request_and_returns_report(self) -> None:
-        app = create_app(workflow=build_csv_workflow(SEED_DIR))
+        app = create_app(workflow=build_csv_workflow(SEED_DIR), execute_jobs_inline=True)
         with TestClient(app) as client:
             create_response = client.post(
                 "/rca/jobs",
@@ -98,7 +98,7 @@ class LotDrivenRCAIntegrationTest(unittest.TestCase):
         self.assertIn(EXPECTED_ROOT_CAUSE, report_response.json()["report"]["markdown"])
 
     def test_http_api_returns_not_found_for_unknown_lot(self) -> None:
-        app = create_app(workflow=build_csv_workflow(SEED_DIR))
+        app = create_app(workflow=build_csv_workflow(SEED_DIR), execute_jobs_inline=True)
         with TestClient(app) as client:
             response = client.post(
                 "/rca/jobs",
