@@ -10,8 +10,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from yield_rca_core.hypothesis_candidate_generator import (
+    QwenHypothesisCandidateGenerator,
+)
 from yield_rca_core.hypothesis_engine import HypothesisEngine
-from yield_rca_core.llm_gateway import LLMClient
+from yield_rca_core.llm_gateway import (
+    LLMCallError,
+    LLMClient,
+    LLMOutputValidationError,
+)
 from yield_rca_core.models import (
     AgentFinding,
     AgentKind,
@@ -165,11 +172,9 @@ def _unsupported_source_warning(
 
 @dataclass(frozen=True)
 class RCAReasoningAgent:
-    """Produce the official RCA finding from the Hypothesis Engine only."""
+    """Generate optional Qwen candidates, then use the Python Evidence Gate."""
 
     hypothesis_engine: HypothesisEngine = HypothesisEngine()
-    # Retained injection fields preserve the workflow constructor contract.
-    # Hypothesis generation is deterministic and does not invoke an LLM.
     llm_client: LLMClient | None = None
     agent_mode: str = AgentMode.DETERMINISTIC.value
     prompt_version: str = "v1"
@@ -199,10 +204,62 @@ class RCAReasoningAgent:
                 )
             )
 
+        candidate_generation: dict[str, Any] = {
+            "source": "deterministic_only",
+            "candidate_count": 0,
+            "attempt_count": 0,
+            "validation_errors": [],
+            "fallback_reason": None,
+        }
+        external_candidates: list[dict[str, Any]] = []
+        if self.agent_mode == AgentMode.LLM.value and self.llm_client is not None:
+            try:
+                generated = QwenHypothesisCandidateGenerator(
+                    self.llm_client,
+                    prompt_version=self.prompt_version,
+                ).generate(
+                    request_id=request_id,
+                    findings=findings,
+                )
+                external_candidates = [
+                    candidate.to_dict() for candidate in generated.candidates
+                ]
+                candidate_generation = {
+                    "source": "qwen",
+                    "candidate_count": len(external_candidates),
+                    "attempt_count": generated.attempt_count,
+                    "validation_errors": list(generated.validation_errors),
+                    "fallback_reason": None,
+                }
+            except (LLMCallError, LLMOutputValidationError) as exc:
+                candidate_generation = {
+                    "source": "deterministic_fallback",
+                    "candidate_count": 0,
+                    "attempt_count": (
+                        2 if isinstance(exc, LLMOutputValidationError) else 1
+                    ),
+                    "validation_errors": [str(exc)],
+                    "fallback_reason": (
+                        "qwen_hypothesis_candidate_generation_failed"
+                    ),
+                }
+                warnings.append(
+                    Warning(
+                        warning_id="WARN_RCA_LLM_CANDIDATE_FALLBACK",
+                        message=(
+                            "Qwen hypothesis candidate generation failed; the "
+                            "deterministic Evidence Gate continued without model "
+                            "candidates."
+                        ),
+                        evidence_ids=evidence_ids,
+                    )
+                )
+
         engine_result = self.hypothesis_engine.analyze(
             request_id=request_id,
             findings=findings,
             mode="active",
+            external_candidates=external_candidates,
         )
         decision = engine_result["decision_gate"]
         root_cause = str(decision["root_cause"])
@@ -332,6 +389,7 @@ class RCAReasoningAgent:
                 "recommended_actions": actions,
                 "ranked_candidates": ranked_candidates,
                 "reasoning_engine": "hypothesis_v1",
+                "hypothesis_candidate_generation": candidate_generation,
                 "hypothesis_engine_result": engine_result,
                 "evidence": _merge_evidence_payload(findings),
             },

@@ -236,7 +236,22 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
                 item["kind"]
                 for item in client.requests[0].payload["allowed_actions"]
             },
-            LLM_REACT_EXECUTABLE_ACTION_KINDS,
+            {
+                ActionKind.INSPECT_DEFECT_PATTERN.value,
+                ActionKind.FIND_SHARED_EXPOSURE.value,
+            },
+        )
+        self.assertEqual(
+            client.requests[0].payload["legal_target_question_ids_by_action"],
+            {
+                ActionKind.FIND_SHARED_EXPOSURE.value: [
+                    "Q_MECHANISM",
+                ],
+                ActionKind.INSPECT_DEFECT_PATTERN.value: [
+                    "Q_DEFECT",
+                    "Q_MECHANISM",
+                ],
+            },
         )
         self.assertNotIn(
             ActionKind.ASSESS_IMPACT_SCOPE.value,
@@ -376,6 +391,21 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
                 in str(request.payload["previous_validation_error"])
                 for index, request in enumerate(client.requests)
             )
+        )
+        retry_feedback = client.requests[1].payload[
+            "previous_validation_feedback"
+        ]
+        self.assertEqual(
+            retry_feedback["legal_target_question_ids_by_action"][
+                ActionKind.INSPECT_FDC_SPC.value
+            ],
+            [spc_question.question_id],
+        )
+        self.assertNotIn(
+            ActionKind.INSPECT_FDC_SPC.value,
+            retry_feedback["question_action_capabilities"][
+                mechanism.question_id
+            ],
         )
 
     def test_product_defect_inspection_requires_mes_selected_lots(self) -> None:
@@ -601,6 +631,174 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             )
         )
 
+    def test_modified_input_echo_retry_also_repairs_goal_satisfied_stop(self) -> None:
+        defect_question = questions()[0]
+        defect_link = QuestionEvidenceLink(
+            question_id=defect_question.question_id,
+            evidence_id="EV_DEFECT",
+            action_id="ACT_DEFECT",
+            relation=QuestionEvidenceRelation.SUPPORTS.value,
+            matched_evidence_group="product_signal",
+            reason="The defect observation fills the product-signal group.",
+        )
+
+        def echo_then_repair(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            reference_updates = request.payload[
+                "goal_satisfied_stop_contract"
+            ]["validator_ready_reference_question_updates"]
+            payload.clear()
+            payload.update(
+                {
+                    "decision_id": f"STOP_{request.payload['output_attempt']}",
+                    "goal_id": request.payload["goal"]["goal_id"],
+                    "decision_type": DecisionType.STOP.value,
+                    "reason": "The requested defect signature is evidence-backed.",
+                    "goal_status": GoalStatus.SATISFIED.value,
+                    "proposed_conclusion_level": ConclusionLevel.SIGNAL.value,
+                    "next_action": None,
+                    "target_question_ids": [],
+                    "new_questions": [],
+                    "stop_reason": StopReason.GOAL_SATISFIED.value,
+                    "question_updates": reference_updates,
+                }
+            )
+            if request.payload["output_attempt"] == 1:
+                modified_contract = copy.deepcopy(
+                    request.payload["goal_satisfied_stop_contract"]
+                )
+                modified_contract["unexpected_model_field"] = True
+                payload["goal_satisfied_stop_contract"] = modified_contract
+
+        client = RecordingNextActionClient(echo_then_repair)
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=[defect_question],
+            findings=[
+                finding(AgentKind.DEFECT_WAT.value, evidence_id="EV_DEFECT")
+            ],
+            action_records=[],
+            tool_call_count=1,
+            evidence_ids=["EV_DEFECT"],
+            question_evidence_links=[defect_link],
+        )
+
+        self.assertEqual(len(client.requests), 2)
+        feedback = client.requests[1].payload["previous_validation_feedback"]
+        self.assertIn(
+            "goal_satisfied_stop_contract",
+            feedback["input_only_fields_never_copy_to_output"],
+        )
+        self.assertEqual(
+            feedback["validator_ready_reference_question_updates"],
+            client.requests[1].payload["goal_satisfied_stop_contract"][
+                "validator_ready_reference_question_updates"
+            ],
+        )
+        self.assertEqual(outcome.decision.decision_type, DecisionType.STOP.value)
+        self.assertEqual(len(outcome.decision.question_updates), 1)
+
+    def test_exact_validator_ready_echo_becomes_python_owned_question_updates(
+        self,
+    ) -> None:
+        defect_question = questions()[0]
+        defect_link = QuestionEvidenceLink(
+            question_id=defect_question.question_id,
+            evidence_id="EV_DEFECT",
+            action_id="ACT_DEFECT",
+            relation=QuestionEvidenceRelation.SUPPORTS.value,
+            matched_evidence_group="product_signal",
+            reason="The defect observation fills the product-signal group.",
+        )
+
+        def echo_reference_at_top_level(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            reference_updates = copy.deepcopy(
+                request.payload["goal_satisfied_stop_contract"][
+                    "validator_ready_reference_question_updates"
+                ]
+            )
+            payload.clear()
+            payload.update(
+                {
+                    "decision_id": "STOP_WITH_REFERENCE_ECHO",
+                    "goal_id": request.payload["goal"]["goal_id"],
+                    "decision_type": DecisionType.STOP.value,
+                    "reason": "Use the evidence-backed Python stop transition.",
+                    "goal_status": GoalStatus.SATISFIED.value,
+                    "proposed_conclusion_level": ConclusionLevel.SIGNAL.value,
+                    "next_action": None,
+                    "target_question_ids": [],
+                    "new_questions": [],
+                    "stop_reason": StopReason.GOAL_SATISFIED.value,
+                    "question_updates": [],
+                    "validator_ready_reference_question_updates": (
+                        reference_updates
+                    ),
+                }
+            )
+
+        client = RecordingNextActionClient(echo_reference_at_top_level)
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=[defect_question],
+            findings=[
+                finding(AgentKind.DEFECT_WAT.value, evidence_id="EV_DEFECT")
+            ],
+            action_records=[],
+            tool_call_count=1,
+            evidence_ids=["EV_DEFECT"],
+            question_evidence_links=[defect_link],
+        )
+
+        self.assertEqual(len(client.requests), 1)
+        self.assertEqual(outcome.decision.decision_type, DecisionType.STOP.value)
+        self.assertEqual(len(outcome.decision.question_updates), 1)
+        self.assertEqual(
+            outcome.decision.question_updates[0].question_id,
+            defect_question.question_id,
+        )
+
+    def test_modified_validator_ready_echo_cannot_change_python_transition(
+        self,
+    ) -> None:
+        def echo_modified_reference(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload["validator_ready_reference_question_updates"] = [
+                {
+                    "question_id": "Q_INVENTED",
+                    "status": EvidenceGapStatus.CLOSED.value,
+                    "answer": "Invented transition.",
+                    "evidence_ids": ["EV_INVENTED"],
+                    "unavailable_reason": None,
+                }
+            ]
+
+        client = RecordingNextActionClient(echo_modified_reference)
+        with self.assertRaises(QwenNextActionPlannerError) as captured:
+            QwenNextActionPlanner(client).decide(
+                goal=goal(),
+                questions=questions(),
+                findings=[],
+                action_records=[],
+                tool_call_count=0,
+            )
+
+        self.assertEqual(len(client.requests), 2)
+        self.assertTrue(
+            all(
+                "validator_ready_reference_question_updates" in error
+                and "unknown fields" in error
+                for error in captured.exception.validation_errors
+            )
+        )
+
     def test_invalid_output_is_retried_once_with_validation_feedback(self) -> None:
         client = InvalidThenValidClient()
 
@@ -626,6 +824,55 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
         self.assertEqual(feedback["category"], "core_decision_validation")
         self.assertTrue(feedback["must_repair_before_resubmission"])
         self.assertIn("prerequisite", feedback["message"])
+
+    def test_exact_python_owned_context_echo_is_removed_before_strict_parse(
+        self,
+    ) -> None:
+        def echo_context(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload["question_action_capabilities"] = copy.deepcopy(
+                request.payload["question_action_capabilities"]
+            )
+
+        client = RecordingNextActionClient(echo_context)
+        decision = QwenNextActionPlanner(client).decide(
+            goal=goal(),
+            questions=questions(),
+            findings=[],
+            action_records=[],
+            tool_call_count=0,
+        )
+
+        self.assertEqual(len(client.requests), 1)
+        self.assertEqual(decision.decision_type, DecisionType.ACT.value)
+
+    def test_modified_python_owned_context_echo_still_fails_closed(self) -> None:
+        def modify_context(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload["question_action_capabilities"] = {"Q_INVENTED": []}
+
+        client = RecordingNextActionClient(modify_context)
+        with self.assertRaises(QwenNextActionPlannerError) as captured:
+            QwenNextActionPlanner(client).decide(
+                goal=goal(),
+                questions=questions(),
+                findings=[],
+                action_records=[],
+                tool_call_count=0,
+            )
+
+        self.assertEqual(len(client.requests), 2)
+        self.assertTrue(
+            all(
+                "question_action_capabilities" in error
+                and "unknown fields" in error
+                for error in captured.exception.validation_errors
+            )
+        )
 
     def test_one_transient_call_failure_is_retried_without_advancing_output_attempt(
         self,

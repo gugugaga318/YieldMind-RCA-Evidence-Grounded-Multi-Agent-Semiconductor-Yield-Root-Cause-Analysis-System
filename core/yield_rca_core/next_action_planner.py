@@ -71,6 +71,72 @@ _OUTPUT_ATTEMPTS = 2
 _CALL_RETRIES = 1
 _OUTPUT_PARSE_ERROR = "output_parse"
 _CORE_DECISION_VALIDATION_ERROR = "core_decision_validation"
+_PLANNER_DECISION_OUTPUT_FIELDS = (
+    "decision_id",
+    "goal_id",
+    "decision_type",
+    "reason",
+    "goal_status",
+    "proposed_conclusion_level",
+    "next_action",
+    "target_question_ids",
+    "new_questions",
+    "stop_reason",
+    "question_updates",
+)
+_PLANNER_INPUT_ONLY_FIELDS = (
+    "goal_satisfied_stop_contract",
+    "deterministic_planner_decision",
+    "previous_validation_feedback",
+    "legal_target_question_ids_by_action",
+    "question_action_capabilities",
+    "validator_ready_reference_question_updates",
+)
+
+
+def _strip_exact_planner_input_echoes(
+    output: object,
+    *,
+    request_payload: Mapping[str, Any],
+) -> object:
+    """Remove only known prompt scaffolding copied back without modification.
+
+    These fields are Python-owned context rather than model decisions.  Exact
+    equality is required so a misspelled, altered, or otherwise unknown field
+    still reaches the strict PlannerDecision parser and fails closed.
+    """
+
+    if not isinstance(output, dict):
+        return output
+    sanitized = dict(output)
+    for field_name in _PLANNER_INPUT_ONLY_FIELDS:
+        if field_name not in sanitized:
+            continue
+        expected_values: list[Any] = []
+        if field_name in request_payload:
+            expected_values.append(request_payload[field_name])
+        for parent_name in (
+            "goal_satisfied_stop_contract",
+            "previous_validation_feedback",
+        ):
+            parent = request_payload.get(parent_name)
+            if isinstance(parent, Mapping) and field_name in parent:
+                expected_values.append(parent[field_name])
+        if not any(sanitized[field_name] == value for value in expected_values):
+            continue
+        echoed_value = sanitized.pop(field_name)
+        if (
+            field_name == "validator_ready_reference_question_updates"
+            and sanitized.get("decision_type") == DecisionType.STOP.value
+            and sanitized.get("goal_status") == GoalStatus.SATISFIED.value
+            and sanitized.get("stop_reason") == StopReason.GOAL_SATISFIED.value
+        ):
+            # Qwen has explicitly selected the goal-satisfied boundary and
+            # copied Python's exact, validator-ready transition.  Commit the
+            # Python-owned delta under the real contract field instead of
+            # asking the model to reproduce the same state twice.
+            sanitized["question_updates"] = echoed_value
+    return sanitized
 
 
 def _is_retryable_call_error(error: LLMCallError) -> bool:
@@ -500,12 +566,18 @@ class QwenNextActionPlanner:
             for question in questions
             if question.status == EvidenceGapStatus.OPEN.value
         ]
-        advertised_actions = self._advertised_actions(open_questions)
         question_context = self._question_context(
             questions=open_questions,
             links=normalized_question_evidence_links,
             action_records=action_records,
         )
+        legal_action_targets = self._legal_action_targets(
+            questions=open_questions,
+            question_context=question_context,
+            findings=findings,
+            action_records=action_records,
+        )
+        advertised_actions = frozenset(legal_action_targets)
         relevant_evidence_ids = {
             evidence_id
             for packet in question_context
@@ -548,17 +620,39 @@ class QwenNextActionPlanner:
                     "category": validation_error_categories[-1],
                     "message": last_error,
                     "must_repair_before_resubmission": True,
+                    "output_fields_exactly": list(
+                        _PLANNER_DECISION_OUTPUT_FIELDS
+                    ),
+                    "input_only_fields_never_copy_to_output": list(
+                        _PLANNER_INPUT_ONLY_FIELDS
+                    ),
+                    "legal_target_question_ids_by_action": legal_action_targets,
+                    "question_action_capabilities": {
+                        question.question_id: [
+                            action_kind
+                            for action_kind, target_ids in legal_action_targets.items()
+                            if question.question_id in target_ids
+                        ]
+                        for question in open_questions
+                    },
                     "must_terminally_update_question_ids": (
                         open_question_ids if goal_satisfied_repair else []
                     ),
+                    "validator_ready_reference_question_updates": [
+                        update.to_dict() for update in baseline.question_updates
+                    ],
                     "repair_instruction": (
-                        "Keep goal_satisfied only by submitting an accepted closed "
-                        "or unavailable QuestionUpdate for every listed Question. "
-                        "Use validator_ready_reference_question_updates when it "
-                        "matches the intended stop; otherwise choose a legal action "
-                        "or a different stop boundary."
-                        if goal_satisfied_repair
-                        else "Repair the exact validation error before resubmitting."
+                        "Return exactly the fields in output_fields_exactly and never "
+                        "copy an input_only_fields_never_copy_to_output field into "
+                        "the decision. If the repaired decision keeps a "
+                        "goal_satisfied stop, copy "
+                        "validator_ready_reference_question_updates exactly; it must "
+                        "terminally update every currently open Question. If those "
+                        "reference updates do not match the intended stop, choose a "
+                        "legal action or a different stop boundary. For an act "
+                        "decision, choose one Action key from "
+                        "legal_target_question_ids_by_action and copy only Question "
+                        "IDs listed for that Action."
                     ),
                 }
             request = LLMRequest(
@@ -611,11 +705,14 @@ class QwenNextActionPlanner:
                         if definition.kind in advertised_actions
                     ],
                     "question_action_capabilities": {
-                        question.question_id: sorted(
-                            capability_for_question(question).allowed_actions
-                        )
+                        question.question_id: [
+                            action_kind
+                            for action_kind, target_ids in legal_action_targets.items()
+                            if question.question_id in target_ids
+                        ]
                         for question in open_questions
                     },
+                    "legal_target_question_ids_by_action": legal_action_targets,
                     "deterministic_planner_decision": baseline.to_dict(),
                     "goal_satisfied_stop_contract": goal_satisfied_stop_contract,
                     "output_attempt": attempt,
@@ -655,9 +752,13 @@ class QwenNextActionPlanner:
             if response is None:
                 continue
             try:
+                sanitized_response = _strip_exact_planner_input_echoes(
+                    response.data,
+                    request_payload=request.payload,
+                )
                 outcome = (
                     review_qwen_planner_output(
-                        response.data,
+                        sanitized_response,
                         questions=questions,
                         available_evidence_ids=available_evidence_ids,
                         question_evidence_links=(
@@ -674,7 +775,7 @@ class QwenNextActionPlanner:
                     if review_question_updates
                     else _strict_outcome(
                         PlannerDecision.from_dict(
-                            response.data,
+                            sanitized_response,
                             allow_legacy_question_updates=False,
                         )
                     )
@@ -1314,6 +1415,62 @@ class QwenNextActionPlanner:
                     if action_kind in self.registry
                 )
         return frozenset(advertised)
+
+    def _legal_action_targets(
+        self,
+        *,
+        questions: list[InvestigationQuestion],
+        question_context: list[dict[str, Any]],
+        findings: list[AgentFinding],
+        action_records: list[ActionRecord],
+    ) -> dict[str, list[str]]:
+        """Project the state-aware Question/Action matrix owned by Python.
+
+        The static capability registry says which Actions may ever answer a
+        Question kind.  This projection is narrower: it also removes Actions
+        that cannot fill a *currently* missing Evidence group or whose
+        Specialist prerequisites are not yet available.  Qwen receives this
+        exact matrix on both the first request and any repair request.
+        """
+
+        context_by_id = {
+            str(packet["question_id"]): packet for packet in question_context
+        }
+        finding_agents = {finding.agent for finding in findings}
+        completed_kinds = {
+            record.action.kind
+            for record in action_records
+            if record.status == "completed"
+        }
+        targets_by_action: dict[str, list[str]] = {}
+        for question in questions:
+            capability = capability_for_question(question)
+            packet = context_by_id[question.question_id]
+            missing = set(packet["missing_evidence_groups"])
+            for action_kind in sorted(capability.allowed_actions):
+                definition = self.registry.get(action_kind)
+                if definition is None:
+                    continue
+                if not set(definition.required_finding_agents) <= finding_agents:
+                    continue
+                if (
+                    action_kind == ActionKind.FIND_SHARED_EXPOSURE.value
+                    and action_kind in completed_kinds
+                ):
+                    continue
+                contribution = capability.contribution_for(action_kind)
+                if missing:
+                    if not (missing & contribution):
+                        continue
+                elif "hypothesis_synthesis" not in contribution:
+                    continue
+                targets_by_action.setdefault(action_kind, []).append(
+                    question.question_id
+                )
+        return {
+            action_kind: target_ids
+            for action_kind, target_ids in sorted(targets_by_action.items())
+        }
 
     @staticmethod
     def _question_context(

@@ -418,6 +418,15 @@ class FakeLLMClient:
                 "evidence_ids": list(finding["evidence_ids"]),
                 "engineering_interpretation": finding["summary"],
             }
+        elif request.prompt_name == "hypothesis_candidate_generator":
+            data = {
+                "candidates": list(
+                    request.payload["deterministic_candidate_proposals"]
+                ),
+                "analysis_summary": (
+                    "The fake client preserves deterministic hypothesis behavior."
+                ),
+            }
         elif request.prompt_name == "rca_reasoning":
             data = {
                 "ranked_candidates": list(request.payload["candidate_catalog"]),

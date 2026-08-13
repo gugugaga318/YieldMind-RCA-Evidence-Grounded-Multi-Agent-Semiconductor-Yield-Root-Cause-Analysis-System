@@ -77,6 +77,19 @@ class InvalidSpecialistClient(FakeLLMClient):
         )
 
 
+class SpecialistProviderFailureClient(FakeLLMClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        if request.prompt_name == "specialist":
+            raise LLMCallError(
+                "specialist workspace access denied",
+                status_code=403,
+                provider_code="Workspace.AccessDenied",
+                request_id="req-specialist-403",
+                failure_category="provider_http_error",
+            )
+        return super().complete_json(request)
+
+
 class Step16LLMObservabilityTest(unittest.TestCase):
     def test_fake_mode_runs_every_agent_and_records_usage(self) -> None:
         workflow = build_csv_workflow(
@@ -203,6 +216,44 @@ class Step16LLMObservabilityTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()["detail"]["error_code"], "LLM_OUTPUT_INVALID")
+
+    def test_optional_specialist_provider_failure_preserves_tool_finding(self) -> None:
+        workflow = build_csv_workflow(
+            SEED_DIR,
+            llm_settings=LLMSettings(agent_mode="fake"),
+            llm_client=SpecialistProviderFailureClient(),
+        )
+
+        state = workflow.run(QUERY, job_id="RCA_SPECIALIST_PROVIDER_FALLBACK")
+
+        specialist_findings = [
+            finding
+            for finding in state.findings
+            if finding.agent
+            in {
+                AgentKind.MES.value,
+                AgentKind.FDC.value,
+                AgentKind.DEFECT_WAT.value,
+                AgentKind.KNOWLEDGE.value,
+            }
+        ]
+        self.assertTrue(specialist_findings)
+        self.assertTrue(
+            all(finding.evidence_ids for finding in specialist_findings)
+        )
+        self.assertTrue(
+            all(
+                finding.details["specialist_review"]["source"]
+                == "deterministic_fallback"
+                for finding in specialist_findings
+            )
+        )
+        self.assertTrue(
+            any(
+                warning.warning_id.endswith("LLM_REVIEW_FALLBACK")
+                for warning in state.warnings
+            )
+        )
 
 
 if __name__ == "__main__":

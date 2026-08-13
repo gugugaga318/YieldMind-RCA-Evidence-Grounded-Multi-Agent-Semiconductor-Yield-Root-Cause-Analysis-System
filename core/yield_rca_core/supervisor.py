@@ -506,18 +506,57 @@ def _review_specialist_finding(
         return finding
     if llm_client is None:
         raise SupervisorExecutionError("LLM Specialist review requires an LLM client")
-    response = llm_client.complete_json(
-        LLMRequest(
-            agent=finding.agent,
-            prompt_name="specialist",
-            prompt_version=prompt_version,
-            payload={
-                "agent": finding.agent,
-                "allowed_tools": SPECIALIST_TOOL_ALLOWLISTS[finding.agent],
-                "deterministic_finding": finding.to_dict(),
-            },
+    try:
+        response = llm_client.complete_json(
+            LLMRequest(
+                agent=finding.agent,
+                prompt_name="specialist",
+                prompt_version=prompt_version,
+                payload={
+                    "agent": finding.agent,
+                    "allowed_tools": SPECIALIST_TOOL_ALLOWLISTS[finding.agent],
+                    "deterministic_finding": finding.to_dict(),
+                },
+            )
         )
-    )
+    except LLMCallError as exc:
+        if exc.failure_category in {
+            "call_limit",
+            "formal_blind_call_cap",
+        }:
+            raise
+        fallback_details: dict[str, Any] = {
+            "source": "deterministic_fallback",
+            "fallback_reason": "llm_call_failed",
+            "failure_category": exc.failure_category,
+        }
+        if exc.status_code is not None:
+            fallback_details["status_code"] = exc.status_code
+        if exc.provider_code is not None:
+            fallback_details["provider_code"] = exc.provider_code
+        if exc.request_id is not None:
+            fallback_details["provider_request_id"] = exc.request_id
+        warning = Warning(
+            warning_id=(
+                f"WARN_{finding.agent.upper()}_LLM_REVIEW_FALLBACK"
+            ),
+            message=(
+                f"The optional {finding.agent} LLM review was unavailable; "
+                "the deterministic Tool-derived Finding was preserved."
+            ),
+            evidence_ids=list(finding.evidence_ids),
+        )
+        return replace(
+            finding,
+            details={
+                **finding.details,
+                "agent_mode": agent_mode,
+                "llm_prompt_version": prompt_version,
+                "engineering_interpretation": finding.summary,
+                "specialist_review": fallback_details,
+            },
+            warnings=[*finding.warnings, warning],
+        )
     try:
         summary = str(response.data["summary"]).strip()
         confidence = float(response.data["confidence"])

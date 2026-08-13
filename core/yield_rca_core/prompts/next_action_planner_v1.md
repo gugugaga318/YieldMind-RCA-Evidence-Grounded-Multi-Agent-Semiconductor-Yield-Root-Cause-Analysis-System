@@ -59,6 +59,11 @@ For an act decision:
 - The selected Action must be compatible with every target Question. Python owns
   the Question capability registry and will reject an Action/Question mismatch or
   scope mismatch before any Specialist or Tool executes.
+- `legal_target_question_ids_by_action` is the authoritative, current-state
+  Action-to-Question matrix. Choose one Action key and copy only Question IDs
+  listed under that same key. Static compatibility is not enough: Questions that
+  are already satisfied or whose remaining Evidence Gap cannot be filled by an
+  Action are deliberately absent from that Action's list.
 
 For every open Question, use the supplied `question_context` as the investigation
 ledger. It contains the Question scope, compatible Actions, linked Evidence grouped
@@ -88,6 +93,17 @@ authoritative repair instruction. Fix the exact rejected field before resubmitti
 do not return the unchanged decision. For a goal_satisfied boundary error, every ID
 in must_terminally_update_question_ids must receive an accepted closed or
 unavailable QuestionUpdate in the repaired JSON.
+Return exactly the fields listed by
+`previous_validation_feedback.output_fields_exactly`. Fields listed by
+`input_only_fields_never_copy_to_output` are prompt context, not PlannerDecision
+fields, and must never be echoed into the repaired JSON. If the repaired decision
+is still a `goal_satisfied` stop, copy
+`previous_validation_feedback.validator_ready_reference_question_updates`
+exactly; this requirement applies even when the first reported error concerned a
+different field.
+For an act-decision repair, use
+`previous_validation_feedback.legal_target_question_ids_by_action`; do not reuse
+the rejected target_question_ids merely because the Action itself remains legal.
 
 You may update an existing open question to closed only when its answer cites
 available Evidence IDs. You may mark it unavailable only with an explicit reason.
