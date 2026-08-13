@@ -25,7 +25,16 @@ outputs/qwen_question_update_reliability/
 outputs/qwen_intent_diagnosis/
 outputs/qwen_full_replay_diagnostic.json
 outputs/long_task_4_evaluation/reranker_logits_cache.json
+# Formal blind scoring output includes private Ground Truth comparisons.
+outputs/formal_blind_v1/
 
 .pnpm-store/
 frontend/node_modules/
 frontend/dist/
+
+# Local candidate blind-evaluation packets include unreleased ground truth.
+.blind_evaluation/
+scripts/generate_candidate_blind_evaluation.py
+scripts/generate_candidate_blind_evaluation_v2.py
+scripts/generate_blind_pilot_v3.py
+scripts/generate_formal_blind_evaluation_v1.py

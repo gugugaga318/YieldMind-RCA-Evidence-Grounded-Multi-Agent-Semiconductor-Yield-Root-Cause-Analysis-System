@@ -40,6 +40,11 @@ from yield_rca_core.hybrid_retrieval import (
     VectorDocumentChunkRetriever,
     reciprocal_rank_fusion,
 )
+from yield_rca_core.hypothesis_candidate_generator import (
+    HypothesisCandidateGeneration,
+    HypothesisCandidateProposal,
+    QwenHypothesisCandidateGenerator,
+)
 from yield_rca_core.hypothesis_engine import HypothesisEngine
 from yield_rca_core.improvement_agent import ImprovementAgent
 from yield_rca_core.intent_planner import QwenIntentPlanner, QwenIntentPlannerError
@@ -245,6 +250,8 @@ __all__ = [
     "FindImpactLotsTool",
     "FindOocEventsTool",
     "Hypothesis",
+    "HypothesisCandidateGeneration",
+    "HypothesisCandidateProposal",
     "HypothesisEngine",
     "HypothesisStatus",
     "HybridDocumentChunkRetriever",
@@ -323,6 +330,7 @@ __all__ = [
     "PGVECTOR_DIMENSIONS",
     "QwenIntentPlanner",
     "QwenIntentPlannerError",
+    "QwenHypothesisCandidateGenerator",
     "QwenNextActionPlanner",
     "QwenNextActionPlannerError",
     "RerankedKnowledgeRetriever",

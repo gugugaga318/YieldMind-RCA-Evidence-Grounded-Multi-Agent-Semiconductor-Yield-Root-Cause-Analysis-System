@@ -17,6 +17,56 @@ from yield_rca_core.models import (
     ModelValidationError,
 )
 
+_EXPOSURE_EVIDENCE_TYPES = {
+    "lot_context",
+    "process_exposure",
+    "equipment_exposure",
+    "impact_scope",
+    "excursion_window",
+}
+_PROCESS_EVIDENCE_TYPES = {
+    "recipe_change",
+    "hold_event",
+    "parameter_deviation",
+    "trend_deviation",
+    "ooc_event",
+    "spc_violation",
+}
+_PRODUCT_EVIDENCE_TYPES = {
+    "defect_signal",
+    "metrology_deviation",
+    "electrical_failure",
+}
+_LLM_NON_SUPPORTING_EVIDENCE_TYPES = {
+    "data_missing",
+    "negative_signal",
+    "historical_case_match",
+    "sop_guidance",
+    "engineering_note",
+}
+_CAUSAL_GROUNDING_IGNORED_TOKENS = {
+    "abnormal",
+    "cause",
+    "chamber",
+    "control",
+    "degradation",
+    "deviation",
+    "drift",
+    "equipment",
+    "excursion",
+    "failure",
+    "instability",
+    "issue",
+    "lot",
+    "mechanism",
+    "observed",
+    "process",
+    "range",
+    "shared",
+    "tool",
+    "wafer",
+}
+
 _SIGNATURE_RULES = (
     ("slurry_flow", "slurry delivery degradation"),
     ("carrier_pressure", "carrier pressure instability"),
@@ -150,6 +200,53 @@ def _mechanism_tokens(root_cause: str) -> set[str]:
         for token in re.findall(r"[a-z0-9]+", root_cause.lower())
         if len(token) >= 3 and token not in ignored
     }
+
+
+def _causal_grounding_tokens(value: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", value.casefold())
+        if len(token) >= 3 and token not in _CAUSAL_GROUNDING_IGNORED_TOKENS
+    }
+
+
+def _evidence_grounding_tokens(evidence: Any) -> set[str]:
+    values = [
+        str(evidence.observation or ""),
+        *(entity.entity_id for entity in evidence.entities),
+    ]
+    return {
+        token for value in values for token in _causal_grounding_tokens(value)
+    }
+
+
+def _parameter_entity_tokens(evidence: Any) -> set[str]:
+    return {
+        token
+        for entity in evidence.entities
+        if entity.entity_type == "parameter"
+        for token in _causal_grounding_tokens(entity.entity_id)
+    }
+
+
+def _grounding_overlap(left: set[str], right: set[str]) -> list[str]:
+    """Match exact or stable prefix variants such as temp/temperature."""
+
+    matched: set[str] = set()
+    for left_token in left:
+        for right_token in right:
+            if (
+                left_token == right_token
+                or (
+                    min(len(left_token), len(right_token)) >= 4
+                    and (
+                        left_token.startswith(right_token)
+                        or right_token.startswith(left_token)
+                    )
+                )
+            ):
+                matched.add(left_token)
+    return sorted(matched)
 
 
 def _canonical_root_cause(root_cause: str, signature_root_cause: str | None) -> str:
@@ -324,6 +421,244 @@ def _candidate_payload(
     }
 
 
+def _llm_candidate_payload(
+    *,
+    hypothesis_id: str,
+    proposal: dict[str, Any],
+    evidence_by_id: dict[str, Any],
+) -> dict[str, Any]:
+    """Apply deterministic causal-lane and scope gates to one Qwen proposal."""
+
+    root_cause = str(proposal.get("root_cause", "")).strip()
+    explanation = str(proposal.get("causal_explanation", "")).strip()
+    supporting = _unique(
+        [str(item) for item in proposal.get("supporting_evidence_ids", [])]
+    )
+    contradicting = _unique(
+        [str(item) for item in proposal.get("contradicting_evidence_ids", [])]
+    )
+    unknown = sorted((set(supporting) | set(contradicting)) - set(evidence_by_id))
+    invalid_support = sorted(
+        evidence_id
+        for evidence_id in supporting
+        if evidence_id in evidence_by_id
+        if evidence_by_id[evidence_id].evidence_type
+        in _LLM_NON_SUPPORTING_EVIDENCE_TYPES
+    )
+    known_supporting = [
+        evidence_id
+        for evidence_id in supporting
+        if evidence_id in evidence_by_id and evidence_id not in invalid_support
+    ]
+    known_contradicting = [
+        evidence_id
+        for evidence_id in contradicting
+        if evidence_id in evidence_by_id
+    ]
+    supporting_evidence = [
+        evidence_by_id[evidence_id]
+        for evidence_id in known_supporting
+    ]
+    lane_ids = {
+        "shared_exposure": [
+            item.evidence_id
+            for item in supporting_evidence
+            if item.evidence_type in _EXPOSURE_EVIDENCE_TYPES
+        ],
+        "process_anomaly": [
+            item.evidence_id
+            for item in supporting_evidence
+            if item.evidence_type in _PROCESS_EVIDENCE_TYPES
+        ],
+        "product_outcome": [
+            item.evidence_id
+            for item in supporting_evidence
+            if item.evidence_type in _PRODUCT_EVIDENCE_TYPES
+        ],
+    }
+    complete_lanes = {lane for lane, ids in lane_ids.items() if ids}
+    lane_lot_ids: dict[str, set[str]] = {}
+    for lane, ids in lane_ids.items():
+        lane_lot_ids[lane] = {
+            entity.entity_id
+            for evidence_id in ids
+            for entity in evidence_by_id[evidence_id].entities
+            if entity.entity_type == "lot"
+        }
+    populated_lot_sets = [values for values in lane_lot_ids.values() if values]
+    shared_lot_ids = (
+        set.intersection(*populated_lot_sets) if populated_lot_sets else set()
+    )
+    source_agents = {
+        str(item.source_agent)
+        for item in supporting_evidence
+        if item.source_agent is not None
+    }
+    root_tokens = _causal_grounding_tokens(root_cause)
+    explanation_tokens = _causal_grounding_tokens(explanation)
+    process_grounding_tokens = {
+        token
+        for item in supporting_evidence
+        if item.evidence_type in _PROCESS_EVIDENCE_TYPES
+        for token in _evidence_grounding_tokens(item)
+    }
+    product_grounding_tokens = {
+        token
+        for item in supporting_evidence
+        if item.evidence_type in _PRODUCT_EVIDENCE_TYPES
+        for token in _evidence_grounding_tokens(item)
+    }
+    root_process_overlap = _grounding_overlap(
+        root_tokens,
+        process_grounding_tokens,
+    )
+    explanation_product_overlap = _grounding_overlap(
+        explanation_tokens,
+        product_grounding_tokens,
+    )
+    causal_parameter_tokens = {
+        token
+        for item in supporting_evidence
+        if item.evidence_type in _PROCESS_EVIDENCE_TYPES
+        for token in _parameter_entity_tokens(item)
+    }
+    supporting_lot_ids = {
+        entity.entity_id
+        for item in supporting_evidence
+        for entity in item.entities
+        if entity.entity_type == "lot"
+    }
+    automatically_contradicting: list[str] = []
+    for evidence in evidence_by_id.values():
+        if evidence.evidence_type != "negative_signal" or evidence.evidence_id.startswith(
+            ("EV_MES_RECOVERY_CONTROLS", "EV_WAT_PASSING_CONTROLS")
+        ):
+            continue
+        negative_parameter_tokens = _parameter_entity_tokens(evidence)
+        negative_lot_ids = {
+            entity.entity_id
+            for entity in evidence.entities
+            if entity.entity_type == "lot"
+        }
+        if (
+            causal_parameter_tokens
+            and _grounding_overlap(
+                causal_parameter_tokens,
+                negative_parameter_tokens,
+            )
+            and (
+                not supporting_lot_ids
+                or not negative_lot_ids
+                or bool(supporting_lot_ids & negative_lot_ids)
+            )
+        ):
+            automatically_contradicting.append(evidence.evidence_id)
+    known_contradicting = _unique(
+        [*known_contradicting, *automatically_contradicting]
+    )
+    grounded_entity_ids = {
+        entity.entity_id
+        for item in supporting_evidence
+        for entity in item.entities
+    }
+    named_structured_entities = set(
+        re.findall(r"\b(?:LOT|EQ|RCP)_[A-Z0-9_]+\b", root_cause.upper())
+    )
+    ungrounded_entities = sorted(named_structured_entities - grounded_entity_ids)
+    gate_checks = {
+        "known_evidence": not unknown,
+        "supporting_evidence_types": not invalid_support,
+        "three_causal_lanes": len(complete_lanes) == 3,
+        "shared_lot_scope": bool(shared_lot_ids),
+        "independent_source_agents": len(source_agents) >= 3,
+        "root_cause_process_grounding": bool(root_process_overlap),
+        "explanation_product_grounding": bool(explanation_product_overlap),
+        "grounded_structured_entities": not ungrounded_entities,
+        "causal_explanation_present": bool(explanation),
+    }
+    rejection_reasons: list[str] = []
+    if unknown:
+        rejection_reasons.append(f"Unknown Evidence IDs: {unknown}.")
+    if invalid_support:
+        rejection_reasons.append(
+            "Non-causal or missing Evidence was cited as support: "
+            f"{invalid_support}."
+        )
+    if len(complete_lanes) < 3:
+        rejection_reasons.append(
+            "The proposal does not join shared exposure, process anomaly, and "
+            "product outcome Evidence."
+        )
+    if not shared_lot_ids:
+        rejection_reasons.append(
+            "The causal Evidence lanes do not share a grounded Lot scope."
+        )
+    if len(source_agents) < 3:
+        rejection_reasons.append(
+            "The proposal lacks three independent Specialist Evidence sources."
+        )
+    if not root_process_overlap:
+        rejection_reasons.append(
+            "The root-cause wording is not grounded in an abnormal process "
+            "parameter or process Evidence entity."
+        )
+    if not explanation_product_overlap:
+        rejection_reasons.append(
+            "The causal explanation does not connect to the observed product "
+            "Evidence."
+        )
+    if ungrounded_entities:
+        rejection_reasons.append(
+            f"The root cause names ungrounded structured entities: {ungrounded_entities}."
+        )
+    if not explanation:
+        rejection_reasons.append("The proposal lacks a causal explanation.")
+
+    confidence = 0.45 + 0.10 * len(complete_lanes)
+    if len(source_agents) >= 3:
+        confidence += 0.05
+    if shared_lot_ids:
+        confidence += 0.05
+    confidence = round(min(0.90, confidence), 3)
+    gate_passed = all(gate_checks.values()) and not known_contradicting
+    status = "conflicted" if known_contradicting else (
+        "supported" if gate_passed else "candidate"
+    )
+    if known_contradicting:
+        rejection_reasons.append(
+            "The proposal explicitly cites contradicting operational Evidence."
+        )
+    return {
+        "hypothesis_id": hypothesis_id,
+        "root_cause": root_cause,
+        "basis": "llm_evidence_composition",
+        "causal_explanation": explanation,
+        "supporting_evidence_ids": known_supporting,
+        "contradicting_evidence_ids": known_contradicting,
+        "neutral_evidence_ids": [],
+        "evidence_ids": _unique(known_supporting + known_contradicting),
+        "validation_results": [
+            {
+                "outcome": "passed" if passed else "failed",
+                "gate": name,
+                "evidence_ids": _unique(
+                    [evidence_id for ids in lane_ids.values() for evidence_id in ids]
+                ),
+            }
+            for name, passed in gate_checks.items()
+        ],
+        "confidence": confidence,
+        "status": status,
+        "rejection_reasons": rejection_reasons,
+        "llm_gate_passed": gate_passed,
+        "causal_lanes": lane_ids,
+        "shared_lot_ids": sorted(shared_lot_ids),
+        "source_agents": sorted(source_agents),
+        "root_process_grounding_tokens": root_process_overlap,
+        "explanation_product_grounding_tokens": explanation_product_overlap,
+    }
+
+
 @dataclass(frozen=True)
 class HypothesisEngine:
     """Generate, validate, rank, and gate deterministic RCA hypotheses."""
@@ -345,6 +680,7 @@ class HypothesisEngine:
         request_id: str,
         findings: list[AgentFinding],
         mode: str = "shadow",
+        external_candidates: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Return a JSON-safe deterministic hypothesis decision result."""
         by_kind = _findings_by_kind(findings)
@@ -371,6 +707,11 @@ class HypothesisEngine:
                 if evidence.evidence_type in {"data_missing", "negative_signal"}
             ]
         )
+        evidence_by_id = {
+            evidence.evidence_id: evidence
+            for finding in findings
+            for evidence in finding.evidence
+        }
         candidates: dict[str, dict[str, Any]] = {}
 
         def add(root_cause: str | None, basis: str, score: float) -> None:
@@ -412,34 +753,55 @@ class HypothesisEngine:
                         float(candidate.get("score", 0.0)),
                     )
 
-        ranked = sorted(
-            candidates.values(),
-            key=lambda item: (-float(item["confidence"]), str(item["root_cause"])),
-        )[:3]
-        for rank, candidate in enumerate(ranked, start=1):
-            candidate["rank"] = rank
-        selected = ranked[0] if ranked else None
+        for proposal in external_candidates or []:
+            if not isinstance(proposal, dict):
+                raise ModelValidationError(
+                    "external hypothesis candidates must be JSON objects"
+                )
+            candidate = _llm_candidate_payload(
+                hypothesis_id=f"{request_id}:llm:{len(candidates) + 1}",
+                proposal=proposal,
+                evidence_by_id=evidence_by_id,
+            )
+            root_cause = str(candidate["root_cause"])
+            existing = candidates.get(root_cause)
+            if existing is None or candidate["confidence"] > existing["confidence"]:
+                candidates[root_cause] = candidate
+
         mes_strength = _mes_strength(mes)
         fdc_strength = _fdc_strength(fdc)
         defect_wat_strength = _defect_wat_strength(defect_wat)
-        equipment_signature_supported = (
-            selected is not None
-            and selected["root_cause"] == signature_root_cause
-            and mes_strength >= 0.8
-            and fdc_strength >= 0.6
-            and defect_wat_strength >= 0.6
-        )
-        recipe_supported = (
-            selected is not None
-            and selected["basis"] == "recipe_change"
-            and mes_strength >= 0.8
-            and defect_wat_strength >= 0.6
-        )
+        conflicting_physics = _has_conflicting_physics(mes, fdc)
+
+        def passes_decision_gate(candidate: dict[str, Any]) -> bool:
+            if candidate["status"] != "supported" or conflicting_physics:
+                return False
+            if candidate["basis"] == "llm_evidence_composition":
+                return bool(candidate.get("llm_gate_passed", False))
+            if candidate["basis"] == "recipe_change":
+                return mes_strength >= 0.8 and defect_wat_strength >= 0.6
+            return (
+                candidate["root_cause"] == signature_root_cause
+                and mes_strength >= 0.8
+                and fdc_strength >= 0.6
+                and defect_wat_strength >= 0.6
+            )
+
+        ranked = sorted(
+            candidates.values(),
+            key=lambda item: (
+                not passes_decision_gate(item),
+                -float(item["confidence"]),
+                str(item["root_cause"]),
+            ),
+        )[:3]
+        for rank, candidate in enumerate(ranked, start=1):
+            candidate["rank"] = rank
+            candidate["decision_gate_passed"] = passes_decision_gate(candidate)
+        selected = ranked[0] if ranked else None
         supported = (
             selected is not None
-            and selected["status"] == "supported"
-            and not _has_conflicting_physics(mes, fdc)
-            and (equipment_signature_supported or recipe_supported)
+            and bool(selected["decision_gate_passed"])
         )
         decision = {
             "status": "supported" if supported else "inconclusive",
@@ -452,7 +814,7 @@ class HypothesisEngine:
                 if supported
                 else ["No ranked hypothesis passed the deterministic decision gate."]
             ),
-            "conflicting_physics": _has_conflicting_physics(mes, fdc),
+            "conflicting_physics": conflicting_physics,
         }
         return {
             "engine": "hypothesis_v1",
@@ -465,5 +827,6 @@ class HypothesisEngine:
                     [evidence_id for finding in findings for evidence_id in finding.evidence_ids]
                 ),
                 "knowledge_validation_present": validation is not None,
+                "external_candidate_count": len(external_candidates or []),
             },
         }
