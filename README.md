@@ -1,209 +1,247 @@
-# Semiconductor Yield RCA Multi-Agent System
+# YieldMind RCA｜基于多智能体与 Evidence-Grounded Reasoning 的半导体良率根因分析系统
 
-This project is an MVP-first industrial AI Agent system for semiconductor yield root cause analysis (RCA).
+YieldMind RCA 面向 Yield Engineer、Process Engineer 和设备制程团队。系统从产品良率异常或已知异常 Lot 出发，组织多智能体调查 MES、FDC/SPC、Defect、WAT 和历史 RCA 数据，并基于可追溯证据给出影响范围、根因判断、处置建议和 RCA 报告。
 
-The system simulates how a Yield Engineer investigates a yield excursion by combining MES genealogy, FDC feature summaries, defect/WAT evidence, historical RCA cases, and structured multi-agent reasoning.
+**版本：** `0.1.0`
 
-## Project Goal
+**项目状态：** 可部署平台
 
-Build a planner-driven Multi-Agent RCA platform that can:
+License: 待定
 
-- Detect and scope a yield excursion.
-- Start an RCA investigation from a known abnormal `lot_id`.
-- Identify affected lots and wafer history.
-- Identify impact Lots from shared operation/equipment/chamber exposure during an OOC window.
-- Analyze process, equipment, chamber, recipe, and hold-comment commonality.
-- Check FDC feature drift and OOC events.
-- Calculate Minimal SPC control limits and bounded rule violations from FDC feature summaries.
-- Correlate defect and WAT symptoms.
-- Retrieve similar historical RCA cases.
-- Generate an evidence-backed RCA report.
-- Generate evidence-backed containment, corrective, Recipe, preventive, and Fab-level
-  improvement recommendations.
+## 目录
 
-The first milestone is not a full industrial system. The MVP goal is to run one complete golden case end to end.
+- [项目定位](#项目定位)
+- [适用场景](#适用场景)
+- [核心方法](#核心方法)
+- [主要功能](#主要功能)
+- [分析结果](#分析结果)
+- [分析流程](#分析流程)
+- [快速开始](#快速开始)
+- [使用方式](#使用方式)
+- [运行模式与配置](#运行模式与配置)
+- [API 概览](#api-概览)
+- [数据集](#数据集)
+- [评测与验证](#评测与验证)
+- [本地开发](#本地开发)
+- [技术栈](#技术栈)
+- [项目结构](#项目结构)
+- [设计边界](#设计边界)
+- [文档导航](#文档导航)
+- [常见问题](#常见问题)
+- [联系方式](#联系方式)
+- [待确认项](#待确认项)
 
-## Canonical Design Source
+## 项目定位
 
-The project design is defined in:
+半导体良率异常排查需要跨越多类数据：Lot 和 Wafer genealogy、工艺步骤、设备与腔体、Recipe、FDC/SPC、Defect、WAT 以及历史 RCA case。人工调查往往需要在多个系统之间反复核对，不仅耗时，也容易遗漏证据或无法还原结论的形成过程。
 
-- [DESIGN_DOC_FULL.md](DESIGN_DOC_FULL.md)
-- [docs/architecture/system-overview.md](docs/architecture/system-overview.md)
-- [docs/architecture/agent-architecture.md](docs/architecture/agent-architecture.md)
-- [docs/architecture/data-architecture.md](docs/architecture/data-architecture.md)
-- [docs/autonomous-qwen-react-spec.md](docs/autonomous-qwen-react-spec.md)
+YieldMind RCA 将这项工作组织成一套可部署、可追踪、可复核的分析流程。工程师提供调查入口，系统负责确定范围、调取相关数据、组织专业分析、评估根因假设，并生成完整 RCA 报告。
 
-Implementation work must follow these documents unless an ADR explicitly changes the design.
+项目名称表达了系统的两个核心设计：
 
-## MVP Scope
+- **YieldMind**：围绕半导体良率工程建立多智能体分工，让不同 Agent 分别处理调查规划、制造数据、过程异常、缺陷电性、历史知识和改进建议。
+- **RCA**：以 Root Cause Analysis 为目标，输出的不只是模型回答，而是影响范围、根因假设、支持与冲突证据、置信度和处置建议。
 
-MVP includes:
+当前版本使用离线合成 Fab 数据进行开发、演示和评测，尚未接入真实 Fab 实时数据。
 
-- Offline synthetic golden dataset generation and database seed.
-- PostgreSQL schema for MES, FDC feature summary, Defect/WAT, and knowledge metadata.
-- Tool Layer for engineering queries.
-- MES, FDC, Defect/WAT, and Knowledge specialist agents.
-- Planner, Supervisor, RCA Reasoning Agent, and Report Generator.
-- Improvement Agent with report integration and controlled memory candidates.
-- Dual-engineer approval before confirmed knowledge publication.
-- Pure Python end-to-end workflow before API or frontend work.
-- Basic FastAPI wrapper after the Python workflow is stable.
-- Basic React dashboard after the API is stable.
-- Product/time-window and Lot-driven investigation modes.
+## 适用场景
 
-MVP explicitly excludes:
+- 某个产品在指定时间范围内出现良率下降，需要查找共同设备、腔体、Recipe 或工艺步骤。
+- 已知一个异常 `lot_id`，需要追溯其 genealogy、OOC 窗口和其他受影响 Lot。
+- 需要联合检查 FDC/SPC、Defect、WAT 与制程履历是否指向同一原因。
+- 需要将根因结论与原始记录关联，供 Yield、Process 和设备团队共同复核。
+- 需要把已确认 RCA 经过审批后沉淀为后续调查可检索的历史知识。
 
-- Raw FDC sensor stream processing.
-- Vision Agent and image analysis.
-- Real-time Fab data integration.
-- Full SPC platform.
-- Large-scale industrial performance targets.
-- Batch RCA accuracy benchmarking.
+## 核心方法
 
-## Non-Negotiable Architecture Rules
+### 多智能体协作
 
-1. Synthetic Fab data generation is an offline seed workflow, not FastAPI runtime behavior.
-2. Agents must not directly access the database or repositories.
-3. Agents must use the Tool Layer.
-4. RCA conclusions must cite traceable evidence.
-5. React displays RCA results; it does not compute SPC or RCA logic.
-6. FastAPI wraps the core Python workflow; it does not generate synthetic data.
-7. Only engineer-confirmed memory may become high-weight historical evidence.
+YieldMind RCA 按工程职责拆分调查任务，各 Agent 通过 Tool Layer 获取数据，不直接访问数据库。
 
-## MVP Execution Order
+| 分工 | 主要职责 |
+| --- | --- |
+| Planner / Supervisor | 理解调查目标、拆分任务、安排执行顺序并汇总进度 |
+| MES Agent | 调查 Lot、Wafer、route、operation、equipment、chamber、Recipe 和 Hold 履历 |
+| FDC Agent | 检查 feature drift、OOC event、控制界限和 SPC 规则异常 |
+| Defect/WAT Agent | 分析缺陷与电性症状、Wafer 分布及其共同性 |
+| Knowledge Agent | 检索历史 RCA case 和工程知识文档 |
+| RCA Reasoning Agent | 形成并比较根因假设，检查支持证据、冲突与缺口 |
+| Improvement Agent | 根据受支持结论生成 containment、corrective 和 preventive 建议 |
+| Report Generator | 将调查范围、证据、结论和建议整理为 RCA 报告 |
 
-Recommended order:
+系统支持固定工作流、Controlled ReAct 和 Qwen 驱动的 `llm_react`。无论采用哪种编排模式，Agent 都不能绕过 Tool Layer 和证据检查直接生成正式结论。
 
-```text
-Step 0  Project baseline and docs
-Step 1  Python core package
-Step 2  Domain models / RCAState / DTOs
-Step 3  PostgreSQL schema
-Step 4  Golden synthetic dataset + seed
-Step 5  Repository + Tool Layer
-Step 6  Specialist agents
-Step 7  Planner agent
-Step 8  RCA reasoning agent
-Step 9  Report generator
-Step 10 Supervisor + pure Python workflow
-Step 11 FastAPI backend
-Step 12 React dashboard
-Step 13 MVP demo
-Step 14 Evaluation and optimization
-Step 15 Docker Compose and runtime configuration
-Step 16 Qwen Hybrid Agents, observability, and audit foundation
-Step 17 Minimal SPC Analytics Tool and report integration
-Step 18 Improvement Agent and report integration
-Step 19 Dual-engineer memory approval and confirmed knowledge publication
+### Evidence-Grounded Reasoning
+
+Evidence-Grounded Reasoning 的含义是：根因结论必须建立在系统实际取得并记录的 Evidence 上，而不是只依赖 LLM 的文字判断。
+
+- Tool 查询结果会转换为带来源标识的 Evidence。
+- 每个根因假设必须引用对应的 Evidence ID。
+- 支持证据、反向证据、数据缺口和冲突会分别记录。
+- SPC 计算、Evidence 校验、冲突处理和最终支持阈值由确定性代码执行。
+- 证据不足或相互冲突时，系统输出无法定论，而不是强行选择一个根因。
+- 只有证据支持的结论才能生成 memory candidate，并在双工程师审批后成为高权重历史知识。
+
+## 主要功能
+
+- 支持按产品与时间范围调查良率异常。
+- 支持从已知异常 `lot_id` 追溯相关 Lot 和 Wafer。
+- 关联 MES、FDC/SPC、Defect、WAT 和历史 RCA 记录。
+- 比较工艺步骤、设备、腔体、Recipe 和异常时间窗口的共同性。
+- 识别可能受影响的 Lot，并说明它们为什么被纳入范围。
+- 生成根因假设、支持证据、冲突信息和置信度。
+- 给出 containment、corrective、Recipe、preventive 和 Fab-level 建议。
+- 生成可查看、下载和复核的 Markdown RCA 报告。
+- 记录 Agent 决策、Tool 调用和 Evidence 引用；符合条件的结论可经过双工程师审批后写入知识库。
+
+## 分析结果
+
+| 输出 | 内容 |
+| --- | --- |
+| 影响范围 | 异常产品、时间窗口、来源 Lot 和其他受影响 Lot |
+| 根因判断 | 排序后的根因假设、置信度，以及无法定论时的明确说明 |
+| Evidence Chain | 根因引用的 MES、FDC/SPC、Defect、WAT 和历史案例记录 |
+| 处置建议 | 事件控制、纠正措施、Recipe、预防措施和 Fab-level 建议 |
+| RCA 报告 | 调查范围、分析过程、结论和建议组成的 Markdown 报告 |
+| Agent Trace | 调查计划、Agent 决策、Tool 调用、观察结果和状态变化 |
+
+在仓库提供的 `golden_case` 中，YieldMind RCA 可以从 `40N_SOC` 产品异常定位 20 个暴露 Lot；从 `LOT_A_001` 开始调查时，可以定位另外 19 个影响 Lot，并将根因指向 `CMP_CU03_CH02 slurry delivery degradation`。这是固定合成数据上的演示结果，不代表真实 Fab 的分析准确率。
+
+## 分析流程
+
+1. 工程师输入产品和时间范围，或一个异常 `lot_id`。
+2. Planner 确定调查范围，将问题拆分给对应的专业 Agent。
+3. 各 Agent 通过 Tool Layer 查询制造、量测和历史知识，并生成可追溯 Evidence。
+4. RCA Reasoning Agent 比较根因假设，确定性规则检查证据充分性与冲突。
+5. Improvement Agent 和 Report Generator 输出建议与完整 RCA 报告。
+
+Qwen 可用于理解意图、规划下一步和解释工程语义；Qwen 不可用时，YieldMind RCA 可以使用确定性模式继续运行。
+
+## 快速开始
+
+Docker Compose 是运行完整 YieldMind RCA 的推荐方式。它会启动 PostgreSQL、FastAPI、Queue Worker 和 React/Nginx 前端。
+
+### 环境要求
+
+- Git
+- Docker Engine 与 Docker Compose v2；Windows 可使用 Docker Desktop
+- 建议至少为容器和本地模型预留足够的磁盘空间
+
+只有本地开发才需要另外安装：
+
+- Python `3.11+`
+- Node.js
+- pnpm `11.9.0`
+
+### 1. 获取代码
+
+Windows PowerShell、Linux 和 macOS 使用相同命令：
+
+```bash
+git clone https://github.com/gugugaga318/autonomous-qwen-react.git
+cd autonomous-qwen-react
 ```
 
-## Run the Golden RCA Workflow
+### 2. 创建本地配置
 
-The Step 10 pure Python workflow runs against the existing offline golden seed dataset. It does not generate or modify Synthetic Fab data.
-
-From the repository root:
+Windows PowerShell：
 
 ```powershell
-python scripts\run_golden_rca.py --no-print-report
+Copy-Item .env.example .env
 ```
 
-The command executes:
+Linux/macOS：
 
-```text
-Planner
-  -> Supervisor
-  -> MES / FDC / Defect-WAT / Knowledge Agents
-  -> RCA Reasoning
-  -> Report Generator
+```bash
+cp .env.example .env
 ```
 
-Generated artifacts:
+打开 `.env`，至少修改本地 PostgreSQL 密码：
 
-```text
-outputs/golden_rca_run/rca_state.json
-outputs/golden_rca_run/rca_report.md
+```dotenv
+POSTGRES_PASSWORD=replace_with_a_local_password
 ```
 
-## Lot-Driven RCA
+默认配置使用 `multi_case` 合成数据、确定性 Agent 和关键词检索，不需要 DashScope API key。
 
-Lot-driven RCA starts from one known abnormal Lot and reuses the same Specialist,
-reasoning, and reporting workflow:
+### 3. 初始化数据库
 
-```text
-abnormal lot_id
-  -> resolve product, route, WAT, and genealogy context
-  -> derive the relevant OOC excursion window
-  -> find Lots with matching operation/equipment/chamber time overlap
-  -> run FDC, Defect/WAT, and Knowledge analysis
-  -> produce an evidence-backed root cause and Markdown report
+```bash
+docker compose up -d db
+docker compose --profile tools run --rm --build seed
 ```
 
-For the golden dataset, `LOT_A_001` resolves to 19 additional impact Lots. The
-source Lot is excluded from `impact_lots` and included in the total exposed
-population. The impact list is derived from `process_history` and `ooc_event`;
-it is not hardcoded in the API or frontend.
+`seed` 会执行 migration 并重置目标数据库。只应对本地或 Demo 数据库使用；不要对需要保留 RCA 与审批历史的数据库执行 reset。
 
-Omit `--no-print-report` to also print the Markdown report in the terminal. To run against an already seeded PostgreSQL database, pass `--database-url`.
+### 4. 启动平台
 
-## Current Step
+```bash
+docker compose up --build -d backend worker frontend
+docker compose ps
+```
 
-This repository has completed Step 19: controlled RCA memory persistence,
-dual-engineer approval, and confirmed knowledge publication.
+启动后访问：
 
-The complete demo generates the golden dataset offline, seeds PostgreSQL,
-starts the FastAPI and React services, submits the golden RCA query, and exposes
-the traceable evidence chain and Markdown report. Synthetic Fab generation
-remains offline-only, and the frontend performs no SPC or RCA computation.
+| 服务 | 地址 |
+| --- | --- |
+| Dashboard | <http://127.0.0.1:5173> |
+| OpenAPI | <http://127.0.0.1:8000/docs> |
+| Health | <http://127.0.0.1:8000/health> |
+| Readiness | <http://127.0.0.1:8000/ready> |
 
-Step 15 adds reproducible PostgreSQL, FastAPI, and Nginx/React containers.
-Database initialization remains an explicit offline seed command and is not
-part of normal Compose or API startup.
+### 5. 停止平台
 
-Step 16 adds explicit `deterministic`, `fake`, and `llm` modes. Planner,
-Specialist interpretation, and RCA candidate ranking can use DashScope
-`qwen-plus`; Tool execution, evidence validation, conflict gates, and final
-support thresholds remain deterministic. See
-[ADR-005](docs/adr/ADR-005-qwen-hybrid-agent-observability.md) and
-[docs/observability.md](docs/observability.md).
+```bash
+docker compose down
+```
 
-Step 17 adds deterministic baseline selection, sample standard deviation,
-3-sigma control limits, point/run/trend rules, traceable `EV_SPC_*` evidence,
-and a Minimal SPC section in the Markdown report. It does not implement Raw FDC,
-real-time monitoring, configurable control-chart administration, or a full SPC
-platform. See [docs/minimal-spc.md](docs/minimal-spc.md).
+该命令不会删除 PostgreSQL volume。完整的初始化、运行和维护说明见 [Docker Compose Deployment](docs/deployment/docker-compose.md)。
 
-Step 18 executes Improvement Agent after RCA Reasoning. It distinguishes an
-event conclusion from a Fab-level conclusion, emits five recommendation layers,
-and includes every recommendation in the Markdown report with evidence IDs.
-Inconclusive RCA cannot produce root-cause-specific or Fab-level actions. Step
-18 does not write long-term memory. See
-[docs/improvement-agent.md](docs/improvement-agent.md).
+### Windows Demo 启停脚本
 
-Step 19 creates a pending memory candidate only for supported RCA conclusions.
-Event-level and Fab-level candidates require two different engineers. A
-candidate containing Recipe recommendations also requires one Process Engineer
-among those two approvers. Only published `CONFIRMED` cases are available as
-high-weight historical knowledge. See
-[docs/memory-approval.md](docs/memory-approval.md).
-
-## Run the FastAPI Backend
-
-Install the project in a Python 3.11+ virtual environment:
+仓库还提供了用于录制和本地验证的 PowerShell 启动器。先配置 `YIELD_RCA_DATABASE_URL` 或 `TEST_DATABASE_URL`，再运行：
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\scripts\start_demo.ps1
 ```
 
-Start the API from the repository root:
+如果本机 execution policy 阻止仓库脚本，可以只对当前命令绕过策略：
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn yield_rca_api.app:app --app-dir backend --host 127.0.0.1 --port 8000
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_demo.ps1
 ```
 
-OpenAPI documentation is available at `http://127.0.0.1:8000/docs`.
+选择其他数据集：
 
-Create and inspect a golden RCA job from PowerShell:
+```powershell
+.\scripts\start_demo.ps1 -Dataset multi_case
+.\scripts\start_demo.ps1 -Dataset spc_case
+```
+
+停止脚本记录的 Demo 进程：
+
+```powershell
+.\scripts\stop_demo.ps1
+```
+
+Linux/macOS 使用前述 Docker Compose 命令启动相同服务，不依赖这些 PowerShell 脚本。
+
+## 使用方式
+
+### 通过 YieldMind RCA Dashboard 调查
+
+1. 打开 <http://127.0.0.1:5173>。
+2. 选择 `Product` 或 `Lot ID`。
+3. 使用默认问题或输入调查条件。
+4. 点击 `Run RCA`。
+5. 查看排队、执行、重试或完成状态。
+6. 在 Investigation 与 Report 视图检查证据、根因、建议和报告。
+
+完整演示流程见 [Demo Runbook](docs/demo-runbook.md)。
+
+### 通过 API 创建 Product Window 调查
+
+Windows PowerShell：
 
 ```powershell
 $body = @{
@@ -220,24 +258,20 @@ $job = Invoke-RestMethod `
 Invoke-RestMethod -Uri "http://127.0.0.1:8000$($job.state_url)"
 ```
 
-Batch 23.0 changes this endpoint to an asynchronous acceptance contract. It
-returns `202 Accepted` with `status=queued` immediately; it does not execute the
-Workflow in the HTTP request. The optional `Idempotency-Key` safely reuses the
-same Job for the same normalized request and returns `409 idempotency_conflict`
-if the key is reused for different input. `GET /rca/jobs/{job_id}` exposes
-non-secret queue metadata. A report request returns structured
-`409 job_not_completed` until a later Worker completes the Job.
+Linux/macOS：
 
-Batch 23.1 adds the separate leased Worker, transient-only bounded retry,
-cooperative cancellation, stale-lease recovery, Attempt history, and ordered
-Job Events. Batch 23.2 streams those persisted public Events over SSE and gives
-the frontend asynchronous submission, reconnect, progress, cancellation,
-terminal result, and structured error handling. The FastAPI
-`execute_jobs_inline=True` adapter exists only for explicit regression tests
-and is never enabled by the default runtime app.
+```bash
+curl --request POST 'http://127.0.0.1:8000/rca/jobs' \
+  --header 'Content-Type: application/json' \
+  --header 'Idempotency-Key: demo-job-001' \
+  --data '{
+    "user_query": "Analyze the 40N_SOC yield drop from 2026-07-01 to 2026-07-31."
+  }'
+```
 
-After Batch 23.1 has completed the queued Job, approve an eligible generated
-memory candidate with two different engineers:
+### 审批 RCA Memory Candidate
+
+只有满足证据门槛的 RCA 才会生成 candidate。以下 PowerShell 示例使用两名不同工程师完成审批：
 
 ```powershell
 $memoryCandidate = Invoke-RestMethod `
@@ -271,7 +305,37 @@ Invoke-RestMethod `
   -Body $secondApproval
 ```
 
-Create a Lot-driven RCA job:
+Linux/macOS 可使用 candidate ID 调用同一接口：
+
+```bash
+candidate_id='<candidate-id>'
+
+curl --request POST \
+  "http://127.0.0.1:8000/memory/candidates/${candidate_id}/approvals" \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "engineer_id": "YE001",
+    "engineer_role": "yield_engineer",
+    "decision": "approve",
+    "comment": "RCA evidence reviewed."
+  }'
+
+curl --request POST \
+  "http://127.0.0.1:8000/memory/candidates/${candidate_id}/approvals" \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "engineer_id": "PE001",
+    "engineer_role": "process_engineer",
+    "decision": "approve",
+    "comment": "Recipe DOE gate reviewed; no direct production change."
+  }'
+```
+
+接口返回 `state_url`、`events_url`、`report_url` 和 `cancel_url`。相同的 `Idempotency-Key` 与相同请求会复用 Job；同一个 key 用于不同输入时返回 `409 idempotency_conflict`。
+
+### 通过 API 创建 Lot-Driven 调查
+
+Windows PowerShell：
 
 ```powershell
 $body = @{
@@ -279,390 +343,566 @@ $body = @{
   lot_id = "LOT_A_001"
 } | ConvertTo-Json
 
-$job = Invoke-RestMethod `
+Invoke-RestMethod `
   -Method Post `
   -Uri "http://127.0.0.1:8000/rca/jobs" `
   -ContentType "application/json" `
   -Body $body
-
-Invoke-RestMethod -Uri "http://127.0.0.1:8000$($job.state_url)"
 ```
 
-The original Step 11 synchronous behavior is retained only as an explicit test
-adapter. Batch 23.0 makes the default HTTP path a durable PostgreSQL-backed
-enqueue operation; Batch 23.1 executes it in a separate leased Worker.
+Linux/macOS：
 
-By default, the API reads the existing files under `data/seeds/golden_case`. It does not invoke the Synthetic Fab generator. To query an already seeded PostgreSQL database instead, set:
+```bash
+curl --request POST 'http://127.0.0.1:8000/rca/jobs' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "investigation_mode": "lot",
+    "lot_id": "LOT_A_001"
+  }'
+```
+
+### 运行纯 Python Golden Workflow
+
+该方式直接读取现有 `data/seeds/golden_case`，不启动 API，也不会生成或修改合成数据。
+
+Windows PowerShell：
 
 ```powershell
-$env:YIELD_RCA_DATABASE_URL="postgresql://user:password@localhost:5432/yield_rca"
+python scripts\run_golden_rca.py --no-print-report
 ```
 
-The supported endpoints are:
+Linux/macOS：
+
+```bash
+python scripts/run_golden_rca.py --no-print-report
+```
+
+输出文件：
 
 ```text
-POST /rca/jobs
-GET  /rca/jobs/{job_id}
-GET  /rca/jobs/{job_id}/report
-GET  /rca/jobs/{job_id}/memory-candidate
-GET  /memory/candidates/{candidate_id}
-POST /memory/candidates/{candidate_id}/approvals
-GET  /health
-GET  /ready
-GET  /metrics
+outputs/golden_rca_run/rca_state.json
+outputs/golden_rca_run/rca_report.md
 ```
 
-## Run the React Dashboard
+如果需要连接已初始化的 PostgreSQL，可以传入 `--database-url`。
 
-Install the frontend dependencies from the repository root:
+## 运行模式与配置
 
-```powershell
-cd frontend
-pnpm install
+### Agent 模式
+
+| `YIELD_RCA_AGENT_MODE` | 行为 | 是否需要 API key |
+| --- | --- | --- |
+| `deterministic` | 使用确定性实现，适合默认运行和回归验证 | 否 |
+| `fake` | 运行完整 LLM 路径，但不发起付费网络调用 | 否 |
+| `llm` | 通过 DashScope 调用真实 Qwen | 是 |
+
+### 编排模式
+
+| `YIELD_RCA_ORCHESTRATION_MODE` | 行为 |
+| --- | --- |
+| `fixed` | 固定工作流兼容路径 |
+| `controlled_react` | 对符合条件的 Lot 调查运行受控 ReAct，其他请求回退到 `fixed` |
+| `llm_react` | 由 LLM 执行意图规划、下一步规划和 Specialist interpretation，确定性代码负责工具与结论门禁 |
+
+无需付费即可验证完整 LLM 路径：
+
+```dotenv
+YIELD_RCA_AGENT_MODE=fake
+YIELD_RCA_ORCHESTRATION_MODE=llm_react
 ```
 
-Keep the FastAPI backend running on `http://127.0.0.1:8000`, then start the
-dashboard in a second terminal:
+使用真实 Qwen：
 
-```powershell
-cd frontend
-pnpm dev
-```
-
-Open `http://127.0.0.1:5173`. The Vite development server proxies `/api`
-requests to FastAPI. No Synthetic Fab data is generated when the dashboard or
-API starts.
-
-Frontend verification commands:
-
-```powershell
-cd frontend
-pnpm run check
-pnpm run build
-```
-
-To inspect the production build locally:
-
-```powershell
-cd frontend
-pnpm preview
-```
-
-## Run the MVP Demo
-
-The Step 13 demo uses the PostgreSQL-backed workflow and preserves the offline
-Synthetic Fab boundary. Configure `YIELD_RCA_DATABASE_URL` or
-`TEST_DATABASE_URL`, then run:
-
-```powershell
-.\scripts\start_demo.ps1
-```
-
-If the local PowerShell execution policy blocks repository scripts, run the
-same launcher without changing the machine-wide policy:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start_demo.ps1
-```
-
-Open `http://127.0.0.1:5173` and follow the seven-step checklist in
-[docs/demo-runbook.md](docs/demo-runbook.md). Stop the recorded demo processes
-with:
-
-```powershell
-.\scripts\stop_demo.ps1
-```
-
-The verified golden run returns 20 affected lots, 30 normal lots, a `5/5`
-completed Agent workflow, nine evidence records, and the supported root cause
-`CMP_CU03_CH02 slurry delivery degradation` at 95% confidence.
-
-The verified Lot-driven run for `LOT_A_001` returns 19 additional impact Lots,
-20 total exposed Lots, the same `5/5` Agent workflow, a traceable impact-scope
-record, and the same supported root cause at 95% confidence.
-
-## Multi-Case Reliability Dataset
-
-The original `golden_case` remains the fixed regression baseline. A separate
-offline dataset adds a Cu CMP equipment-window excursion, an isolated
-single-Wafer scratch, and an upstream ILD deposition odd/even Wafer split:
-
-```powershell
-.\scripts\stop_demo.ps1
-.\scripts\start_demo.ps1 -Dataset multi_case
-```
-
-Use the product-window queries and source Lot IDs in
-[docs/multi-case-validation.md](docs/multi-case-validation.md). The combined
-dataset is generated under `data/seeds/multi_case`; API startup does not invoke
-either Synthetic Fab generator.
-
-## Run Step 20 Advanced SPC Evidence
-
-Step 20 adds deterministic SPC evidence to RCA without building a separate
-production SPC system. It includes I-MR, Xbar-S, Xbar-R, p-chart, Nelson Rules
-1-8, capability indices, versioned strict baselines, and explicit OOC / Trigger
-Hold / Impact Hold relationships.
-
-```powershell
-.\scripts\stop_demo.ps1
-.\scripts\start_demo.ps1 -Dataset spc_case
-```
-
-The offline dataset is stored under `data/seeds/spc_case`; FastAPI never
-generates it. See [docs/advanced-spc.md](docs/advanced-spc.md) for the data
-contract and verification commands.
-
-## Run Step 14 Evaluation
-
-After the MVP and multi-case workflow pass, run the deterministic offline
-evaluation suite:
-
-```powershell
-.\.venv\Scripts\python.exe scripts\run_evaluation.py
-```
-
-The suite covers ten positive, negative, conflicting, missing-data, and
-correct-abstention scenarios. Results are written to
-`outputs/evaluation/results.json` and `outputs/evaluation/report.md`. See
-[docs/evaluation.md](docs/evaluation.md) for scenario definitions, metrics, and
-acceptance rules.
-
-## Run Step 15 with Docker Compose
-
-Copy `.env.example` to `.env`, replace the local PostgreSQL password, then run:
-
-```powershell
-docker compose up -d db
-docker compose --profile tools run --rm --build seed
-docker compose up --build -d backend worker frontend
-```
-
-Open the dashboard at `http://127.0.0.1:5173` and API documentation at
-`http://127.0.0.1:8000/docs`. Normal Compose startup never generates Synthetic
-Fab data or resets the database. See
-[docs/deployment/docker-compose.md](docs/deployment/docker-compose.md) for the
-full initialization, operation, and shutdown procedure.
-
-## Run Step 16 Agent Modes
-
-Validate the complete LLM path without a paid API call:
-
-```powershell
-$env:YIELD_RCA_AGENT_MODE="fake"
-$env:YIELD_RCA_ORCHESTRATION_MODE="llm_react"
-```
-
-Run against Qwen after adding the key to the local `.env` file:
-
-```text
+```dotenv
 YIELD_RCA_AGENT_MODE=llm
 YIELD_RCA_ORCHESTRATION_MODE=llm_react
+YIELD_RCA_LLM_PROVIDER=dashscope
 YIELD_RCA_LLM_MODEL=qwen-plus
 DASHSCOPE_API_KEY=<local-secret>
 ```
 
-Reapply the explicit local seed/migrations before restarting the containers:
+修改 `.env` 后重新初始化数据并启动容器：
 
-```powershell
+```bash
 docker compose --profile tools run --rm --build seed
 docker compose up --build -d backend worker frontend
 ```
 
-The Dashboard displays Agent mode, model, prompt version, token usage, LLM
-latency, and Tool call count. API keys are runtime-only and are never included
-in logs or frontend responses.
+### 主要环境变量
 
-### Batch 21.2 product-surface and semantic final evaluation
+#### 数据与服务
 
-Run the repeatable Fake-Qwen autonomous matrix together with the preserved
-Controlled ReAct path, fixed-workflow compatibility baseline, and semantic
-negative cases:
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `YIELD_RCA_DATABASE_URL` | 空 | 本地手动运行时的 PostgreSQL 连接；空值时核心工作流可读取 seed 文件 |
+| `YIELD_RCA_SEED_DIR` | `data/seeds/golden_case` | CSV 工作流使用的数据目录 |
+| `YIELD_RCA_DATASET` | `multi_case`（`.env.example`） | Compose 使用的数据集：`golden_case`、`multi_case` 或 `spc_case` |
+| `BACKEND_PORT` | `8000` | FastAPI 映射端口 |
+| `FRONTEND_PORT` | `5173` | Dashboard 映射端口 |
 
-```powershell
-& .\.venv\Scripts\python.exe scripts\run_autonomous_qwen_evaluation.py
+#### LLM
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `YIELD_RCA_LLM_PROVIDER` | `dashscope` | LLM provider |
+| `YIELD_RCA_LLM_MODEL` | `qwen-plus` | 模型名称 |
+| `YIELD_RCA_LLM_BASE_URL` | DashScope compatible-mode URL | API 地址 |
+| `YIELD_RCA_LLM_TIMEOUT_SECONDS` | `60` | 请求超时 |
+| `YIELD_RCA_LLM_MAX_RETRIES` | `1` | HTTP 重试上限 |
+| `DASHSCOPE_API_KEY` | 空 | 真实 Qwen 所需密钥；不得提交到 Git |
+
+#### Queue Worker
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `YIELD_RCA_WORKER_LEASE_SECONDS` | `180` | Job lease 时长 |
+| `YIELD_RCA_WORKER_HEARTBEAT_SECONDS` | `30` | Worker heartbeat 间隔，必须小于 lease |
+| `YIELD_RCA_WORKER_POLL_SECONDS` | `1` | 队列轮询间隔 |
+| `YIELD_RCA_WORKER_RECOVERY_SECONDS` | `30` | stale lease 恢复间隔 |
+| `YIELD_RCA_WORKER_RETRY_BASE_SECONDS` | `5` | transient failure 重试退避基数 |
+
+每个 Job 的 `max_attempts=3`；只有可识别的 provider 或 transport transient failure 会进行有限重试。
+
+#### Knowledge Retrieval
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `YIELD_RCA_KNOWLEDGE_RETRIEVER_MODE` | `keyword` | 安全默认值；`hybrid` 需要 embedding index |
+| `YIELD_RCA_KNOWLEDGE_EMBEDDING_MODEL` | `BAAI/bge-m3` | Embedding model |
+| `YIELD_RCA_KNOWLEDGE_EMBEDDING_DEVICE` | `auto` | 推理设备 |
+| `YIELD_RCA_KNOWLEDGE_RERANKER_ENABLED` | `0` | Reranker feature flag |
+| `YIELD_RCA_CAUSAL_SCOPE_ENABLED` | `1` | 启用 causal-wide retrieval scope |
+| `YIELD_RCA_CAUSAL_SCOPE_CANDIDATE_BUDGET` | `20` | 候选总预算 |
+
+完整变量、模型 revision 和 Reranker 参数见 [.env.example](.env.example)。
+
+## API 概览
+
+### RCA Job
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| `POST` | `/rca/jobs` | 创建异步 RCA Job |
+| `GET` | `/rca/jobs/{job_id}` | 查询状态、结果与队列元数据 |
+| `POST` | `/rca/jobs/{job_id}/cancel` | 请求取消 Job |
+| `GET` | `/rca/jobs/{job_id}/events` | 通过 SSE 读取有序 Job Events |
+| `GET` | `/rca/jobs/{job_id}/report` | 获取已完成 Job 的报告 |
+| `GET` | `/rca/jobs/{job_id}/memory-candidate` | 获取 Job 生成的 memory candidate |
+
+Job 未完成时请求报告会返回结构化 `409 job_not_completed`。
+
+### Memory 与 Knowledge
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| `GET` | `/memory/candidates/{candidate_id}` | 查询 RCA memory candidate |
+| `POST` | `/memory/candidates/{candidate_id}/approvals` | 提交工程师审批 |
+| `POST` | `/knowledge/lookups` | 查询受治理的知识库 |
+| `POST` | `/knowledge/ingestions` | 上传并创建 knowledge ingestion candidate |
+| `GET` | `/knowledge/ingestions` | 列出 ingestion candidates |
+| `GET` | `/knowledge/ingestions/{candidate_id}` | 查询 ingestion candidate |
+| `POST` | `/knowledge/ingestions/{candidate_id}/approvals` | 审批 ingestion candidate |
+
+### 运维
+
+| Method | Path | 说明 |
+| --- | --- | --- |
+| `GET` | `/health` | 进程健康检查 |
+| `GET` | `/ready` | 数据库、知识库和运行配置 readiness |
+| `GET` | `/metrics` | Prometheus metrics |
+
+请求和响应模型以 <http://127.0.0.1:8000/docs> 中的 OpenAPI 为准。异步队列细节见 [Async Job Queue](docs/async-job-queue.md)。
+
+## 数据集
+
+数据生成是显式离线流程。FastAPI、Worker 和 Dashboard 启动时不会生成或重置 Fab 数据。
+
+| 数据集 | 主要用途 |
+| --- | --- |
+| `golden_case` | 固定 golden regression；包含 `40N_SOC` 与 `LOT_A_001` 调查 |
+| `multi_case` | 多场景可靠性验证：Cu CMP equipment-window excursion、single-Wafer scratch、ILD odd/even Wafer split |
+| `spc_case` | 高级 SPC：I-MR、Xbar-S、Xbar-R、p-chart、Nelson Rules、capability 与 hold 关系 |
+
+切换数据集：
+
+```dotenv
+YIELD_RCA_DATASET=golden_case
 ```
 
-The command performs no paid network call. A passing run reports Autonomous
-Fake `10/10`, Controlled ReAct `PASS`, Fixed Workflow `10/10`, and a passing
-material-trace negative case. It writes stable, secret-free artifacts to:
+然后重新执行 seed：
+
+```bash
+docker compose --profile tools run --rm --build seed
+```
+
+数据生成器和输出位置：
+
+```text
+scripts/generate_synthetic_fab_data.py        -> data/seeds/golden_case/
+scripts/generate_synthetic_multi_case_data.py -> data/seeds/multi_case/
+scripts/generate_synthetic_spc_data.py        -> data/seeds/spc_case/
+```
+
+场景与数据合同见 [Multi-Case Validation](docs/multi-case-validation.md) 和 [Advanced SPC](docs/advanced-spc.md)。
+
+## 评测与验证
+
+### 免费、可重复的评测
+
+基础离线评测：
+
+```bash
+python scripts/run_evaluation.py
+```
+
+Autonomous Fake-Qwen、Controlled ReAct、Fixed Workflow 与语义负例：
+
+```bash
+python scripts/run_autonomous_qwen_evaluation.py
+```
+
+通过时预期报告：Autonomous Fake `10/10`、Controlled ReAct `PASS`、Fixed Workflow `10/10`，并通过 material-trace negative case。产物写入：
 
 ```text
 outputs/autonomous_qwen_react_evaluation/results.json
 outputs/autonomous_qwen_react_evaluation/report.md
 ```
 
-The optional real-Qwen status remains separate from deterministic acceptance.
+Evaluation V2 的 Retrieval、RCA 与四类 release gate：
 
-### Optional paid Qwen smoke test
-
-The real-Qwen integration smoke test runs a bounded `LOT_A_001` impact-scope
-investigation through Intent Planner, Next-action Planner, Specialist V2, and
-the final deterministic decision evaluation. It is skipped unless both a
-non-empty `DASHSCOPE_API_KEY` and the explicit opt-in
-`RUN_REAL_QWEN_TEST=1` are present. The test can make paid DashScope requests;
-it disables HTTP retries and stops before a thirteenth LLM call.
-
-Run it from the repository root without putting the key in shell history:
-
-```powershell
-$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
-$previousRunFlag = [Environment]::GetEnvironmentVariable("RUN_REAL_QWEN_TEST", "Process")
-$qwenSecret = Read-Host "DashScope API key" -AsSecureString
-try {
-    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
-    $env:RUN_REAL_QWEN_TEST = "1"
-    & .\.venv\Scripts\python.exe tests\integration\test_qwen_optional.py -v
-} finally {
-    if ($null -eq $previousApiKey) {
-        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
-    } else {
-        $env:DASHSCOPE_API_KEY = $previousApiKey
-    }
-    if ($null -eq $previousRunFlag) {
-        Remove-Item Env:RUN_REAL_QWEN_TEST -ErrorAction SilentlyContinue
-    } else {
-        $env:RUN_REAL_QWEN_TEST = $previousRunFlag
-    }
-    Remove-Variable qwenSecret, previousApiKey, previousRunFlag -ErrorAction SilentlyContinue
-}
+```bash
+python scripts/run_evaluation_v2_retrieval.py \
+  --embedding-backend sentence-transformers \
+  --device auto
+python scripts/run_evaluation_v2_rca.py
+python scripts/run_evaluation_v2_release.py
 ```
 
-Without the key or opt-in flag, the same command reports the paid smoke test as
-skipped rather than passed. Do not commit `.env`, test output containing raw
-model responses, or any API credential.
+最终报告分别判断 Data Quality、Governance、Retrieval Quality 和 RCA Quality，不将四项折叠成一个整体 `PASS`。没有明确执行真实 Qwen 评测时，RCA gate 记为 `BLOCKED`，不会用 Fake-LLM 结果替代。
 
-### Real Qwen Intent Planner diagnosis
+### 真实 Qwen：安全入口与调用上限
 
-When an `llm_react` request hands off during Intent Planning, run the isolated
-diagnostic before changing a Prompt or validation rule. It executes the same
-Scratch + Cu CMP full-RCA request prefilled by the frontend (root cause plus
-impact Lots) at the Intent Planner boundary, never enters Next Action
-Planning or any Specialist/Tool path, and permits at most two paid calls per
-run. Three runs therefore have a hard maximum of six paid calls.
+真实 Qwen 命令可能产生 DashScope 费用。不要把 API key 写入命令历史、日志、输出文件或 Git；通过交互式安全输入设置当前进程的 `DASHSCOPE_API_KEY`。
 
-```powershell
-$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
-$qwenSecret = Read-Host "DashScope API key" -AsSecureString
-try {
-    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
-    & .\.venv\Scripts\python.exe scripts\run_qwen_intent_diagnosis.py `
-        --confirm-paid-qwen `
-        --runs 3
-} finally {
-    if ($null -eq $previousApiKey) {
-        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
-    } else {
-        $env:DASHSCOPE_API_KEY = $previousApiKey
-    }
-    Remove-Variable qwenSecret, previousApiKey -ErrorAction SilentlyContinue
-}
-```
-
-The runner distinguishes provider failure, JSON/output parsing, typed contract
-validation, and semantic guard rejection. It aggregates stable reason codes and
-field paths under `outputs/qwen_intent_diagnosis/`. Results contain only bounded
-candidate shape summaries, safe invalid `question_kind` indexes/tokens, and
-baseline differences; the API key, complete
-Prompt, user-query payload, and raw Qwen response are never written.
-
-### Repeated Qwen Planner-review reliability evaluation
-
-The single impact-scope smoke test is intentionally cheap. After changing the
-Planner output contract, use the stricter Scratch + Cu CMP reliability runner to
-exercise observation, re-planning, QuestionUpdate review, and the final stop
-three consecutive times. Every run has an independent hard limit of 20 paid LLM
-calls, hidden Gateway HTTP retries are disabled, and the command refuses to
-start without the explicit `--confirm-paid-qwen` flag. The Next-action Planner
-may retry one transient transport, 408, 429, or 5xx failure through the capped
-client, so that paid retry is visible inside the same 20-call boundary.
-
-```powershell
-$previousApiKey = [Environment]::GetEnvironmentVariable("DASHSCOPE_API_KEY", "Process")
-$qwenSecret = Read-Host "DashScope API key" -AsSecureString
-try {
-    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
-    & .\.venv\Scripts\python.exe scripts\run_qwen_reliability_evaluation.py `
-        --confirm-paid-qwen `
-        --runs 3 `
-        --max-llm-calls-per-run 20
-} finally {
-    if ($null -eq $previousApiKey) {
-        Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
-    } else {
-        $env:DASHSCOPE_API_KEY = $previousApiKey
-    }
-    Remove-Variable qwenSecret, previousApiKey -ErrorAction SilentlyContinue
-}
-```
-
-Acceptance requires all three runs to remain on `llm_react`, start with defect
-inspection, re-plan after the first observation, keep accepted updates as compact
-terminal `QuestionUpdate` deltas, audit every accepted or rejected claim, respect
-the call cap, and pass the existing Goal Success and Stop Correct checks. A
-rejected ancillary update does not fail a run when its legal Agent action was
-preserved; an invalid core Decision or Action still triggers controlled fallback
-and fails the reliability boundary. The report counts accepted and rejected
-updates by stable reason code without storing prompts or raw model responses.
-Failure diagnostics distinguish transport/provider errors, invalid JSON or
-response envelopes, and typed core Decision validation. A recovered transient
-retry remains on `llm_react`; a second call failure keeps bounded provider
-diagnostics and fails through the existing controlled compatibility handoff.
-
-Secret-free summaries are written under
-`outputs/qwen_question_update_reliability/`; the directory is ignored by Git.
-Goal Success permits an explicitly unavailable optional Question only when at
-least one Question is Evidence-backed and closed, no Question remains open, no
-Evidence gap remains, and the existing Evidence/Hypothesis gate supports the
-conclusion. `QuestionUpdateReview` is persisted in `RCAState`, exposed by the
-API, and rendered in the Agent Trace. No rejected update is silently converted
-into `closed` or `unavailable`.
-
-### Evaluation V2 causal Scope and four release gates
-
-Run the reviewed Retrieval V2 ablation with the pinned local `bge-m3` model,
-then run deterministic/Controlled RCA references and combine the four gates:
-
-```powershell
-& .\.venv\Scripts\python.exe scripts\run_evaluation_v2_retrieval.py `
-    --embedding-backend sentence-transformers `
-    --device auto
-& .\.venv\Scripts\python.exe scripts\run_evaluation_v2_rca.py
-& .\.venv\Scripts\python.exe scripts\run_evaluation_v2_release.py
-```
-
-The measured runtime selection is Chunk Keyword + causal-wide Scope, with
-Hybrid-RRF and the Reranker left behind Feature Flags. The final report uses
-independent Data Quality, Governance, Retrieval Quality, and RCA Quality gates;
-it does not collapse them into a misleading overall `PASS`. Without an
-explicitly paid real-Qwen run, the RCA gate is `BLOCKED`, never replaced by a
-Fake-LLM result.
-
-To run the seven Test-partition scenarios with real Qwen, enter the key without
-putting it in shell history and keep the per-scenario call cap:
+Windows PowerShell：
 
 ```powershell
 $qwenSecret = Read-Host "DashScope API key" -AsSecureString
 try {
-    $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
-    & .\.venv\Scripts\python.exe scripts\run_evaluation_v2_rca.py `
-        --run-real-qwen `
-        --confirm-paid-qwen `
-        --max-qwen-calls-per-scenario 16
-    & .\.venv\Scripts\python.exe scripts\run_evaluation_v2_release.py
+  $env:DASHSCOPE_API_KEY = [System.Net.NetworkCredential]::new("", $qwenSecret).Password
+
+  # 单次 smoke test：最多 12 次 LLM 调用
+  $env:RUN_REAL_QWEN_TEST = "1"
+  & .\.venv\Scripts\python.exe tests\integration\test_qwen_optional.py -v
+
+  # Planner 诊断：每次最多 2 次，3 runs 最多 6 次
+  & .\.venv\Scripts\python.exe scripts\run_qwen_intent_diagnosis.py `
+    --confirm-paid-qwen `
+    --runs 3
+
+  # Planner reliability：每个 run 最多 20 次
+  & .\.venv\Scripts\python.exe scripts\run_qwen_reliability_evaluation.py `
+    --confirm-paid-qwen `
+    --runs 3 `
+    --max-llm-calls-per-run 20
+
+  # Evaluation V2：7 个场景，每个场景最多 16 次
+  & .\.venv\Scripts\python.exe scripts\run_evaluation_v2_rca.py `
+    --run-real-qwen `
+    --confirm-paid-qwen `
+    --max-qwen-calls-per-scenario 16
+  & .\.venv\Scripts\python.exe scripts\run_evaluation_v2_release.py
 } finally {
-    Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
-    Remove-Variable qwenSecret -ErrorAction SilentlyContinue
+  Remove-Item Env:DASHSCOPE_API_KEY -ErrorAction SilentlyContinue
+  Remove-Item Env:RUN_REAL_QWEN_TEST -ErrorAction SilentlyContinue
+  Remove-Variable qwenSecret -ErrorAction SilentlyContinue
 }
 ```
 
-See [docs/evaluation-v2-causal-scope-spec.md](docs/evaluation-v2-causal-scope-spec.md)
-and [docs/retrieval-evaluation.md](docs/retrieval-evaluation.md) for the measured
-results, failed cases, and Synthetic-only claim boundary.
+Linux/macOS：
 
-## RCA Reasoning Engine
+```bash
+read -rsp 'DashScope API key: ' DASHSCOPE_API_KEY
+echo
+export DASHSCOPE_API_KEY
 
-New RCA jobs use the evidence-bounded `hypothesis_v1` engine. It supplies the
-official conclusion, ranked hypotheses, validation evidence, and report. The
-historical snapshot DTOs remain readable, but the retired Legacy reasoning
-engine is no longer configurable or executed.
+# 单次 smoke test：最多 12 次 LLM 调用
+RUN_REAL_QWEN_TEST=1 python tests/integration/test_qwen_optional.py -v
+
+# Planner 诊断：每次最多 2 次，3 runs 最多 6 次
+python scripts/run_qwen_intent_diagnosis.py \
+  --confirm-paid-qwen \
+  --runs 3
+
+# Planner reliability：每个 run 最多 20 次
+python scripts/run_qwen_reliability_evaluation.py \
+  --confirm-paid-qwen \
+  --runs 3 \
+  --max-llm-calls-per-run 20
+
+# Evaluation V2：7 个场景，每个场景最多 16 次
+python scripts/run_evaluation_v2_rca.py \
+  --run-real-qwen \
+  --confirm-paid-qwen \
+  --max-qwen-calls-per-scenario 16
+python scripts/run_evaluation_v2_release.py
+
+unset DASHSCOPE_API_KEY
+```
+
+真实 Qwen smoke test 在没有 API key 或 `RUN_REAL_QWEN_TEST=1` 时会显示 skipped。其他付费 runner 缺少 `--confirm-paid-qwen` 时会拒绝启动。
+
+评测设计、指标和边界见：
+
+- [Evaluation](docs/evaluation.md)
+- [Evaluation V2 Causal Scope Specification](docs/evaluation-v2-causal-scope-spec.md)
+- [Retrieval Evaluation](docs/retrieval-evaluation.md)
+
+## 本地开发
+
+### 安装 Python 环境
+
+Windows PowerShell：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+```
+
+Linux/macOS：
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[dev]'
+```
+
+需要本地 embedding runtime 时另外安装：
+
+```bash
+python -m pip install -e '.[retrieval]'
+```
+
+### 手动启动后端与 Worker
+
+默认 HTTP 路径只负责 enqueue。要让 Job 从 `queued` 进入执行状态，需要设置 `YIELD_RCA_DATABASE_URL`，并同时运行独立 Worker。
+
+Windows PowerShell：
+
+```powershell
+$env:YIELD_RCA_DATABASE_URL = "postgresql://user:password@127.0.0.1:5432/yield_rca"
+.\.venv\Scripts\python.exe -m uvicorn yield_rca_api.app:app `
+  --app-dir backend --host 127.0.0.1 --port 8000
+```
+
+在第二个 PowerShell 窗口运行：
+
+```powershell
+$env:YIELD_RCA_DATABASE_URL = "postgresql://user:password@127.0.0.1:5432/yield_rca"
+.\.venv\Scripts\python.exe scripts\run_rca_worker.py
+```
+
+Linux/macOS：
+
+```bash
+export YIELD_RCA_DATABASE_URL='postgresql://user:password@127.0.0.1:5432/yield_rca'
+.venv/bin/python -m uvicorn yield_rca_api.app:app \
+  --app-dir backend --host 127.0.0.1 --port 8000
+```
+
+在第二个终端运行：
+
+```bash
+export YIELD_RCA_DATABASE_URL='postgresql://user:password@127.0.0.1:5432/yield_rca'
+.venv/bin/python scripts/run_rca_worker.py
+```
+
+### 启动前端
+
+Windows PowerShell：
+
+```powershell
+Set-Location frontend
+pnpm install
+pnpm dev
+```
+
+Linux/macOS：
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Vite 开发服务器位于 <http://127.0.0.1:5173>，并将 `/api` 代理到 <http://127.0.0.1:8000>。
+
+### 质量检查
+
+Python：
+
+```bash
+python tools/quality.py lint
+python tools/quality.py type-check
+python tools/quality.py unit
+python tools/quality.py contract
+python tools/quality.py integration
+python tools/quality.py performance
+python tools/quality.py benchmark
+python tools/quality.py test-all
+```
+
+也可以直接运行已安装的开发工具：
+
+```bash
+python -m ruff check .
+python -m mypy
+python -m pytest
+```
+
+前端：
+
+```bash
+cd frontend
+pnpm run check
+pnpm run build
+pnpm preview
+```
+
+更多开发说明见 [Core Development Guide](docs/development.md)。
+
+## 技术栈
+
+YieldMind RCA 将多智能体调查、Evidence-Grounded Reasoning、异步执行和工程工作台组合为一套可部署架构。
+
+| 层级 | 技术 |
+| --- | --- |
+| Core / Backend | Python 3.11+、FastAPI、Uvicorn、Pydantic、Psycopg |
+| Agent / LLM | deterministic workflow、Controlled ReAct、Qwen、DashScope |
+| Data / Retrieval | PostgreSQL 16、pgvector、`BAAI/bge-m3`、可选 `bge-reranker-v2-m3` |
+| Frontend | React 19、TypeScript 5.8、Vite 7、ECharts 6、React Markdown |
+| Queue / Streaming | PostgreSQL leased queue、独立 Worker、SSE |
+| Observability | structured logging、audit event、Prometheus metrics |
+| Test / Quality | pytest、Ruff、mypy、Vitest |
+| Deployment | Docker Compose、Nginx |
+
+## 项目结构
+
+```text
+.
+├── backend/yield_rca_api/       # FastAPI、异步 Job API、Store、Worker 与审计
+├── core/yield_rca_core/         # Domain model、Tool、Agent、RCA、SPC、Retrieval
+├── data/
+│   ├── seeds/                   # golden_case、multi_case、spc_case
+│   ├── knowledge/               # 合成知识语料
+│   └── evaluation/              # 评测数据与人工复核记录
+├── db/migrations/               # PostgreSQL schema migrations
+├── docker/                      # Backend、Worker、Frontend 构建文件
+├── docs/                        # 架构、部署、评测与专题规范
+├── frontend/                    # React Dashboard
+├── outputs/                     # RCA 与评测产物
+├── scripts/                     # 数据生成、seed、Worker、运行与评测入口
+├── tests/                       # Unit、contract、integration、performance tests
+├── tools/                       # 统一质量检查入口
+├── compose.yaml
+├── pyproject.toml
+└── README.md
+```
+
+## 设计边界
+
+以下边界保证多智能体调查始终受到数据来源与 Evidence 约束。
+
+### 必须遵守的边界
+
+1. 合成 Fab 数据只能通过离线脚本生成，不能在 API 请求或服务启动时生成。
+2. Agent 不能直接访问数据库或 Repository，必须通过 Tool Layer 获取工程数据。
+3. RCA 结论必须引用可追溯 Evidence。
+4. React 只负责提交请求和展示后端结果，不计算 SPC 或 RCA。
+5. FastAPI 是核心工作流的 HTTP adapter，不在 HTTP 请求内执行默认异步任务。
+6. 只有工程师确认并发布的知识才能成为高权重历史证据。
+7. LLM 负责受约束的规划和解释；Tool 执行、Evidence 校验、冲突门禁与最终支持阈值保持确定性。
+
+### 当前未覆盖
+
+- Raw FDC sensor stream processing。
+- Vision Agent 与缺陷图片分析。
+- 真实 Fab 的实时数据接入。
+- 完整生产级 SPC 平台。
+- 大规模工业性能目标和真实 Fab 准确率承诺。
+- 生产级身份认证、权限隔离和密钥托管。
+
+YieldMind RCA 当前使用 `hypothesis_v1` 作为正式 RCA reasoning engine。历史 snapshot DTO 仍可读取，但 Legacy reasoning engine 已不再执行，也不可配置。
+
+## 文档导航
+
+### 设计与架构
+
+- [完整设计文档](DESIGN_DOC_FULL.md)
+- [系统架构](docs/architecture/system-overview.md)
+- [Agent 架构](docs/architecture/agent-architecture.md)
+- [数据架构](docs/architecture/data-architecture.md)
+- [Autonomous Qwen ReAct 规范](docs/autonomous-qwen-react-spec.md)
+- [项目架构与代码讲解](docs/project-architecture-code-guide.md)
+
+### 运行与运维
+
+- [Docker Compose Deployment](docs/deployment/docker-compose.md)
+- [Demo Runbook](docs/demo-runbook.md)
+- [Async Job Queue](docs/async-job-queue.md)
+- [Observability](docs/observability.md)
+
+### RCA、SPC 与 Knowledge
+
+- [Minimal SPC](docs/minimal-spc.md)
+- [Advanced SPC](docs/advanced-spc.md)
+- [Improvement Agent](docs/improvement-agent.md)
+- [Memory Approval](docs/memory-approval.md)
+- [Knowledge Ingestion and Lookup](docs/knowledge-ingestion-lookup.md)
+- [Hybrid Retrieval](docs/hybrid-retrieval.md)
+
+### 评测
+
+- [Evaluation](docs/evaluation.md)
+- [Evaluation V2 Causal Scope Specification](docs/evaluation-v2-causal-scope-spec.md)
+- [Retrieval Evaluation](docs/retrieval-evaluation.md)
+
+这些文档与 `docs/adr/` 下的 ADR 是架构与实现约束的正式来源；设计变更应通过 ADR 记录。
+
+## 常见问题
+
+### Job 为什么一直停留在 `queued`？
+
+默认 API 只将 Job 写入队列。确认 PostgreSQL、`backend` 和独立 `worker` 均在运行：
+
+```bash
+docker compose ps
+docker compose logs worker
+```
+
+### 为什么启动服务后没有自动生成数据？
+
+这是明确的设计边界。数据生成与数据库 seed 都是显式离线操作。首次运行或切换数据集后执行：
+
+```bash
+docker compose --profile tools run --rm --build seed
+```
+
+### 不配置 DashScope API key 能运行吗？
+
+可以。默认 `deterministic` 模式不需要 API key；`fake + llm_react` 可以在不产生费用的情况下验证完整 LLM 路径。
+
+### 为什么报告接口返回 `409 job_not_completed`？
+
+Job 仍处于 `queued`、`running`、`retry_wait` 或其他非完成状态。先查询 `/rca/jobs/{job_id}`，或通过 `/rca/jobs/{job_id}/events` 等待终态。
+
+### 可以把合成数据结果当作真实 Fab 性能吗？
+
+不可以。仓库中的结论、置信度和评测指标只适用于固定的合成数据与评测协议。
+
+## 联系方式
+
+如有问题或建议，请发送邮件至 [1084786731@qq.com](mailto:1084786731@qq.com)。
+
+## 待确认项
+
+- <!-- TODO: 待确定并添加正式 LICENSE 文件。 -->
