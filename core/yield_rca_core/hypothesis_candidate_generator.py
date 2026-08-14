@@ -14,13 +14,15 @@ from yield_rca_core.llm_gateway import (
 from yield_rca_core.models import AgentFinding, AgentKind, ModelValidationError
 
 _OUTPUT_ATTEMPTS = 2
-_MAX_CANDIDATES = 3
+_MAX_CANDIDATES = 2
 _MAX_ENTITIES_PER_EVIDENCE = 12
 _NON_SUPPORTING_TYPES = {
     EvidenceType.DATA_MISSING.value,
     EvidenceType.NEGATIVE_SIGNAL.value,
-    EvidenceType.HISTORICAL_CASE_MATCH.value,
     EvidenceType.SOP_GUIDANCE.value,
+}
+_KNOWLEDGE_MECHANISM_TYPES = {
+    EvidenceType.HISTORICAL_CASE_MATCH.value,
     EvidenceType.ENGINEERING_NOTE.value,
 }
 _EXPOSURE_TYPES = {
@@ -103,6 +105,7 @@ class HypothesisCandidateGeneration:
     candidates: tuple[HypothesisCandidateProposal, ...]
     attempt_count: int
     validation_errors: tuple[str, ...] = ()
+    candidate_output_invalid: bool = False
 
 
 def _evidence_register(findings: list[AgentFinding]) -> list[dict[str, Any]]:
@@ -112,24 +115,25 @@ def _evidence_register(findings: list[AgentFinding]) -> list[dict[str, Any]]:
         for evidence in finding.evidence
         if evidence.is_typed
     }
-    return [
-        {
-            "evidence_id": evidence.evidence_id,
-            "evidence_type": evidence.evidence_type,
-            "observation": evidence.observation,
-            "confidence": evidence.confidence,
-            "source_agent": evidence.source_agent,
-            "source_tool": evidence.source_tool,
-            "entities": [
-                {
-                    "entity_type": entity.entity_type,
-                    "entity_id": entity.entity_id,
-                }
-                for entity in evidence.entities[:_MAX_ENTITIES_PER_EVIDENCE]
-            ],
-        }
-        for evidence in evidence_by_id.values()
-    ]
+    register: list[dict[str, Any]] = []
+    for evidence in evidence_by_id.values():
+        serialized = evidence.to_dict()
+        register.append(
+            {
+                "evidence_id": evidence.evidence_id,
+                "source_type": evidence.source_type,
+                "evidence_type": evidence.evidence_type,
+                "source_field": evidence.source_field,
+                "timestamp": evidence.timestamp,
+                "observation": evidence.observation,
+                "confidence": evidence.confidence,
+                "source_agent": evidence.source_agent,
+                "source_tool": evidence.source_tool,
+                "metadata": serialized.get("metadata", {}),
+                "entities": serialized.get("entities", [])[:_MAX_ENTITIES_PER_EVIDENCE],
+            }
+        )
+    return register
 
 
 def _eligible_evidence_ids_by_lane(
@@ -142,7 +146,7 @@ def _eligible_evidence_ids_by_lane(
         "process_anomaly": _PROCESS_TYPES,
         "product_outcome": _PRODUCT_TYPES,
     }
-    return {
+    result = {
         lane: sorted(
             evidence_id
             for evidence_id, evidence in evidence_by_id.items()
@@ -151,6 +155,34 @@ def _eligible_evidence_ids_by_lane(
         )
         for lane, evidence_types in lane_types.items()
     }
+    result["mechanism_support"] = sorted(
+        evidence_id
+        for evidence_id, evidence in evidence_by_id.items()
+        if _is_approved_knowledge_support(evidence)
+    )
+    return result
+
+
+def _is_approved_knowledge_support(evidence: Evidence) -> bool:
+    """Knowledge may support mechanism only after explicit approval."""
+
+    if (
+        evidence.source_type != "knowledge"
+        or evidence.evidence_type not in _KNOWLEDGE_MECHANISM_TYPES
+    ):
+        return False
+    statuses = [
+        str(value).upper()
+        for key, value in evidence.metadata.items()
+        if str(key).casefold() == "validation_status"
+    ]
+    statuses.extend(
+        str(value).upper()
+        for entity in evidence.entities
+        for key, value in entity.attributes.items()
+        if str(key).casefold() == "validation_status"
+    )
+    return bool(statuses) and all(status == "CONFIRMED" for status in statuses)
 
 
 def _candidate_repair_feedback(
@@ -238,7 +270,14 @@ def _parse_candidate(
     invalid_support = sorted(
         evidence_id
         for evidence_id in proposal.supporting_evidence_ids
-        if evidence_by_id[evidence_id].evidence_type in _NON_SUPPORTING_TYPES
+        if (
+            evidence_by_id[evidence_id].evidence_type in _NON_SUPPORTING_TYPES
+            or (
+                evidence_by_id[evidence_id].evidence_type
+                in _KNOWLEDGE_MECHANISM_TYPES
+                and not _is_approved_knowledge_support(evidence_by_id[evidence_id])
+            )
+        )
     )
     if invalid_support:
         raise LLMOutputValidationError(
@@ -275,7 +314,7 @@ def _parse_candidate(
     source_agents = {
         str(item.source_agent)
         for item in supporting_evidence
-        if item.source_agent is not None
+        if item.source_agent is not None and item.source_type != "knowledge"
     }
     if len(source_agents) < 3:
         raise LLMOutputValidationError(
@@ -288,7 +327,7 @@ def _parse_candidate(
 
 @dataclass(frozen=True)
 class QwenHypothesisCandidateGenerator:
-    """Generate at most three proposals without deciding the RCA conclusion."""
+    """Generate at most two proposals without deciding the RCA conclusion."""
 
     llm_client: LLMClient
     prompt_version: str = "v1"
@@ -367,14 +406,34 @@ class QwenHypothesisCandidateGenerator:
                     raise LLMOutputValidationError(
                         "analysis_summary must be a non-empty string"
                     )
-                proposals = tuple(
-                    _parse_candidate(
-                        candidate,
-                        index=index,
-                        evidence_by_id=evidence_by_id,
+                proposals_list: list[HypothesisCandidateProposal] = []
+                candidate_errors: list[str] = []
+                for index, candidate in enumerate(raw_candidates):
+                    try:
+                        proposals_list.append(
+                            _parse_candidate(
+                                candidate,
+                                index=index,
+                                evidence_by_id=evidence_by_id,
+                            )
+                        )
+                    except (LLMOutputValidationError, TypeError, ValueError) as exc:
+                        candidate_errors.append(
+                            str(exc).strip() or f"candidates[{index}] is invalid"
+                        )
+                if candidate_errors and proposals_list:
+                    validation_errors.extend(candidate_errors)
+                if candidate_errors and not proposals_list:
+                    validation_errors.extend(candidate_errors)
+                    if attempt < _OUTPUT_ATTEMPTS:
+                        continue
+                    return HypothesisCandidateGeneration(
+                        candidates=(),
+                        attempt_count=attempt,
+                        validation_errors=tuple(validation_errors),
+                        candidate_output_invalid=True,
                     )
-                    for index, candidate in enumerate(raw_candidates)
-                )
+                proposals = tuple(proposals_list)
                 roots = [candidate.root_cause.casefold() for candidate in proposals]
                 if len(roots) != len(set(roots)):
                     raise LLMOutputValidationError(

@@ -1,0 +1,918 @@
+"""Python-owned claim/evidence validation for Qwen causal candidates.
+
+The matrix is deliberately additive: Qwen still returns only the compact four
+field candidate contract.  This module reads typed Evidence and derives the
+objective entity, scope, temporal, mechanism, and contradiction claims.  It
+never treats a causal explanation string as proof by itself.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any
+
+from yield_rca_core.causal_hypothesis import (
+    CausalClaim,
+    CausalClaimStatus,
+    CausalHypothesis,
+    MechanismSupportSource,
+)
+from yield_rca_core.evidence_models import EntityType, Evidence, EvidenceType
+
+_EXPOSURE_TYPES = {
+    EvidenceType.LOT_CONTEXT.value,
+    EvidenceType.PROCESS_EXPOSURE.value,
+    EvidenceType.EQUIPMENT_EXPOSURE.value,
+    EvidenceType.IMPACT_SCOPE.value,
+    EvidenceType.EXCURSION_WINDOW.value,
+}
+_PROCESS_TYPES = {
+    EvidenceType.RECIPE_CHANGE.value,
+    EvidenceType.HOLD_EVENT.value,
+    EvidenceType.PARAMETER_DEVIATION.value,
+    EvidenceType.TREND_DEVIATION.value,
+    EvidenceType.OOC_EVENT.value,
+    EvidenceType.SPC_VIOLATION.value,
+}
+_OUTCOME_TYPES = {
+    EvidenceType.DEFECT_SIGNAL.value,
+    EvidenceType.METROLOGY_DEVIATION.value,
+    EvidenceType.ELECTRICAL_FAILURE.value,
+}
+_CONTROL_TYPES = {EvidenceType.NEGATIVE_SIGNAL.value}
+_KNOWLEDGE_TYPES = {
+    EvidenceType.HISTORICAL_CASE_MATCH.value,
+    EvidenceType.ENGINEERING_NOTE.value,
+}
+_CRITICAL_CLAIMS = {
+    CausalClaim.EQUIPMENT.value,
+    CausalClaim.CHAMBER.value,
+    CausalClaim.OPERATION.value,
+    CausalClaim.PARAMETER.value,
+    CausalClaim.OUTCOME.value,
+    CausalClaim.MECHANISM.value,
+    CausalClaim.CONTRADICTION.value,
+    CausalClaim.TEMPORAL.value,
+    CausalClaim.SCOPE.value,
+}
+_ENTITY_CLAIMS = {
+    CausalClaim.EQUIPMENT.value: EntityType.EQUIPMENT.value,
+    CausalClaim.CHAMBER.value: EntityType.CHAMBER.value,
+    CausalClaim.OPERATION.value: EntityType.OPERATION.value,
+}
+_STRUCTURED_TOKEN = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
+
+
+def _compact(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value).casefold())
+
+
+def _tokens(value: object) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", str(value).casefold())
+        if len(token) >= 3
+    }
+
+
+def _candidate_text(candidate: CausalHypothesis) -> str:
+    return f"{candidate.root_cause} {candidate.causal_explanation}"
+
+
+def _candidate_structured_tokens(candidate: CausalHypothesis) -> list[str]:
+    return [item.casefold() for item in _STRUCTURED_TOKEN.findall(_candidate_text(candidate))]
+
+
+def _evidence_text(evidence: Evidence) -> str:
+    metadata = " ".join(
+        str(value)
+        for value in evidence.metadata.values()
+        if isinstance(value, str | int | float | bool)
+    )
+    return " ".join(
+        value
+        for value in (
+            evidence.summary,
+            evidence.observation or "",
+            evidence.source_field or "",
+            metadata,
+            *(entity.entity_id for entity in evidence.entities),
+        )
+        if value
+    )
+
+
+_DIRECTION_ALIASES = {
+    "high": "high",
+    "higher": "high",
+    "increase": "high",
+    "increased": "high",
+    "increasing": "high",
+    "rise": "high",
+    "rising": "high",
+    "elevated": "high",
+    "above": "high",
+    "positive": "high",
+    "up": "high",
+    "low": "low",
+    "lower": "low",
+    "decrease": "low",
+    "decreased": "low",
+    "decreasing": "low",
+    "drop": "low",
+    "dropped": "low",
+    "fall": "low",
+    "falling": "low",
+    "reduced": "low",
+    "below": "low",
+    "negative": "low",
+    "down": "low",
+}
+_DIRECTION_KEYS = {
+    "direction",
+    "parameter_direction",
+    "trend_direction",
+    "same_side_direction",
+    "change_direction",
+    "delta_direction",
+}
+_MAGNITUDE_KEYS = {
+    "magnitude",
+    "delta",
+    "delta_value",
+    "delta_percent",
+    "avg_delta_percent",
+    "relative_change",
+    "difference",
+    "deviation",
+    "observed_value",
+    "avg_observed",
+    "avg_baseline",
+    "target_mean",
+    "center_line",
+    "sigma",
+    "lower_control_limit",
+    "upper_control_limit",
+    "mean_z_score",
+    "z_score",
+}
+_WINDOW_START_KEYS = {
+    "start",
+    "start_date",
+    "window_start",
+    "target_window_start",
+    "excursion_start",
+    "processing_start",
+}
+_WINDOW_END_KEYS = {
+    "end",
+    "end_date",
+    "window_end",
+    "target_window_end",
+    "excursion_end",
+    "processing_end",
+}
+
+
+def _json_safe(value: object) -> object:
+    """Convert immutable Evidence metadata into JSON-safe diagnostic values."""
+
+    if isinstance(value, Mapping):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    return str(value)
+
+
+def _metadata_and_entity_values(evidence: Evidence) -> list[tuple[str, object]]:
+    values: list[tuple[str, object]] = [
+        (str(key).casefold(), value) for key, value in evidence.metadata.items()
+    ]
+    for entity in evidence.entities:
+        values.extend(
+            (str(key).casefold(), value) for key, value in entity.attributes.items()
+        )
+    return values
+
+
+def _normalise_direction(value: object) -> str | None:
+    token = str(value).casefold().strip().replace("-", "_")
+    if token in _DIRECTION_ALIASES:
+        return _DIRECTION_ALIASES[token]
+    tokens = re.findall(r"[a-z]+", token)
+    for item in tokens:
+        if item in _DIRECTION_ALIASES:
+            return _DIRECTION_ALIASES[item]
+    return None
+
+
+def _directions(evidence: Evidence) -> list[str]:
+    directions: list[str] = []
+    for key, value in _metadata_and_entity_values(evidence):
+        if key in _DIRECTION_KEYS:
+            direction = _normalise_direction(value)
+            if direction is not None:
+                directions.append(direction)
+        elif key in {
+            "delta",
+            "delta_value",
+            "delta_percent",
+            "avg_delta_percent",
+            "relative_change",
+        }:
+            try:
+                numeric = float(str(value))
+            except (TypeError, ValueError):
+                continue
+            if numeric > 0:
+                directions.append("high")
+            elif numeric < 0:
+                directions.append("low")
+        elif key in {"point_violations", "violations"} and isinstance(value, (list, tuple)):
+            for violation in value:
+                if isinstance(violation, Mapping):
+                    direction = _normalise_direction(violation.get("direction"))
+                    if direction is not None:
+                        directions.append(direction)
+    # Observations are a fallback for typed tools that put the direction only
+    # in prose.  Structured metadata always takes precedence when available.
+    if not directions:
+        for token in re.findall(r"[a-z]+", _evidence_text(evidence).casefold()):
+            direction = _DIRECTION_ALIASES.get(token)
+            if direction is not None:
+                directions.append(direction)
+    return list(dict.fromkeys(directions))
+
+
+def _magnitudes(evidence: Evidence) -> list[object]:
+    values: list[object] = []
+    for key, value in _metadata_and_entity_values(evidence):
+        if key in _MAGNITUDE_KEYS and isinstance(value, (int, float, str)):
+            values.append(_json_safe(value))
+    return list(dict.fromkeys(values))
+
+
+def _processing_windows(evidence: Evidence) -> list[dict[str, object]]:
+    windows: list[dict[str, object]] = []
+
+    def visit(value: object, path: str = "") -> None:
+        if isinstance(value, (list, tuple)):
+            for index, item in enumerate(value):
+                visit(item, f"{path}[{index}]")
+            return
+        if not isinstance(value, Mapping):
+            return
+        normalized = {str(key).casefold(): item for key, item in value.items()}
+        starts = {
+            key: item
+            for key, item in normalized.items()
+            if key in _WINDOW_START_KEYS and isinstance(item, str | int | float)
+        }
+        ends = {
+            key: item
+            for key, item in normalized.items()
+            if key in _WINDOW_END_KEYS and isinstance(item, str | int | float)
+        }
+        if starts and ends:
+            start = next(iter(starts.values()))
+            end = next(iter(ends.values()))
+            windows.append(
+                {
+                    "start": _json_safe(start),
+                    "end": _json_safe(end),
+                    "path": path or "metadata",
+                }
+            )
+        for key, item in value.items():
+            visit(item, f"{path}.{key}" if path else str(key))
+
+    visit(evidence.metadata)
+    for entity in evidence.entities:
+        visit(entity.attributes, f"entity:{entity.entity_id}")
+    # A timestamp without a declared interval remains useful, but is not a
+    # fabricated processing window.
+    return windows
+
+
+def _outcome_facts(evidence: Evidence) -> dict[str, object]:
+    return {
+        "evidence_id": evidence.evidence_id,
+        "evidence_type": evidence.evidence_type,
+        "entities": [
+            {"entity_type": entity.entity_type, "entity_id": entity.entity_id}
+            for entity in evidence.entities
+            if entity.entity_type in {
+                EntityType.DEFECT.value,
+                EntityType.WAT_ITEM.value,
+                EntityType.PRODUCT.value,
+            }
+        ],
+        "observation": evidence.observation,
+    }
+
+
+def _is_approved_knowledge(evidence: Evidence) -> bool:
+    """Return whether a knowledge record is explicitly engineer-approved."""
+
+    if evidence.source_type != "knowledge" or evidence.evidence_type not in _KNOWLEDGE_TYPES:
+        return False
+    statuses = [
+        str(value).upper()
+        for key, value in _metadata_and_entity_values(evidence)
+        if key == "validation_status"
+    ]
+    return bool(statuses) and all(status == "CONFIRMED" for status in statuses)
+
+
+def _facts(evidence: Iterable[Evidence]) -> dict[str, Any]:
+    items = list(evidence)
+    entities: dict[str, list[str]] = {}
+    for item in items:
+        for entity in item.entities:
+            entities.setdefault(entity.entity_type, []).append(entity.entity_id)
+    parameter_direction_facts = [
+        {
+            "evidence_id": item.evidence_id,
+            "parameters": [
+                entity.entity_id
+                for entity in item.entities
+                if entity.entity_type == EntityType.PARAMETER.value
+            ],
+            "directions": _directions(item),
+        }
+        for item in items
+        if _directions(item)
+    ]
+    parameter_magnitude_facts = [
+        {
+            "evidence_id": item.evidence_id,
+            "parameters": [
+                entity.entity_id
+                for entity in item.entities
+                if entity.entity_type == EntityType.PARAMETER.value
+            ],
+            "magnitudes": _magnitudes(item),
+        }
+        for item in items
+        if _magnitudes(item)
+    ]
+    processing_window_facts = [
+        {
+            "evidence_id": item.evidence_id,
+            "windows": _processing_windows(item),
+        }
+        for item in items
+        if _processing_windows(item)
+    ]
+    outcome_facts = [
+        _outcome_facts(item)
+        for item in items
+        if item.evidence_type in _OUTCOME_TYPES
+    ]
+    knowledge_ids = [item.evidence_id for item in items if _is_approved_knowledge(item)]
+    negative_ids = [
+        item.evidence_id for item in items if item.evidence_type in _CONTROL_TYPES
+    ]
+    return {
+        "evidence_ids": [item.evidence_id for item in items],
+        "evidence_types": sorted({str(item.evidence_type) for item in items if item.evidence_type}),
+        "source_agents": sorted({str(item.source_agent) for item in items if item.source_agent}),
+        "entity_ids_by_type": {
+            key: list(dict.fromkeys(values)) for key, values in sorted(entities.items())
+        },
+        "lots": sorted(
+            {
+                entity.entity_id
+                for item in items
+                for entity in item.entities
+                if entity.entity_type == EntityType.LOT.value
+            }
+        ),
+        "timestamps": sorted({item.timestamp for item in items if item.timestamp}),
+        "parameter_fields": sorted(
+            {
+                str(item.source_field)
+                for item in items
+                if item.source_field and item.evidence_type in _PROCESS_TYPES
+            }
+        ),
+        "parameter_directions": parameter_direction_facts,
+        "parameter_magnitudes": parameter_magnitude_facts,
+        "processing_windows": processing_window_facts,
+        "outcomes": outcome_facts,
+        "knowledge_mechanism_support": knowledge_ids,
+        "normal_controls": negative_ids,
+        "negative_signals": negative_ids,
+        # This key is populated when _facts is used for the contradiction lane;
+        # it intentionally remains Evidence-ID based and never infers physics.
+        "contradictions": negative_ids,
+    }
+
+
+@dataclass(frozen=True)
+class CausalClaimResult:
+    """One deterministic claim result in a candidate matrix."""
+
+    claim: str
+    status: str
+    evidence_ids: tuple[str, ...] = ()
+    reason: str = ""
+    facts: Mapping[str, Any] = field(default_factory=dict)
+    support_source: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "claim": self.claim,
+            "status": self.status,
+            "evidence_ids": list(self.evidence_ids),
+            "reason": self.reason,
+            "facts": dict(self.facts or {}),
+            "support_source": self.support_source,
+        }
+
+
+@dataclass(frozen=True)
+class CausalEvidenceMatrix:
+    """Evidence matrix for one candidate; all fields are Python-derived."""
+
+    candidate: CausalHypothesis
+    claims: Mapping[str, CausalClaimResult]
+    invalid_evidence_ids: tuple[str, ...] = ()
+
+    @property
+    def status(self) -> str:
+        statuses = {item.status for item in self.claims.values()}
+        if any(
+            self.claims.get(claim) is not None
+            and self.claims[claim].status == CausalClaimStatus.CONFLICTED.value
+            for claim in _CRITICAL_CLAIMS
+        ):
+            return CausalClaimStatus.CONFLICTED.value
+        if not self.claims or statuses <= {CausalClaimStatus.UNAVAILABLE.value}:
+            return CausalClaimStatus.UNAVAILABLE.value
+        if all(
+            self.claims.get(claim) is not None
+            and self.claims[claim].status == CausalClaimStatus.SUPPORTED.value
+            for claim in _CRITICAL_CLAIMS
+        ):
+            return CausalClaimStatus.SUPPORTED.value
+        return CausalClaimStatus.INCOMPLETE.value
+
+    @property
+    def has_critical_conflict(self) -> bool:
+        return self.status == CausalClaimStatus.CONFLICTED.value
+
+    @property
+    def mechanism_status(self) -> str:
+        return self.claims[CausalClaim.MECHANISM.value].status
+
+    @property
+    def mechanism_support_source(self) -> str | None:
+        return self.claims[CausalClaim.MECHANISM.value].support_source
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "root_cause": self.candidate.root_cause,
+            "claims": {
+                claim: result.to_dict() for claim, result in self.claims.items()
+            },
+            "status": self.status,
+            "invalid_evidence_ids": list(self.invalid_evidence_ids),
+            "mechanism_support_source": self.mechanism_support_source,
+        }
+
+
+def _result(
+    claim: CausalClaim | str,
+    status: CausalClaimStatus | str,
+    evidence: Iterable[Evidence],
+    reason: str,
+    *,
+    support_source: MechanismSupportSource | str | None = None,
+) -> CausalClaimResult:
+    items = list(evidence)
+    facts = _facts(items)
+    if str(claim) == CausalClaim.CONTRADICTION.value:
+        facts["contradictions"] = [item.evidence_id for item in items]
+    return CausalClaimResult(
+        claim=str(claim),
+        status=str(status),
+        evidence_ids=tuple(item.evidence_id for item in items),
+        reason=reason,
+        facts=facts,
+        support_source=str(support_source) if support_source is not None else None,
+    )
+
+
+def _matching_entity_claim(
+    *,
+    claim: str,
+    entity_type: str,
+    candidate: CausalHypothesis,
+    evidence: list[Evidence],
+) -> CausalClaimResult:
+    matches = [
+        item
+        for item in evidence
+        if any(entity.entity_type == entity_type for entity in item.entities)
+    ]
+    if not matches:
+        return _result(
+            claim,
+            CausalClaimStatus.UNAVAILABLE,
+            (),
+            "No typed Evidence supplies this entity.",
+        )
+    candidate_text = _compact(candidate.root_cause)
+    ids = [
+        entity.entity_id
+        for item in matches
+        for entity in item.entities
+        if entity.entity_type == entity_type
+    ]
+    explicit_tokens = _candidate_structured_tokens(candidate)
+    matching_ids = [
+        entity_id
+        for entity_id in ids
+        if _compact(entity_id) in candidate_text
+    ]
+    if matching_ids:
+        return _result(
+            claim,
+            CausalClaimStatus.SUPPORTED,
+            matches,
+            f"Candidate names typed {entity_type} Evidence: {sorted(set(matching_ids))}.",
+        )
+    if explicit_tokens and any(
+        token.startswith(("eq_", "cmp_", "ch_", "op_", "rcp_"))
+        for token in explicit_tokens
+    ):
+        return _result(
+            claim,
+            CausalClaimStatus.CONFLICTED,
+            matches,
+            f"Candidate entity claims do not match typed {entity_type} IDs: {sorted(set(ids))}.",
+        )
+    return _result(
+        claim,
+        CausalClaimStatus.INCOMPLETE,
+        matches,
+        f"Typed {entity_type} Evidence exists but the candidate does not identify it explicitly.",
+    )
+
+
+def _parameter_claim(candidate: CausalHypothesis, evidence: list[Evidence]) -> CausalClaimResult:
+    process = [item for item in evidence if item.evidence_type in _PROCESS_TYPES]
+    if not process:
+        return _result(
+            CausalClaim.PARAMETER,
+            CausalClaimStatus.UNAVAILABLE,
+            (),
+            "No process Evidence is available.",
+        )
+    candidate_tokens = _tokens(_candidate_text(candidate))
+    parameter_items = [
+        item
+        for item in process
+        if any(entity.entity_type == EntityType.PARAMETER.value for entity in item.entities)
+        or item.source_field
+    ]
+    parameter_tokens = {
+        token
+        for item in parameter_items
+        for token in _tokens(_evidence_text(item))
+    }
+    overlap = sorted(candidate_tokens & parameter_tokens)
+    candidate_directions = {
+        direction
+        for token in re.findall(r"[a-z]+", _candidate_text(candidate).casefold())
+        if (direction := _DIRECTION_ALIASES.get(token)) is not None
+    }
+    aligned_items = [
+        item
+        for item in parameter_items
+        if not overlap
+        or bool(candidate_tokens & _tokens(_evidence_text(item)))
+    ]
+    evidence_directions = {
+        direction for item in aligned_items for direction in _directions(item)
+    }
+    if candidate_directions and evidence_directions and not (
+        candidate_directions & evidence_directions
+    ):
+        return _result(
+            CausalClaim.PARAMETER,
+            CausalClaimStatus.CONFLICTED,
+            aligned_items,
+            (
+                "Candidate parameter direction conflicts with typed process facts: "
+                f"candidate={sorted(candidate_directions)}, "
+                f"evidence={sorted(evidence_directions)}."
+            ),
+        )
+    if overlap:
+        return _result(
+            CausalClaim.PARAMETER,
+            CausalClaimStatus.SUPPORTED,
+            parameter_items,
+            f"Candidate parameter wording overlaps typed process facts: {overlap}.",
+        )
+    return _result(
+        CausalClaim.PARAMETER,
+        CausalClaimStatus.INCOMPLETE,
+        parameter_items,
+        "Process anomaly Evidence exists, but the candidate parameter is not aligned to it.",
+    )
+
+
+def _outcome_claim(candidate: CausalHypothesis, evidence: list[Evidence]) -> CausalClaimResult:
+    outcomes = [item for item in evidence if item.evidence_type in _OUTCOME_TYPES]
+    if not outcomes:
+        return _result(
+            CausalClaim.OUTCOME,
+            CausalClaimStatus.UNAVAILABLE,
+            (),
+            "No typed product outcome Evidence is available.",
+        )
+    overlap = sorted(_tokens(_candidate_text(candidate)) & {
+        token for item in outcomes for token in _tokens(_evidence_text(item))
+    })
+    if overlap:
+        return _result(
+            CausalClaim.OUTCOME,
+            CausalClaimStatus.SUPPORTED,
+            outcomes,
+            f"Causal explanation overlaps observed outcome facts: {overlap}.",
+        )
+    return _result(
+        CausalClaim.OUTCOME,
+        CausalClaimStatus.INCOMPLETE,
+        outcomes,
+        "Product outcome Evidence exists but the candidate explanation does not name it.",
+    )
+
+
+def _mechanism_claim(
+    candidate: CausalHypothesis,
+    evidence: list[Evidence],
+    *,
+    parameter: CausalClaimResult,
+    outcome: CausalClaimResult,
+) -> CausalClaimResult:
+    process = [item for item in evidence if item.evidence_type in _PROCESS_TYPES]
+    knowledge = [item for item in evidence if _is_approved_knowledge(item)]
+    rule = [
+        item
+        for item in evidence
+        if item.metadata.get("mechanism_rule")
+        or str(item.source_tool or "").casefold().startswith("mechanism_rule")
+    ]
+    if rule:
+        return _result(
+            CausalClaim.MECHANISM,
+            CausalClaimStatus.SUPPORTED,
+            rule,
+            "An explicit Python-registered mechanism rule supports the relationship.",
+            support_source=MechanismSupportSource.RULE,
+        )
+    if knowledge:
+        return _result(
+            CausalClaim.MECHANISM,
+            CausalClaimStatus.SUPPORTED,
+            knowledge,
+            (
+                "Approved Knowledge supports the engineering mechanism; it does not "
+                "prove current-Lot occurrence alone."
+            ),
+            support_source=MechanismSupportSource.APPROVED_KNOWLEDGE,
+        )
+    if (
+        process
+        and parameter.status == CausalClaimStatus.SUPPORTED.value
+        and outcome.status == CausalClaimStatus.SUPPORTED.value
+    ):
+        return _result(
+            CausalClaim.MECHANISM,
+            CausalClaimStatus.SUPPORTED,
+            [*process],
+            "Current-Lot process anomaly and compatible product outcome converge empirically.",
+            support_source=MechanismSupportSource.EMPIRICAL_CONVERGENCE,
+        )
+    if process or outcome.status != CausalClaimStatus.UNAVAILABLE.value:
+        return _result(
+            CausalClaim.MECHANISM,
+            CausalClaimStatus.INCOMPLETE,
+            [*process],
+            (
+                "The causal explanation remains plausible but current Evidence does "
+                "not converge on a mechanism."
+            ),
+            support_source=MechanismSupportSource.LLM_EXPLANATION_ONLY,
+        )
+    return _result(
+        CausalClaim.MECHANISM,
+        CausalClaimStatus.UNAVAILABLE,
+        (),
+        "No current-Lot process or outcome Evidence can test the mechanism.",
+        support_source=MechanismSupportSource.LLM_EXPLANATION_ONLY,
+    )
+
+
+def build_causal_evidence_matrix(
+    candidate: CausalHypothesis | Mapping[str, Any],
+    evidence: Iterable[Evidence],
+) -> CausalEvidenceMatrix:
+    """Build a deterministic matrix for one candidate and typed Evidence set."""
+
+    normalized = (
+        candidate
+        if isinstance(candidate, CausalHypothesis)
+        else CausalHypothesis.from_mapping(candidate)
+    )
+    evidence_by_id = {item.evidence_id: item for item in evidence}
+    referenced_ids = set(normalized.supporting_evidence_ids) | set(
+        normalized.contradicting_evidence_ids
+    )
+    invalid_ids = tuple(sorted(referenced_ids - set(evidence_by_id)))
+    supporting = [
+        evidence_by_id[item]
+        for item in normalized.supporting_evidence_ids
+        if item in evidence_by_id
+    ]
+    contradicting = [
+        evidence_by_id[item]
+        for item in normalized.contradicting_evidence_ids
+        if item in evidence_by_id
+    ]
+    claims: dict[str, CausalClaimResult] = {}
+    for claim, entity_type in _ENTITY_CLAIMS.items():
+        claims[claim] = _matching_entity_claim(
+            claim=claim,
+            entity_type=entity_type,
+            candidate=normalized,
+            evidence=supporting,
+        )
+    claims[CausalClaim.PARAMETER.value] = _parameter_claim(normalized, supporting)
+    claims[CausalClaim.OUTCOME.value] = _outcome_claim(normalized, supporting)
+    claims[CausalClaim.SCOPE.value] = _scope_claim(supporting)
+    claims[CausalClaim.TEMPORAL.value] = _temporal_claim(supporting)
+    claims[CausalClaim.CONTRADICTION.value] = (
+        _result(
+            CausalClaim.CONTRADICTION,
+            CausalClaimStatus.CONFLICTED,
+            contradicting,
+            "Candidate explicitly cites contradicting Evidence.",
+        )
+        if contradicting or invalid_ids
+        else _result(
+            CausalClaim.CONTRADICTION,
+            CausalClaimStatus.SUPPORTED,
+            (),
+            "No cited contradiction is present.",
+        )
+    )
+    claims[CausalClaim.CONTROL.value] = _control_claim(normalized, evidence_by_id.values())
+    claims[CausalClaim.MECHANISM.value] = _mechanism_claim(
+        normalized,
+        supporting,
+        parameter=claims[CausalClaim.PARAMETER.value],
+        outcome=claims[CausalClaim.OUTCOME.value],
+    )
+    return CausalEvidenceMatrix(
+        candidate=normalized,
+        claims=claims,
+        invalid_evidence_ids=invalid_ids,
+    )
+
+
+def _scope_claim(evidence: list[Evidence]) -> CausalClaimResult:
+    lot_sets = [
+        {
+            entity.entity_id
+            for entity in item.entities
+            if entity.entity_type == EntityType.LOT.value
+        }
+        for item in evidence
+    ]
+    populated = [values for values in lot_sets if values]
+    if not populated:
+        return _result(
+            CausalClaim.SCOPE,
+            CausalClaimStatus.INCOMPLETE,
+            evidence,
+            "No Lot scope is attached to the cited Evidence.",
+        )
+    intersection = set.intersection(*populated)
+    if not intersection:
+        return _result(
+            CausalClaim.SCOPE,
+            CausalClaimStatus.CONFLICTED,
+            evidence,
+            "Cited Evidence lanes have no common Lot scope.",
+        )
+    return _result(
+        CausalClaim.SCOPE,
+        CausalClaimStatus.SUPPORTED,
+        evidence,
+        f"Cited Evidence converges on Lot scope: {sorted(intersection)}.",
+    )
+
+
+def _temporal_claim(evidence: list[Evidence]) -> CausalClaimResult:
+    timestamps = {item.timestamp for item in evidence if item.timestamp}
+    if not timestamps:
+        return _result(
+            CausalClaim.TEMPORAL,
+            CausalClaimStatus.UNAVAILABLE,
+            evidence,
+            "Cited Evidence has no timestamps to align.",
+        )
+    global_processing_windows = [
+        window
+        for item in evidence
+        if item.evidence_type == EvidenceType.EXCURSION_WINDOW.value
+        for window in _processing_windows(item)
+    ]
+    out_of_window: list[str] = []
+    for item in evidence:
+        if not item.timestamp:
+            continue
+        timestamp = str(item.timestamp).replace("Z", "+00:00")
+        try:
+            observed_at = datetime.fromisoformat(timestamp)
+            if observed_at.tzinfo is not None:
+                observed_at = observed_at.astimezone(UTC).replace(tzinfo=None)
+        except ValueError:
+            # Keep legacy/non-ISO timestamps usable; a hard temporal conflict
+            # requires an explicitly parseable interval.
+            continue
+        item_windows = _processing_windows(item)
+        if not item_windows and item.evidence_type in _PROCESS_TYPES:
+            item_windows = global_processing_windows
+        parsed_windows: list[tuple[datetime, datetime]] = []
+        for window in item_windows:
+            try:
+                start = datetime.fromisoformat(
+                    str(window["start"]).replace("Z", "+00:00")
+                )
+                end = datetime.fromisoformat(
+                    str(window["end"]).replace("Z", "+00:00")
+                )
+                if start.tzinfo is not None:
+                    start = start.astimezone(UTC).replace(tzinfo=None)
+                if end.tzinfo is not None:
+                    end = end.astimezone(UTC).replace(tzinfo=None)
+            except (TypeError, ValueError):
+                continue
+            parsed_windows.append((start, end))
+        if parsed_windows and not any(
+            start <= observed_at <= end for start, end in parsed_windows
+        ):
+            out_of_window.append(item.evidence_id)
+    if out_of_window:
+        return _result(
+            CausalClaim.TEMPORAL,
+            CausalClaimStatus.CONFLICTED,
+            evidence,
+            "Evidence timestamp falls outside its declared processing/excursion window: "
+            f"{sorted(set(out_of_window))}.",
+        )
+    return _result(
+        CausalClaim.TEMPORAL,
+        CausalClaimStatus.SUPPORTED,
+        evidence,
+        "Cited Evidence carries timestamps consistent with its declared windows.",
+    )
+
+
+def _control_claim(candidate: CausalHypothesis, evidence: Iterable[Evidence]) -> CausalClaimResult:
+    controls = [item for item in evidence if item.evidence_type in _CONTROL_TYPES]
+    if controls:
+        return _result(
+            CausalClaim.CONTROL,
+            CausalClaimStatus.SUPPORTED,
+            controls,
+            "Normal/negative control Evidence is available as supporting context.",
+        )
+    return _result(
+        CausalClaim.CONTROL,
+        CausalClaimStatus.UNAVAILABLE,
+        (),
+        "No normal or exclusion control Evidence is available; this is not a hard gate.",
+    )
+
+
+validate_causal_candidate = build_causal_evidence_matrix
+
+
+__all__ = [
+    "CausalClaimResult",
+    "CausalEvidenceMatrix",
+    "build_causal_evidence_matrix",
+    "validate_causal_candidate",
+]

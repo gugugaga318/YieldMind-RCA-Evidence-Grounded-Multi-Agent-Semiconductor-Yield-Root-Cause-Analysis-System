@@ -10,6 +10,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from yield_rca_core.causal_evidence_matrix import build_causal_evidence_matrix
+from yield_rca_core.causal_hypothesis import CausalHypothesis
 from yield_rca_core.models import (
     AgentFinding,
     AgentKind,
@@ -40,8 +42,10 @@ _PRODUCT_EVIDENCE_TYPES = {
 _LLM_NON_SUPPORTING_EVIDENCE_TYPES = {
     "data_missing",
     "negative_signal",
-    "historical_case_match",
     "sop_guidance",
+}
+_KNOWLEDGE_MECHANISM_EVIDENCE_TYPES = {
+    "historical_case_match",
     "engineering_note",
 }
 _CAUSAL_GROUNDING_IGNORED_TOKENS = {
@@ -119,6 +123,28 @@ def _parameter_tokens(parameter: str) -> set[str]:
         for token in re.findall(r"[a-z0-9]+", parameter.lower())
         if len(token) >= 3 and token not in ignored
     }
+
+
+def _is_approved_knowledge_support(evidence: Any) -> bool:
+    """Only confirmed RCA/engineering knowledge may support a mechanism."""
+
+    if (
+        evidence.source_type != "knowledge"
+        or evidence.evidence_type not in _KNOWLEDGE_MECHANISM_EVIDENCE_TYPES
+    ):
+        return False
+    statuses = [
+        str(value).upper()
+        for key, value in evidence.metadata.items()
+        if str(key).casefold() == "validation_status"
+    ]
+    statuses.extend(
+        str(value).upper()
+        for entity in evidence.entities
+        for key, value in entity.attributes.items()
+        if str(key).casefold() == "validation_status"
+    )
+    return bool(statuses) and all(status == "CONFIRMED" for status in statuses)
 
 
 def _operationally_aligned_knowledge_candidate(
@@ -442,8 +468,15 @@ def _llm_candidate_payload(
         evidence_id
         for evidence_id in supporting
         if evidence_id in evidence_by_id
-        if evidence_by_id[evidence_id].evidence_type
-        in _LLM_NON_SUPPORTING_EVIDENCE_TYPES
+        if (
+            evidence_by_id[evidence_id].evidence_type
+            in _LLM_NON_SUPPORTING_EVIDENCE_TYPES
+            or (
+                evidence_by_id[evidence_id].evidence_type
+                in _KNOWLEDGE_MECHANISM_EVIDENCE_TYPES
+                and not _is_approved_knowledge_support(evidence_by_id[evidence_id])
+            )
+        )
     )
     known_supporting = [
         evidence_id
@@ -492,7 +525,7 @@ def _llm_candidate_payload(
     source_agents = {
         str(item.source_agent)
         for item in supporting_evidence
-        if item.source_agent is not None
+        if item.source_agent is not None and item.source_type != "knowledge"
     }
     root_tokens = _causal_grounding_tokens(root_cause)
     explanation_tokens = _causal_grounding_tokens(explanation)
@@ -556,6 +589,21 @@ def _llm_candidate_payload(
     known_contradicting = _unique(
         [*known_contradicting, *automatically_contradicting]
     )
+    matrix = None
+    matrix_error: str | None = None
+    if root_cause and explanation and known_supporting:
+        try:
+            matrix = build_causal_evidence_matrix(
+                CausalHypothesis(
+                    root_cause=root_cause,
+                    causal_explanation=explanation,
+                    supporting_evidence_ids=tuple(known_supporting),
+                    contradicting_evidence_ids=tuple(known_contradicting),
+                ),
+                evidence_by_id.values(),
+            )
+        except (TypeError, ValueError) as exc:
+            matrix_error = str(exc)
     grounded_entity_ids = {
         entity.entity_id
         for item in supporting_evidence
@@ -575,6 +623,9 @@ def _llm_candidate_payload(
         "explanation_product_grounding": bool(explanation_product_overlap),
         "grounded_structured_entities": not ungrounded_entities,
         "causal_explanation_present": bool(explanation),
+        "claim_evidence_consistency": (
+            matrix_error is None and (matrix is None or not matrix.has_critical_conflict)
+        ),
     }
     rejection_reasons: list[str] = []
     if unknown:
@@ -613,6 +664,12 @@ def _llm_candidate_payload(
         )
     if not explanation:
         rejection_reasons.append("The proposal lacks a causal explanation.")
+    if matrix_error:
+        rejection_reasons.append(f"Causal Evidence Matrix could not be built: {matrix_error}.")
+    elif matrix is not None and matrix.has_critical_conflict:
+        rejection_reasons.append(
+            "The Causal Evidence Matrix found a critical claim/Evidence conflict."
+        )
 
     confidence = 0.45 + 0.10 * len(complete_lanes)
     if len(source_agents) >= 3:
@@ -656,6 +713,16 @@ def _llm_candidate_payload(
         "source_agents": sorted(source_agents),
         "root_process_grounding_tokens": root_process_overlap,
         "explanation_product_grounding_tokens": explanation_product_overlap,
+        "causal_evidence_matrix": matrix.to_dict() if matrix is not None else {
+            "status": "unavailable",
+            "claims": {},
+            "invalid_evidence_ids": sorted(set(unknown)),
+            "mechanism_support_source": None,
+        },
+        "causal_matrix_status": matrix.status if matrix is not None else "unavailable",
+        "mechanism_support_source": (
+            matrix.mechanism_support_source if matrix is not None else None
+        ),
     }
 
 
@@ -681,6 +748,7 @@ class HypothesisEngine:
         findings: list[AgentFinding],
         mode: str = "shadow",
         external_candidates: list[dict[str, Any]] | None = None,
+        include_deterministic_candidates: bool = True,
     ) -> dict[str, Any]:
         """Return a JSON-safe deterministic hypothesis decision result."""
         by_kind = _findings_by_kind(findings)
@@ -732,26 +800,27 @@ class HypothesisEngine:
             if existing is None or candidate["confidence"] > existing["confidence"]:
                 candidates[root_cause] = candidate
 
-        add(signature_root_cause, "equipment_signature", 0.95)
-        add(_recipe_candidate(mes), "recipe_change", 0.80)
-        if discovery is not None:
-            for case in discovery.details.get("cases", []):
-                if isinstance(case, dict):
-                    raw_root_cause = str(case.get("root_cause", "")).strip()
-                    add(
-                        _canonical_root_cause(raw_root_cause, signature_root_cause) or None,
-                        "knowledge_discovery",
-                        float(case.get("similarity", 0.0)),
-                    )
-        if validation is not None:
-            for candidate in validation.details.get("preliminary_candidates", []):
-                if isinstance(candidate, dict):
-                    raw_root_cause = str(candidate.get("root_cause", "")).strip()
-                    add(
-                        _canonical_root_cause(raw_root_cause, signature_root_cause) or None,
-                        "legacy_preliminary_candidate",
-                        float(candidate.get("score", 0.0)),
-                    )
+        if include_deterministic_candidates:
+            add(signature_root_cause, "equipment_signature", 0.95)
+            add(_recipe_candidate(mes), "recipe_change", 0.80)
+            if discovery is not None:
+                for case in discovery.details.get("cases", []):
+                    if isinstance(case, dict):
+                        raw_root_cause = str(case.get("root_cause", "")).strip()
+                        add(
+                            _canonical_root_cause(raw_root_cause, signature_root_cause) or None,
+                            "knowledge_discovery",
+                            float(case.get("similarity", 0.0)),
+                        )
+            if validation is not None:
+                for candidate in validation.details.get("preliminary_candidates", []):
+                    if isinstance(candidate, dict):
+                        raw_root_cause = str(candidate.get("root_cause", "")).strip()
+                        add(
+                            _canonical_root_cause(raw_root_cause, signature_root_cause) or None,
+                            "legacy_preliminary_candidate",
+                            float(candidate.get("score", 0.0)),
+                        )
 
         for proposal in external_candidates or []:
             if not isinstance(proposal, dict):
@@ -828,5 +897,6 @@ class HypothesisEngine:
                 ),
                 "knowledge_validation_present": validation is not None,
                 "external_candidate_count": len(external_candidates or []),
+                "deterministic_candidates_enabled": include_deterministic_candidates,
             },
         }

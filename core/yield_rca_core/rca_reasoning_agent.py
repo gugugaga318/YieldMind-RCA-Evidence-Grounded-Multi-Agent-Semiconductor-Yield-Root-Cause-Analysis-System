@@ -210,8 +210,10 @@ class RCAReasoningAgent:
             "attempt_count": 0,
             "validation_errors": [],
             "fallback_reason": None,
+            "candidate_output_invalid": False,
         }
         external_candidates: list[dict[str, Any]] = []
+        deterministic_candidates_enabled = True
         if self.agent_mode == AgentMode.LLM.value and self.llm_client is not None:
             try:
                 generated = QwenHypothesisCandidateGenerator(
@@ -230,36 +232,76 @@ class RCAReasoningAgent:
                     "attempt_count": generated.attempt_count,
                     "validation_errors": list(generated.validation_errors),
                     "fallback_reason": None,
+                    "candidate_output_invalid": generated.candidate_output_invalid,
                 }
+                if generated.candidate_output_invalid:
+                    candidate_generation["fallback_reason"] = "qwen_candidate_output_invalid"
+                    deterministic_candidates_enabled = False
+                    warnings.append(
+                        Warning(
+                            warning_id="WARN_RCA_QWEN_CANDIDATE_INVALID",
+                            message=(
+                                "Qwen returned no valid causal candidate after the "
+                                "bounded validation attempts."
+                            ),
+                            evidence_ids=evidence_ids,
+                        )
+                    )
             except (LLMCallError, LLMOutputValidationError) as exc:
                 candidate_generation = {
-                    "source": "deterministic_fallback",
+                    "source": "qwen",
                     "candidate_count": 0,
                     "attempt_count": (
                         2 if isinstance(exc, LLMOutputValidationError) else 1
                     ),
                     "validation_errors": [str(exc)],
                     "fallback_reason": (
-                        "qwen_hypothesis_candidate_generation_failed"
+                        "qwen_candidate_output_invalid"
+                        if isinstance(exc, LLMOutputValidationError)
+                        else "qwen_candidate_provider_failed"
                     ),
+                    "candidate_output_invalid": True,
                 }
+                deterministic_candidates_enabled = not isinstance(
+                    exc, LLMOutputValidationError
+                )
                 warnings.append(
                     Warning(
-                        warning_id="WARN_RCA_LLM_CANDIDATE_FALLBACK",
+                        warning_id=(
+                            "WARN_RCA_QWEN_CANDIDATE_INVALID"
+                            if isinstance(exc, LLMOutputValidationError)
+                            else "WARN_RCA_LLM_CANDIDATE_FALLBACK"
+                        ),
                         message=(
-                            "Qwen hypothesis candidate generation failed; the "
+                            "Qwen hypothesis candidate output was invalid; the "
+                            "workflow returned an inconclusive result without "
+                            "inventing a deterministic replacement candidate."
+                            if isinstance(exc, LLMOutputValidationError)
+                            else "Qwen hypothesis candidate generation failed; the "
                             "deterministic Evidence Gate continued without model "
                             "candidates."
                         ),
                         evidence_ids=evidence_ids,
                     )
                 )
+        if candidate_generation.get("candidate_output_invalid"):
+            warnings.append(
+                Warning(
+                    warning_id="WARN_RCA_CANDIDATE_VALIDATION_BOUNDARY",
+                    message=(
+                        "At least one Qwen candidate was rejected by the Python "
+                        "candidate contract or no valid Qwen candidate remained."
+                    ),
+                    evidence_ids=evidence_ids,
+                )
+            )
 
         engine_result = self.hypothesis_engine.analyze(
             request_id=request_id,
             findings=findings,
             mode="active",
             external_candidates=external_candidates,
+            include_deterministic_candidates=deterministic_candidates_enabled,
         )
         decision = engine_result["decision_gate"]
         root_cause = str(decision["root_cause"])
@@ -351,7 +393,18 @@ class RCAReasoningAgent:
                 "root_cause": candidate["root_cause"],
                 "score": candidate["confidence"],
                 "basis": candidate["basis"],
+                "status": candidate["status"],
                 "evidence_ids": list(candidate["evidence_ids"]),
+                "supporting_evidence_ids": list(candidate["supporting_evidence_ids"]),
+                "contradicting_evidence_ids": list(
+                    candidate["contradicting_evidence_ids"]
+                ),
+                "rejection_reasons": list(candidate["rejection_reasons"]),
+                "causal_matrix_status": candidate.get("causal_matrix_status"),
+                "mechanism_support_source": candidate.get("mechanism_support_source"),
+                "causal_evidence_matrix": dict(
+                    candidate.get("causal_evidence_matrix", {})
+                ),
             }
             for candidate in engine_result["candidates"]
         ]

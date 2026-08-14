@@ -2,6 +2,18 @@
 
 from __future__ import annotations
 
+from yield_rca_core.causal_evidence_matrix import (
+    CausalClaimResult,
+    CausalEvidenceMatrix,
+    build_causal_evidence_matrix,
+    validate_causal_candidate,
+)
+from yield_rca_core.causal_hypothesis import (
+    CausalClaim,
+    CausalClaimStatus,
+    CausalHypothesis,
+    MechanismSupportSource,
+)
 from yield_rca_core.causal_retrieval import (
     CausalLaneKnowledgeRetriever,
     prepare_causal_plan,
@@ -229,9 +241,15 @@ __all__ = [
     "CausalLane",
     "CausalLaneContext",
     "CausalLaneKnowledgeRetriever",
+    "CausalClaim",
+    "CausalClaimResult",
+    "CausalClaimStatus",
+    "CausalEvidenceMatrix",
+    "CausalHypothesis",
     "CausalScopeMode",
     "CausalScopePolicy",
     "CausalSearchScope",
+    "MechanismSupportSource",
     "DecisionType",
     "EVIDENCE_SCHEMA_VERSION",
     "Evidence",
@@ -376,7 +394,9 @@ __all__ = [
     "build_workflow",
     "build_knowledge_retriever",
     "build_causal_search_scope",
+    "build_causal_evidence_matrix",
     "explicit_module_limit_requested",
+    "validate_causal_candidate",
     "calculate_imr",
     "calculate_p_chart",
     "calculate_xbar",
