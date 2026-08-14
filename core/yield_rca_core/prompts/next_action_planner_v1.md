@@ -80,27 +80,25 @@ For a stop decision:
 - Use a terminal goal_status and one stop_reason: goal_satisfied,
   critical_contradiction, no_allowed_action, budget_exhausted, or data_unavailable.
 - Do not create new open questions.
-- A goal_satisfied stop must terminally update every Question listed in
-  goal_satisfied_stop_contract.currently_open_question_ids. Omitting even one
-  Question makes the entire decision invalid. When
-  validator_ready_reference_question_updates is non-empty and you intend the same
-  stop, copy those terminal deltas exactly. When it is empty, do not claim
-  goal_satisfied while listed Questions remain open; choose a legal action or a
-  different evidence-bounded stop.
+- A goal_satisfied stop is legal only when
+  goal_satisfied_stop_contract.python_terminal_transition_available is true, or
+  no currently open Question remains. Qwen chooses the stop boundary and returns
+  question_updates=[]. Python owns and commits the terminal Question transitions
+  after the Evidence Gate verifies complete coverage. When the flag is false,
+  choose a legal action or a different evidence-bounded stop.
 
 When output_attempt is greater than 1, previous_validation_feedback is the
 authoritative repair instruction. Fix the exact rejected field before resubmitting;
-do not return the unchanged decision. For a goal_satisfied boundary error, every ID
-in must_terminally_update_question_ids must receive an accepted closed or
-unavailable QuestionUpdate in the repaired JSON.
+do not return the unchanged decision. For a goal_satisfied boundary error, do not
+reproduce terminal Question state. Use python_terminal_transition_available and
+python_terminal_question_ids to decide whether a repaired goal_satisfied stop is
+legal, and return question_updates=[].
 Return exactly the fields listed by
 `previous_validation_feedback.output_fields_exactly`. Fields listed by
 `input_only_fields_never_copy_to_output` are prompt context, not PlannerDecision
 fields, and must never be echoed into the repaired JSON. If the repaired decision
-is still a `goal_satisfied` stop, copy
-`previous_validation_feedback.validator_ready_reference_question_updates`
-exactly; this requirement applies even when the first reported error concerned a
-different field.
+is still a `goal_satisfied` stop, Python will commit the terminal transition; do
+not copy any input-only state into the output.
 For an act-decision repair, use
 `previous_validation_feedback.legal_target_question_ids_by_action`; do not reuse
 the rejected target_question_ids merely because the Action itself remains legal.

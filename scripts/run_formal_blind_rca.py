@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import shutil
+import subprocess
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -24,6 +25,10 @@ CORE_DIR = ROOT / "core"
 if str(CORE_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_DIR))
 
+from validate_sealed_blind_packet import (  # noqa: E402
+    FORMAL_V2_ROLE,
+    validate_sealed_public_packet,
+)
 from yield_rca_core.investigation_models import OrchestrationMode  # noqa: E402
 from yield_rca_core.llm_gateway import (  # noqa: E402
     LLMCallError,
@@ -47,6 +52,8 @@ SUPPORTED_CASE_KEYS = {
     "candidate_peer_lot_ids",
     "declared_unavailable_sources",
 }
+DEVELOPMENT_REGRESSION_ROLE = "development_regression"
+EVALUATION_ROLES = (DEVELOPMENT_REGRESSION_ROLE, FORMAL_V2_ROLE)
 
 
 class CappedLLMClient:
@@ -131,6 +138,48 @@ def _public_files(public_dir: Path) -> list[dict[str, Any]]:
     ]
 
 
+def _git_command(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _code_snapshot() -> tuple[str | None, bool]:
+    completed = _git_command("rev-parse", "HEAD")
+    status = _git_command("status", "--porcelain", "--untracked-files=no")
+    untracked_runtime = _git_command(
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        "--",
+        "core",
+        "backend",
+        "pyproject.toml",
+        "scripts/run_formal_blind_rca.py",
+        "scripts/validate_sealed_blind_packet.py",
+    )
+    value = completed.stdout.strip()
+    commit = value if completed.returncode == 0 and value else None
+    clean = bool(
+        status.returncode == 0
+        and untracked_runtime.returncode == 0
+        and not status.stdout.strip()
+        and not untracked_runtime.stdout.strip()
+    )
+    return commit, clean
+
+
+def _validate_sealed_run_selection(*, case_ids: list[str], overwrite: bool) -> None:
+    if case_ids:
+        raise ValueError("sealed_blind execution must run the complete case catalogue")
+    if overwrite:
+        raise ValueError("sealed_blind execution cannot overwrite an earlier run")
+
+
 def load_public_cases(public_dir: Path) -> tuple[str, list[PublicCase]]:
     """Load only the case catalogue exposed to the RCA system."""
 
@@ -199,18 +248,79 @@ def _strict_qwen_acceptance_reasons(
         reasons.append("provider_failure")
     if result.get("llm_call_cap_exceeded"):
         reasons.append("llm_call_cap_exceeded")
+    if result.get("planner_stop_proposed_by") != "qwen":
+        reasons.append("planner_stop_not_qwen")
+    if result.get("terminal_question_updates_source") != "python_evidence_gate":
+        reasons.append("terminal_updates_not_python_evidence_gate")
     return reasons
+
+
+def _execution_layer(results: list[dict[str, Any]]) -> dict[str, Any]:
+    case_count = len(results)
+
+    def ratio(count: int) -> float:
+        return round(count / case_count, 6) if case_count else 1.0
+
+    completed = sum(bool(item.get("workflow_completed")) for item in results)
+    strict = sum(bool(item.get("strict_qwen_accepted")) for item in results)
+    llm_react = sum(
+        item.get("actual_orchestration_mode") == OrchestrationMode.LLM_REACT.value
+        for item in results
+    )
+    provider_clean = sum(not bool(item.get("provider_failure")) for item in results)
+    qwen_candidates = sum(
+        item.get("hypothesis_candidate_source") == "qwen" for item in results
+    )
+    qwen_stop = sum(item.get("planner_stop_proposed_by") == "qwen" for item in results)
+    python_terminal = sum(
+        item.get("terminal_question_updates_source") == "python_evidence_gate"
+        for item in results
+    )
+    return {
+        "case_count": case_count,
+        "workflow_completed_count": completed,
+        "workflow_completion_rate": ratio(completed),
+        "strict_qwen_accepted_count": strict,
+        "strict_qwen_acceptance_rate": ratio(strict),
+        "llm_react_preserved_count": llm_react,
+        "llm_react_preservation_rate": ratio(llm_react),
+        "provider_clean_count": provider_clean,
+        "provider_clean_rate": ratio(provider_clean),
+        "qwen_candidate_count": qwen_candidates,
+        "qwen_candidate_rate": ratio(qwen_candidates),
+        "qwen_stop_proposal_count": qwen_stop,
+        "qwen_stop_proposal_rate": ratio(qwen_stop),
+        "python_terminal_gate_count": python_terminal,
+        "python_terminal_gate_rate": ratio(python_terminal),
+        "llm_call_count": sum(int(item.get("llm_call_count") or 0) for item in results),
+    }
 
 
 def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
     public_dir = args.public_dir.resolve()
     dataset_id, catalog_cases = load_public_cases(public_dir)
+    sealed_declaration: dict[str, Any] | None = None
+    if args.evaluation_role == FORMAL_V2_ROLE:
+        sealed_declaration = validate_sealed_public_packet(public_dir)
+        if sealed_declaration["dataset_id"] != dataset_id:
+            raise ValueError("sealed declaration and public catalogue dataset_id differ")
+        _validate_sealed_run_selection(
+            case_ids=args.case_id,
+            overwrite=args.overwrite,
+        )
     cases = _select_cases(catalog_cases, args.case_id)
     mode = OrchestrationMode(args.orchestration_mode).value
     settings = LLMSettings.from_env()
     if settings.agent_mode == "llm" and not args.confirm_paid_qwen:
         raise ValueError(
             "--confirm-paid-qwen is required when YIELD_RCA_AGENT_MODE=llm"
+        )
+    code_commit, code_worktree_clean = _code_snapshot()
+    if args.evaluation_role == FORMAL_V2_ROLE and (
+        code_commit is None or not code_worktree_clean
+    ):
+        raise ValueError(
+            "sealed_blind execution requires a committed, clean tracked worktree"
         )
     _prepare_output(args.output_dir.resolve(), overwrite=args.overwrite)
     output_dir = args.output_dir.resolve()
@@ -220,7 +330,33 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
         "schema_version": "1.0",
         "dataset_id": dataset_id,
         "run_kind": "formal_rca_blind_execution",
+        "evaluation_role": args.evaluation_role,
         "created_at": datetime.now(UTC).isoformat(),
+        "code_commit": code_commit,
+        "code_worktree_clean": code_worktree_clean,
+        "governance": {
+            "dataset_generation_independent": (
+                bool(sealed_declaration["dataset_generation_independent"])
+                if sealed_declaration is not None
+                else False
+            ),
+            "ground_truth_custodian": (
+                sealed_declaration["ground_truth_custodian"]
+                if sealed_declaration is not None
+                else "development_regression"
+            ),
+            "sealed_before_execution": sealed_declaration is not None,
+            "ground_truth_sha256_commitment": (
+                sealed_declaration["ground_truth_sha256_commitment"]
+                if sealed_declaration is not None
+                else None
+            ),
+            "development_agent_ground_truth_access": (
+                sealed_declaration["development_agent_ground_truth_access"]
+                if sealed_declaration is not None
+                else "previously_exposed"
+            ),
+        },
         "input_boundary": {
             "mode": "public_only",
             "public_dir": str(public_dir),
@@ -288,6 +424,7 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                     "state_file": str(state_path.relative_to(output_dir)).replace("\\", "/"),
                     "error": None,
                     "job_status": state.job.status,
+                    "workflow_completed": state.job.status == "completed",
                     "actual_orchestration_mode": state.execution_metadata.get(
                         "orchestration_mode"
                     ),
@@ -329,6 +466,15 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                     "llm_call_cap_exceeded": (
                         client.limit_exceeded if client is not None else False
                     ),
+                    "provider_failure": bool(
+                        client.provider_failures if client is not None else []
+                    ),
+                    "planner_stop_proposed_by": state.execution_metadata.get(
+                        "planner_stop_proposed_by"
+                    ),
+                    "terminal_question_updates_source": state.execution_metadata.get(
+                        "terminal_question_updates_source"
+                    ),
                 }
             acceptance_reasons = _strict_qwen_acceptance_reasons(
                 case_result,
@@ -345,6 +491,7 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                     "state_file": None,
                     "error": f"{type(exc).__name__}: {exc}",
                     "job_status": None,
+                    "workflow_completed": False,
                     "actual_orchestration_mode": None,
                     "fallback_reason": None,
                     "hypothesis_status": None,
@@ -370,6 +517,11 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                     "llm_call_cap_exceeded": (
                         client.limit_exceeded if client is not None else False
                     ),
+                    "provider_failure": bool(
+                        client.provider_failures if client is not None else []
+                    ),
+                    "planner_stop_proposed_by": None,
+                    "terminal_question_updates_source": None,
                 }
             acceptance_reasons = _strict_qwen_acceptance_reasons(
                 case_result,
@@ -380,7 +532,7 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
             case_result["strict_qwen_rejection_reasons"] = acceptance_reasons
             results.append(case_result)
 
-    completed = sum(item["error"] is None for item in results)
+    completed = sum(bool(item["workflow_completed"]) for item in results)
     strict_qwen_evaluated = (
         mode == OrchestrationMode.LLM_REACT.value
         and settings.agent_mode == "llm"
@@ -388,16 +540,20 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
     strict_qwen_accepted = sum(
         bool(item["strict_qwen_accepted"]) for item in results
     )
+    execution_layer = _execution_layer(results)
+    execution_layer["strict_qwen_acceptance_evaluated"] = strict_qwen_evaluated
     payload = {
         "schema_version": "1.0",
         "dataset_id": dataset_id,
         "run_kind": "formal_rca_blind_execution",
+        "evaluation_role": args.evaluation_role,
         "case_count": len(results),
         "completed_case_count": completed,
         "failed_case_count": len(results) - completed,
         "strict_qwen_acceptance_evaluated": strict_qwen_evaluated,
         "strict_qwen_accepted_case_count": strict_qwen_accepted,
         "strict_qwen_rejected_case_count": len(results) - strict_qwen_accepted,
+        "execution_layer": execution_layer,
         "results": results,
         "notice": "This execution artifact contains no Ground Truth and is not a score.",
     }
@@ -409,6 +565,7 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
         "# Formal RCA Blind Execution",
         "",
         f"- Dataset: `{dataset_id}`",
+        f"- Evaluation role: `{args.evaluation_role}`",
         f"- Cases completed: {completed}/{len(results)}",
         (
             f"- Strict Qwen accepted: {strict_qwen_accepted}/{len(results)}"
@@ -430,6 +587,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--public-dir", type=Path, default=DEFAULT_PUBLIC_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument(
+        "--evaluation-role",
+        choices=EVALUATION_ROLES,
+        default=DEVELOPMENT_REGRESSION_ROLE,
+        help=(
+            "V1 and any exposed dataset must use development_regression. "
+            "sealed_blind requires an independently supplied sealed manifest."
+        ),
+    )
     parser.add_argument(
         "--orchestration-mode",
         choices=[item.value for item in OrchestrationMode],

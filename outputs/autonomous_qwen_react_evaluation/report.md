@@ -58,7 +58,7 @@ The two premature-stop scenarios pass only when the Planner's proposed `supporte
 | inspect_fdc_spc / fdc | The shared exposure needs FDC/SPC process-mechanism evidence. | defect=scratch, lot_id=LOT_A_001, module=CU_CMP | EV_FDC_ENDPOINT_TIME, EV_FDC_SLURRY_FLOW, EV_SPC_BASELINE_STATUS | CMP_CU03/CMP_CU03_CH02 shows endpoint_time +16.7%, slurry_flow -12.0%, 0 recorded OOC events, and 0 SPC OOC parameters at operation 6400. |
 | run_rca_reasoning / rca_reasoning | Scope, mechanism, and product-outcome findings are available for RCA gating. | defect=scratch, lot_id=LOT_A_001, module=CU_CMP | EV_DEFECT_SCRATCH, EV_WAT_LEAKAGE, EV_MES_SOURCE_LOT_CONTEXT, EV_WAT_SOURCE_LOT_ANOMALY, EV_FDC_EXCURSION_WINDOW, EV_MES_IMPACT_LOTS, EV_DEFECT_SCRATCH_SHARED_EXPOSURE, EV_WAT_LEAKAGE_SHARED_EXPOSURE, EV_FDC_ENDPOINT_TIME, EV_FDC_SLURRY_FLOW, EV_SPC_BASELINE_STATUS | Root cause: CMP_CU03_CH02 slurry delivery degradation (confidence 95%). |
 
-Terminal STOP: The deterministic Fake Client baseline reached an explicit goal_satisfied boundary. (`goal_satisfied`, final level `supported`).
+Terminal STOP: Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary. (`goal_satisfied`, final level `supported`).
 
 ## Compatibility fallback scenarios
 

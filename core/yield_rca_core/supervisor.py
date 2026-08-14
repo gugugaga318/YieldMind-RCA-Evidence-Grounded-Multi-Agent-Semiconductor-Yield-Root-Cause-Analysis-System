@@ -877,6 +877,21 @@ class Supervisor:
 
             if decision.decision_type == DecisionType.STOP.value:
                 state = self._record_planner_outcome(state, outcome)
+                state = replace(
+                    state,
+                    execution_metadata={
+                        **state.execution_metadata,
+                        "planner_stop_proposed_by": outcome.decision_proposed_by,
+                        "terminal_question_updates_source": (
+                            outcome.question_updates_source
+                        ),
+                        "terminal_question_updates_validated_by": (
+                            "python_evidence_gate"
+                            if decision.question_updates
+                            else None
+                        ),
+                    },
+                )
                 conclusion_level = _gate_conclusion_level(
                     decision.proposed_conclusion_level,
                     state=state,

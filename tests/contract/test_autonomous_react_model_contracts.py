@@ -206,6 +206,7 @@ class AutonomousReactQuestionContractTest(unittest.TestCase):
             decision=decision,
             question_update_reviews=[review],
             raw_question_update_count=1,
+            question_updates_source="qwen",
         )
 
         self.assertEqual(

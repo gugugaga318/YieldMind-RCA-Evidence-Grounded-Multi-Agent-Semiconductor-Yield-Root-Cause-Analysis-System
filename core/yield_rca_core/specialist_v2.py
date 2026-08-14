@@ -138,6 +138,30 @@ def _output_data(output: ToolOutput) -> dict[str, Any]:
     return {key: value for key, value in output.data.items() if key != "evidence"}
 
 
+def _compact_evidence(evidence: Evidence) -> dict[str, Any]:
+    """Keep model analysis grounded without repeating full entity envelopes."""
+
+    return {
+        "evidence_id": evidence.evidence_id,
+        "evidence_type": evidence.evidence_type,
+        "source_type": evidence.source_type,
+        "summary": evidence.summary,
+        "observation": evidence.observation,
+        "confidence": evidence.confidence,
+    }
+
+
+def _model_tool_observation(item: _ExecutedTool) -> dict[str, Any]:
+    """Bound the model view while RCAState retains the complete ToolOutput."""
+
+    return {
+        "tool_name": item.output.tool_name,
+        "output_summary": item.record.output_summary,
+        "evidence_ids": list(item.output.evidence_ids),
+        "evidence": [_compact_evidence(evidence) for evidence in item.output.evidence],
+    }
+
+
 def _merge_evidence(outputs: list[ToolOutput]) -> list[Evidence]:
     evidence_by_id: dict[str, Evidence] = {}
     for output in outputs:
@@ -291,6 +315,7 @@ class SpecialistV2Executor:
     agent_mode: str = AgentMode.LLM.value
     tool_prompt_version: str = "v1"
     analysis_prompt_version: str = "v2"
+    direct_single_candidate: bool = False
 
     def execute(
         self,
@@ -324,6 +349,7 @@ class SpecialistV2Executor:
         superseded_step_ids: list[str] = []
         validation_error_count = 0
         fallback_reasons: list[str] = []
+        direct_selection_count = 0
         stop_reason = "tool_budget_exhausted"
 
         while len(executed) < budget:
@@ -343,13 +369,24 @@ class SpecialistV2Executor:
                 )
                 break
 
-            decision, errors, used_fallback = self._choose_tool(
-                action,
-                context=context,
-                candidates=candidates,
-                effective=effective,
-                remaining_budget=budget - len(executed),
-            )
+            if self.direct_single_candidate and len(candidates) == 1:
+                decision = self._deterministic_decision(
+                    action,
+                    context=context,
+                    candidates=candidates,
+                    effective=effective,
+                )
+                errors = 0
+                used_fallback = False
+                direct_selection_count += 1
+            else:
+                decision, errors, used_fallback = self._choose_tool(
+                    action,
+                    context=context,
+                    candidates=candidates,
+                    effective=effective,
+                    remaining_budget=budget - len(executed),
+                )
             validation_error_count += errors
             if used_fallback:
                 fallback_reasons.append("tool_selection_output_invalid")
@@ -477,6 +514,9 @@ class SpecialistV2Executor:
                     "agent": action.agent,
                     "tool_steps": [item.record.to_dict() for item in executed],
                     "tool_call_count": len(executed),
+                    "direct_single_candidate_selection_count": (
+                        direct_selection_count
+                    ),
                     "stop_reason": stop_reason,
                     "analysis_source": (
                         "deterministic_fallback" if analysis_fallback else "qwen"
@@ -840,12 +880,7 @@ class SpecialistV2Executor:
             "tool_candidates": [item.to_dict() for item in candidates],
             "completed_steps": [item.record.to_dict() for item in effective],
             "tool_observations": [
-                {
-                    "tool_name": item.output.tool_name,
-                    "data": _output_data(item.output),
-                    "evidence_ids": list(item.output.evidence_ids),
-                }
-                for item in effective
+                _model_tool_observation(item) for item in effective
             ],
             "remaining_tool_calls": remaining_budget,
             "max_tool_calls": MAX_SPECIALIST_TOOL_STEPS,
@@ -1050,13 +1085,7 @@ class SpecialistV2Executor:
             "trusted_context": dict(context),
             "completed_steps": [item.record.to_dict() for item in executed],
             "effective_tool_observations": [
-                {
-                    "tool_name": item.output.tool_name,
-                    "data": _output_data(item.output),
-                    "evidence_ids": list(item.output.evidence_ids),
-                    "evidence": [evidence.to_dict() for evidence in item.output.evidence],
-                }
-                for item in effective
+                _model_tool_observation(item) for item in effective
             ],
             "observed_evidence_ids": list(deterministic_analysis.evidence_ids),
             "deterministic_specialist_analysis": deterministic_analysis.to_dict(),

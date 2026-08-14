@@ -1317,6 +1317,8 @@ class PlannerDecisionOutcome:
     decision: PlannerDecision
     question_update_reviews: list[QuestionUpdateReview] = field(default_factory=list)
     raw_question_update_count: int = 0
+    decision_proposed_by: str = "qwen"
+    question_updates_source: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.decision, PlannerDecision):
@@ -1327,6 +1329,22 @@ class PlannerDecisionOutcome:
         ):
             raise InvestigationValidationError(
                 "raw_question_update_count must be a non-negative integer"
+            )
+        if self.decision_proposed_by not in {"qwen", "python_runtime"}:
+            raise InvestigationValidationError(
+                "decision_proposed_by must be qwen or python_runtime"
+            )
+        if self.question_updates_source not in {
+            None,
+            "qwen",
+            "python_evidence_gate",
+        }:
+            raise InvestigationValidationError(
+                "question_updates_source must be qwen, python_evidence_gate, or null"
+            )
+        if self.question_updates_source is not None and not self.decision.question_updates:
+            raise InvestigationValidationError(
+                "question_updates_source requires committed question_updates"
             )
         if not isinstance(self.question_update_reviews, list):
             raise InvestigationValidationError(
@@ -1363,6 +1381,8 @@ class PlannerDecisionOutcome:
                 review.to_dict() for review in self.question_update_reviews
             ],
             "raw_question_update_count": self.raw_question_update_count,
+            "decision_proposed_by": self.decision_proposed_by,
+            "question_updates_source": self.question_updates_source,
         }
 
     @classmethod
@@ -1374,7 +1394,7 @@ class PlannerDecisionOutcome:
                 "question_update_reviews",
                 "raw_question_update_count",
             },
-            optional=set(),
+            optional={"decision_proposed_by", "question_updates_source"},
             name="PlannerDecisionOutcome",
         )
         raw_reviews = payload["question_update_reviews"]
@@ -1388,6 +1408,8 @@ class PlannerDecisionOutcome:
                 QuestionUpdateReview.from_dict(review) for review in raw_reviews
             ],
             raw_question_update_count=payload["raw_question_update_count"],
+            decision_proposed_by=payload.get("decision_proposed_by", "qwen"),
+            question_updates_source=payload.get("question_updates_source"),
         )
 
 

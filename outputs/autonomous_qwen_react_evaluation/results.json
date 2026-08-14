@@ -81,7 +81,7 @@
           "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
           "evidence_gain": false,
           "new_evidence_ids": [],
-          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
           "redundant": false
         }
       ],
@@ -97,7 +97,7 @@
       "stop_trace": {
         "final_conclusion_level": "signal",
         "goal_status": "satisfied",
-        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
         "stop_reason": "goal_satisfied"
       },
       "title": "Lot impact request selects only MES exposure investigation",
@@ -208,7 +208,7 @@
           "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
           "evidence_gain": false,
           "new_evidence_ids": [],
-          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
           "redundant": false
         }
       ],
@@ -224,7 +224,7 @@
       "stop_trace": {
         "final_conclusion_level": "signal",
         "goal_status": "satisfied",
-        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
         "stop_reason": "goal_satisfied"
       },
       "title": "SPC request selects MES scope followed by FDC/SPC",
@@ -453,7 +453,7 @@
           "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
           "evidence_gain": false,
           "new_evidence_ids": [],
-          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
           "redundant": false
         }
       ],
@@ -469,7 +469,7 @@
       "stop_trace": {
         "final_conclusion_level": "supported",
         "goal_status": "satisfied",
-        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
         "stop_reason": "goal_satisfied"
       },
       "title": "Scratch and Cu CMP root cause replans after every observation",
@@ -668,7 +668,7 @@
           "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
           "evidence_gain": false,
           "new_evidence_ids": [],
-          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
           "redundant": false
         }
       ],
@@ -684,7 +684,7 @@
       "stop_trace": {
         "final_conclusion_level": "candidate",
         "goal_status": "satisfied",
-        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
         "stop_reason": "goal_satisfied"
       },
       "title": "Historical lookup reaches Knowledge only after current evidence",
@@ -767,7 +767,7 @@
           "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
           "evidence_gain": false,
           "new_evidence_ids": [],
-          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
           "redundant": false
         }
       ],
@@ -783,7 +783,7 @@
       "stop_trace": {
         "final_conclusion_level": "signal",
         "goal_status": "satisfied",
-        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
         "stop_reason": "goal_satisfied"
       },
       "title": "Product-window impact request remains a bounded MES investigation",
@@ -1011,7 +1011,7 @@
           "evaluation_reason": "The stop decision is the final typed Planner decision and matches the terminal state. Whether it stopped at the right investigation boundary is evaluated at run level.",
           "evidence_gain": false,
           "new_evidence_ids": [],
-          "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+          "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
           "redundant": false
         }
       ],
@@ -1027,7 +1027,7 @@
       "stop_trace": {
         "final_conclusion_level": "supported",
         "goal_status": "satisfied",
-        "planner_reason": "The deterministic Fake Client baseline reached an explicit goal_satisfied boundary.",
+        "planner_reason": "Qwen selected the goal_satisfied stop boundary. The Python Evidence Gate committed the terminal Question transitions without changing Evidence or conclusion level. Qwen rationale: The deterministic planner reference reached an explicit goal_satisfied boundary.",
         "stop_reason": "goal_satisfied"
       },
       "title": "Product-window RCA uses MES to establish Lot scope before Specialists",
