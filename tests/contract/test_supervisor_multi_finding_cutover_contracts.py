@@ -44,6 +44,14 @@ class SupervisorMultiFindingCutoverContractTest(unittest.TestCase):
             )
             self.assertEqual(finding.agent, task.agent)
             self.assertEqual(finding.finding_kind, task.finding_kind)
+        rca_finding = next(
+            finding for finding in state.findings if finding.agent == AgentKind.RCA_REASONING.value
+        )
+        self.assertEqual(state.authoritative_rca_finding_id, rca_finding.finding_id)
+        self.assertEqual(
+            state.authoritative_hypothesis_id,
+            state.hypotheses[0].hypothesis_id,
+        )
 
     def test_same_agent_can_record_findings_for_multiple_tasks(self) -> None:
         original = PlannerAgent().plan(QUERY, plan_id="PLAN_BATCH_11_MULTI")

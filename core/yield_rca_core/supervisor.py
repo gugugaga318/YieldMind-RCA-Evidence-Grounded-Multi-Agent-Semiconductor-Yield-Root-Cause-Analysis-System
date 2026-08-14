@@ -1420,11 +1420,16 @@ class Supervisor:
             if resolved_product and not updated_job.product_id:
                 updated_job = replace(updated_job, product_id=str(resolved_product))
         hypotheses = list(state.hypotheses)
+        authoritative_rca_finding_id = state.authoritative_rca_finding_id
+        authoritative_hypothesis_id = state.authoritative_hypothesis_id
         if finding.agent == AgentKind.RCA_REASONING.value:
             payload = finding.details.get("hypothesis")
             if not isinstance(payload, dict):
                 raise SupervisorExecutionError("RCA finding must include a hypothesis", state=state)
-            hypotheses.append(Hypothesis.from_dict(payload))
+            hypothesis = Hypothesis.from_dict(payload)
+            hypotheses.append(hypothesis)
+            authoritative_rca_finding_id = finding.finding_id
+            authoritative_hypothesis_id = hypothesis.hypothesis_id
         record = ActionRecord(
             action=action,
             status="completed",
@@ -1454,6 +1459,8 @@ class Supervisor:
                 *state.question_evidence_links,
                 *links,
             ],
+            authoritative_rca_finding_id=authoritative_rca_finding_id,
+            authoritative_hypothesis_id=authoritative_hypothesis_id,
             warnings=_merge_warnings(state.warnings, finding.warnings),
         )
 
@@ -1519,7 +1526,9 @@ class Supervisor:
                 "mode": "fixed",
                 "goal_status": "satisfied",
                 "conclusion_level": (
-                    state.hypotheses[-1].status if state.hypotheses else "inconclusive"
+                    state.authoritative_hypothesis.status
+                    if state.authoritative_hypothesis is not None
+                    else "inconclusive"
                 ),
                 "stop_reason": "workflow_completed",
                 "evidence_gaps": [],
@@ -1776,6 +1785,8 @@ class Supervisor:
                 updated_job = replace(updated_job, product_id=str(resolved_product))
 
         hypotheses = list(state.hypotheses)
+        authoritative_rca_finding_id = state.authoritative_rca_finding_id
+        authoritative_hypothesis_id = state.authoritative_hypothesis_id
         if finding.agent == AgentKind.RCA_REASONING.value:
             hypothesis_payload = finding.details.get("hypothesis")
             if not isinstance(hypothesis_payload, dict):
@@ -1783,7 +1794,10 @@ class Supervisor:
                     "RCA Reasoning finding must include a hypothesis",
                     state=state,
                 )
-            hypotheses.append(Hypothesis.from_dict(hypothesis_payload))
+            hypothesis = Hypothesis.from_dict(hypothesis_payload)
+            hypotheses.append(hypothesis)
+            authoritative_rca_finding_id = finding.finding_id
+            authoritative_hypothesis_id = hypothesis.hypothesis_id
 
         if state.task_plan is None:
             raise SupervisorExecutionError("RCAState requires a TaskPlan", state=state)
@@ -1807,5 +1821,7 @@ class Supervisor:
             evidence=evidence,
             findings=[*state.findings, finding],
             hypotheses=hypotheses,
+            authoritative_rca_finding_id=authoritative_rca_finding_id,
+            authoritative_hypothesis_id=authoritative_hypothesis_id,
             warnings=_merge_warnings(state.warnings, finding.warnings),
         )

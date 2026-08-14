@@ -257,7 +257,9 @@ def _knowledge_governance(state: RCAState) -> tuple[list[str], bool]:
             and str(evidence.metadata.get("validation_status", "")) != "CONFIRMED"
         }
     )
-    hypothesis = state.hypotheses[-1]
+    hypothesis = state.authoritative_hypothesis
+    if hypothesis is None:
+        return unapproved, False
     evidence_by_id = {item.evidence_id: item for item in state.evidence}
     supporting_sources = {
         evidence_by_id[evidence_id].source_type
@@ -277,7 +279,9 @@ def evaluate_state(
     expected_types: dict[str, str],
     requested_mode: str,
 ) -> dict[str, Any]:
-    hypothesis = state.hypotheses[-1]
+    hypothesis = state.authoritative_hypothesis
+    if hypothesis is None:
+        raise ValueError("evaluation requires an unambiguous authoritative hypothesis")
     actual_status = hypothesis.status
     status_correct = actual_status == scenario.expected_status
     root_cause_correct = (

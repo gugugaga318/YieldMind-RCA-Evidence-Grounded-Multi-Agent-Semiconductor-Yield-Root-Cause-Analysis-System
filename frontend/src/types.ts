@@ -382,6 +382,8 @@ export interface RCAState {
   action_history?: ActionRecord[];
   planner_decisions?: PlannerDecision[];
   question_update_reviews?: QuestionUpdateReview[];
+  authoritative_rca_finding_id?: string | null;
+  authoritative_hypothesis_id?: string | null;
   run_evaluation?: RunEvaluation | null;
   goal_status?: GoalStatus | null;
   conclusion_level?: ConclusionLevel | null;

@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -233,6 +234,39 @@ class ReportGeneratorContractTest(unittest.TestCase):
         self.assertIn("## Typed Evidence Register", report.markdown)
         self.assertIn("equipment: CMP_CU03", report.markdown)
         self.assertIn("Selected RCA result points to chamber drift.", report.markdown)
+
+    def test_report_uses_explicit_authority_when_reasoning_is_iterative(self) -> None:
+        historical = self.state.findings[-1]
+        current = replace(
+            historical,
+            finding_id="FINDING_CURRENT_RCA",
+            summary="Current RCA finding supersedes the historical reasoning pass.",
+            details={
+                **historical.details,
+                "root_cause": "Current chamber pressure drift",
+                "status": "supported",
+            },
+        )
+        historical_hypothesis = self.state.hypotheses[0]
+        current_hypothesis = replace(
+            historical_hypothesis,
+            hypothesis_id="HYP_CURRENT_RCA",
+            root_cause="Current chamber pressure drift",
+        )
+        state = replace(
+            self.state,
+            findings=[*self.state.findings[:-1], historical, current],
+            hypotheses=[historical_hypothesis, current_hypothesis],
+            authoritative_rca_finding_id=current.finding_id,
+            authoritative_hypothesis_id=current_hypothesis.hypothesis_id,
+        )
+
+        report = ReportGenerator().generate(state)
+
+        self.assertIn("Current chamber pressure drift", report.markdown)
+        self.assertNotIn(EXPECTED_ROOT_CAUSE, report.markdown)
+        self.assertEqual(state.authoritative_rca_finding, current)
+        self.assertEqual(state.authoritative_hypothesis, current_hypothesis)
 
     def test_missing_state_data_is_marked_not_invented(self) -> None:
         evidence = Evidence(

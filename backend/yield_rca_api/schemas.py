@@ -444,6 +444,8 @@ class RCAJobStateResponse(APIModel):
     action_history: list[dict[str, Any]] = Field(default_factory=list)
     planner_decisions: list[PlannerDecisionResponse] = Field(default_factory=list)
     question_update_reviews: list[QuestionUpdateReviewResponse] = Field(default_factory=list)
+    authoritative_rca_finding_id: str | None = None
+    authoritative_hypothesis_id: str | None = None
     run_evaluation: RunEvaluationResponse | None = None
     goal_status: str | None = None
     conclusion_level: str | None = None

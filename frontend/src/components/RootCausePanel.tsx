@@ -1,6 +1,10 @@
 import { Check, CircleAlert, Wrench } from "lucide-react";
 
-import { getFdcShifts, getRecommendedActions } from "../selectors";
+import {
+  authoritativeHypothesisFor,
+  getFdcShifts,
+  getRecommendedActions,
+} from "../selectors";
 import type { RCAState } from "../types";
 
 interface RootCausePanelProps {
@@ -12,7 +16,7 @@ function formatParameter(value: string): string {
 }
 
 export function RootCausePanel({ state }: RootCausePanelProps) {
-  const hypothesis = state.hypotheses.at(-1);
+  const hypothesis = authoritativeHypothesisFor(state);
   const actions = getRecommendedActions(state);
   const shifts = getFdcShifts(state);
 

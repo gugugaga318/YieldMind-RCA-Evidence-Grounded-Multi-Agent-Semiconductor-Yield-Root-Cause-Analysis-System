@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  authoritativeHypothesisFor,
+  authoritativeRcaFindingFor,
   buildRCAJobRequest,
   formatAgentName,
   formatTraceLabel,
@@ -384,6 +386,23 @@ describe("RCAState display selectors", () => {
     });
 
     expect(getEvidenceChain(state)[0].evidence_ids).toEqual(["EV_MES"]);
+  });
+
+  it("uses the explicit authoritative RCA finding when reasoning is iterative", () => {
+    const state = stateFixture();
+    const current = state.findings.find((finding) => finding.finding_id === "RCA_FINDING");
+    expect(current).toBeDefined();
+    state.findings.unshift({
+      ...current!,
+      finding_id: "RCA_HISTORY",
+      details: {
+        evidence_chain: [],
+      },
+    });
+    state.authoritative_rca_finding_id = "RCA_FINDING";
+
+    expect(authoritativeRcaFindingFor(state)?.finding_id).toBe("RCA_FINDING");
+    expect(authoritativeHypothesisFor(state)).toBeUndefined();
   });
 
   it("returns empty display data when optional backend fields are absent", () => {

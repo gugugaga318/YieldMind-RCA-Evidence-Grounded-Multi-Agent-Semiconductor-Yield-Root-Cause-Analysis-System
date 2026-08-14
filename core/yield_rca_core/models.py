@@ -836,6 +836,11 @@ class RCAState:
     action_history: list[ActionRecord] = field(default_factory=list)
     planner_decisions: list[PlannerDecision] = field(default_factory=list)
     question_update_reviews: list[QuestionUpdateReview] = field(default_factory=list)
+    # RCA reasoning is iterative in ReAct mode.  Keep every reasoning Finding
+    # for audit, while these IDs explicitly identify the result consumed by
+    # report/API/memory/product surfaces.
+    authoritative_rca_finding_id: str | None = None
+    authoritative_hypothesis_id: str | None = None
     goal_status: str | None = None
     conclusion_level: str | None = None
     evidence_gaps: list[str] = field(default_factory=list)
@@ -926,10 +931,21 @@ class RCAState:
             self.run_evaluation, RunEvaluation
         ):
             raise ModelValidationError("run_evaluation must be a RunEvaluation")
+        if self.authoritative_rca_finding_id is not None:
+            _validate_non_empty(
+                self.authoritative_rca_finding_id,
+                "authoritative_rca_finding_id",
+            )
+        if self.authoritative_hypothesis_id is not None:
+            _validate_non_empty(
+                self.authoritative_hypothesis_id,
+                "authoritative_hypothesis_id",
+            )
         _validate_json_object(self.execution_metadata, "execution_metadata")
         self._validate_evidence_references()
         self._validate_task_references()
         self._validate_investigation_trace()
+        self._validate_authority_references()
 
     @property
     def evidence_by_id(self) -> dict[str, Evidence]:
@@ -974,6 +990,57 @@ class RCAState:
             and (normalized_agent is None or item.agent == normalized_agent)
         ]
 
+    @property
+    def authoritative_rca_finding(self) -> AgentFinding | None:
+        """Return the explicitly selected RCA Finding, if it is valid.
+
+        Older states did not persist the authority IDs.  They remain readable
+        when the selected Finding is unambiguous (one ranking Finding, or one
+        RCA Finding total).  Multiple historical RCA Findings without an
+        authority marker intentionally resolve to ``None`` instead of guessing
+        based on list order.
+        """
+
+        if self.authoritative_rca_finding_id is not None:
+            finding = next(
+                (
+                    item
+                    for item in self.findings
+                    if item.finding_id == self.authoritative_rca_finding_id
+                ),
+                None,
+            )
+            if finding is None or finding.agent != AgentKind.RCA_REASONING.value:
+                return None
+            return finding
+        ranking_findings = self.findings_for_kind(
+            FindingKind.HYPOTHESIS_RANKING.value,
+            agent=AgentKind.RCA_REASONING.value,
+        )
+        if len(ranking_findings) == 1:
+            return ranking_findings[0]
+        rca_findings = self.findings_for_agent(AgentKind.RCA_REASONING.value)
+        return rca_findings[0] if len(rca_findings) == 1 else None
+
+    @property
+    def authoritative_hypothesis(self) -> Hypothesis | None:
+        """Return the explicitly selected Hypothesis, with legacy-safe fallback."""
+
+        if self.authoritative_hypothesis_id is not None:
+            return next(
+                (
+                    item
+                    for item in self.hypotheses
+                    if item.hypothesis_id == self.authoritative_hypothesis_id
+                ),
+                None,
+            )
+        return (
+            self.hypotheses[0]
+            if len(self.hypotheses) == 1 and self.authoritative_rca_finding is not None
+            else None
+        )
+
     def _validate_evidence_references(self) -> None:
         evidence_ids = [item.evidence_id for item in self.evidence]
         duplicates = {item_id for item_id in evidence_ids if evidence_ids.count(item_id) > 1}
@@ -1015,6 +1082,33 @@ class RCAState:
                 known_evidence_ids,
                 "report",
             )
+
+    def _validate_authority_references(self) -> None:
+        if self.authoritative_rca_finding_id is not None:
+            finding = next(
+                (
+                    item
+                    for item in self.findings
+                    if item.finding_id == self.authoritative_rca_finding_id
+                ),
+                None,
+            )
+            if finding is None:
+                raise ModelValidationError(
+                    "authoritative_rca_finding_id references an unknown Finding"
+                )
+            if finding.agent != AgentKind.RCA_REASONING.value:
+                raise ModelValidationError(
+                    "authoritative_rca_finding_id must reference an RCA Reasoning Finding"
+                )
+        if self.authoritative_hypothesis_id is not None:
+            if not any(
+                item.hypothesis_id == self.authoritative_hypothesis_id
+                for item in self.hypotheses
+            ):
+                raise ModelValidationError(
+                    "authoritative_hypothesis_id references an unknown Hypothesis"
+                )
 
     @staticmethod
     def _validate_reference_set(values: list[str], known_values: set[str], context: str) -> None:
@@ -1264,6 +1358,8 @@ class RCAState:
             "question_update_reviews": [
                 item.to_dict() for item in self.question_update_reviews
             ],
+            "authoritative_rca_finding_id": self.authoritative_rca_finding_id,
+            "authoritative_hypothesis_id": self.authoritative_hypothesis_id,
             "goal_status": self.goal_status,
             "conclusion_level": self.conclusion_level,
             "evidence_gaps": list(self.evidence_gaps),
@@ -1285,6 +1381,31 @@ class RCAState:
         raw_question_update_reviews = data.get("question_update_reviews", [])
         if not isinstance(raw_question_update_reviews, list):
             raise ModelValidationError("question_update_reviews must be a list")
+        evidence = [Evidence.from_dict(item) for item in data.get("evidence", [])]
+        findings = [AgentFinding.from_dict(item) for item in data.get("findings", [])]
+        hypotheses = [Hypothesis.from_dict(item) for item in data.get("hypotheses", [])]
+        raw_authoritative_finding_id = data.get("authoritative_rca_finding_id")
+        if raw_authoritative_finding_id is None:
+            ranking_findings = [
+                item
+                for item in findings
+                if item.agent == AgentKind.RCA_REASONING.value
+                and item.finding_kind == FindingKind.HYPOTHESIS_RANKING.value
+            ]
+            rca_findings = [
+                item for item in findings if item.agent == AgentKind.RCA_REASONING.value
+            ]
+            if len(ranking_findings) == 1:
+                raw_authoritative_finding_id = ranking_findings[0].finding_id
+            elif len(rca_findings) == 1:
+                raw_authoritative_finding_id = rca_findings[0].finding_id
+        raw_authoritative_hypothesis_id = data.get("authoritative_hypothesis_id")
+        if (
+            raw_authoritative_hypothesis_id is None
+            and raw_authoritative_finding_id is not None
+            and len(hypotheses) == 1
+        ):
+            raw_authoritative_hypothesis_id = hypotheses[0].hypothesis_id
         return cls(
             job=RCAJob.from_dict(data["job"]),
             task_plan=TaskPlan.from_dict(data["task_plan"]) if data.get("task_plan") else None,
@@ -1296,9 +1417,9 @@ class RCAState:
             impact_wafers=list(data.get("impact_wafers", [])),
             scope_level=data.get("scope_level", "lot"),
             impact_criteria=dict(data.get("impact_criteria", {})),
-            evidence=[Evidence.from_dict(item) for item in data.get("evidence", [])],
-            findings=[AgentFinding.from_dict(item) for item in data.get("findings", [])],
-            hypotheses=[Hypothesis.from_dict(item) for item in data.get("hypotheses", [])],
+            evidence=evidence,
+            findings=findings,
+            hypotheses=hypotheses,
             warnings=[Warning.from_dict(item) for item in data.get("warnings", [])],
             report=Report.from_dict(data["report"]) if data.get("report") else None,
             llm_usage=[LLMUsageEvent.from_dict(item) for item in data.get("llm_usage", [])],
@@ -1338,6 +1459,16 @@ class RCAState:
                 QuestionUpdateReview.from_dict(item)
                 for item in raw_question_update_reviews
             ],
+            authoritative_rca_finding_id=(
+                str(raw_authoritative_finding_id)
+                if raw_authoritative_finding_id is not None
+                else None
+            ),
+            authoritative_hypothesis_id=(
+                str(raw_authoritative_hypothesis_id)
+                if raw_authoritative_hypothesis_id is not None
+                else None
+            ),
             goal_status=data.get("goal_status"),
             conclusion_level=data.get("conclusion_level"),
             evidence_gaps=list(data.get("evidence_gaps", [])),

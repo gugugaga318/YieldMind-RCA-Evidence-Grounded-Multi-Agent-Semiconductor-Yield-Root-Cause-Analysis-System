@@ -376,10 +376,12 @@ def evaluate_scenarios(
                 lot_id=scenario.source_lot_id,
             )
         duration_ms = round((perf_counter() - started) * 1000.0, 3)
-        hypothesis = state.hypotheses[-1]
-        rca_finding = next(
-            finding for finding in state.findings if finding.agent == AgentKind.RCA_REASONING.value
-        )
+        hypothesis = state.authoritative_hypothesis
+        rca_finding = state.authoritative_rca_finding
+        if hypothesis is None or rca_finding is None:
+            raise ValueError(
+                "evaluation requires an unambiguous authoritative RCA result"
+            )
         ranked_candidates = [
             dict(item) for item in rca_finding.details.get("ranked_candidates", [])
         ]

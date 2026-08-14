@@ -152,7 +152,8 @@ class RCAMetrics:
             )
             if usage.status == "failed":
                 self.llm_errors.labels(provider=usage.provider, model=usage.model).inc()
-        if state.hypotheses and state.hypotheses[-1].status == "inconclusive":
+        hypothesis = state.authoritative_hypothesis
+        if hypothesis is not None and hypothesis.status == "inconclusive":
             self.inconclusive.labels(agent_mode=mode).inc()
 
     def observe_llm_error(self, *, provider: str, model: str) -> None:

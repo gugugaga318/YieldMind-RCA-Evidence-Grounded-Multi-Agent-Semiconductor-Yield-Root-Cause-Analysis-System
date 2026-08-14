@@ -72,6 +72,31 @@ function findingFor(
   );
 }
 
+export function authoritativeRcaFindingFor(state: RCAState): AgentFinding | undefined {
+  const authoritativeId = state.authoritative_rca_finding_id;
+  if (typeof authoritativeId === "string" && authoritativeId.length > 0) {
+    return state.findings.find((finding) => finding.finding_id === authoritativeId);
+  }
+  const rankingFindings = state.findings.filter(
+    (finding) =>
+      finding.agent === "rca_reasoning" &&
+      finding.finding_kind === "hypothesis_ranking",
+  );
+  if (rankingFindings.length === 1) return rankingFindings[0];
+  const rcaFindings = state.findings.filter(
+    (finding) => finding.agent === "rca_reasoning",
+  );
+  return rcaFindings.length === 1 ? rcaFindings[0] : undefined;
+}
+
+export function authoritativeHypothesisFor(state: RCAState): RCAState["hypotheses"][number] | undefined {
+  const authoritativeId = state.authoritative_hypothesis_id;
+  if (typeof authoritativeId === "string" && authoritativeId.length > 0) {
+    return state.hypotheses.find((hypothesis) => hypothesis.hypothesis_id === authoritativeId);
+  }
+  return state.hypotheses.length === 1 ? state.hypotheses[0] : undefined;
+}
+
 export function getYieldTrend(state: RCAState): YieldTrendPoint[] {
   const raw = findingFor(state, "mes")?.details.yield_trend;
   if (!Array.isArray(raw)) return [];
@@ -104,7 +129,7 @@ export function getHoldCount(state: RCAState): number {
 }
 
 export function getEvidenceChain(state: RCAState): EvidenceChainItem[] {
-  const raw = findingFor(state, "rca_reasoning", "hypothesis_ranking")?.details.evidence_chain;
+  const raw = authoritativeRcaFindingFor(state)?.details.evidence_chain;
   if (!Array.isArray(raw)) return [];
   return raw.filter((item): item is EvidenceChainItem => {
     if (!isRecord(item)) return false;
@@ -119,8 +144,7 @@ export function getEvidenceChain(state: RCAState): EvidenceChainItem[] {
 }
 
 export function getRecommendedActions(state: RCAState): RecommendedAction[] {
-  const raw = findingFor(state, "rca_reasoning", "hypothesis_ranking")?.details
-    .recommended_actions;
+  const raw = authoritativeRcaFindingFor(state)?.details.recommended_actions;
   if (!Array.isArray(raw)) return [];
   return raw.filter((item): item is RecommendedAction => {
     if (!isRecord(item)) return false;

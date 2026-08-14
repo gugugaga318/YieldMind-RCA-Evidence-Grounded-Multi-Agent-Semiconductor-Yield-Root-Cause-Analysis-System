@@ -61,12 +61,10 @@ def _finding_by_kind(
 
 
 def _rca_finding(state: RCAState) -> AgentFinding | None:
-    return _finding_by_kind(
-        state,
-        agent=AgentKind.RCA_REASONING.value,
-        finding_kind=FindingKind.HYPOTHESIS_RANKING.value,
-        legacy_context="RCA Reasoning",
-    )
+    # RCA reasoning is iterative.  RCAState owns the explicit authority
+    # pointer; historical Findings remain available for the evidence chain
+    # and audit but are never treated as the final result.
+    return state.authoritative_rca_finding
 
 
 def _improvement_finding(state: RCAState) -> AgentFinding | None:

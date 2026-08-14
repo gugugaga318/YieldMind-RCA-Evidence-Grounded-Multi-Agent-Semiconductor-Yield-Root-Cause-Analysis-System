@@ -110,7 +110,11 @@ def build_memory_candidate(state: RCAState) -> MemoryCandidate:
 
     if not state.hypotheses:
         raise MemoryCandidateNotEligibleError("RCAState has no hypothesis")
-    hypothesis = state.hypotheses[-1]
+    hypothesis = state.authoritative_hypothesis
+    if hypothesis is None:
+        raise MemoryCandidateNotEligibleError(
+            "RCAState has no unambiguous authoritative hypothesis"
+        )
     if hypothesis.status != HypothesisStatus.SUPPORTED.value:
         raise MemoryCandidateNotEligibleError(
             "only a supported RCA conclusion can become a confirmed memory"
@@ -131,10 +135,7 @@ def build_memory_candidate(state: RCAState) -> MemoryCandidate:
     engineering_summary = str(details.get("engineering_summary", finding.summary)).strip()
     subject = state.job.source_lot_id or state.job.product_id or state.job.job_id
     evidence_ids = list(dict.fromkeys(hypothesis.evidence_ids))
-    rca_finding = next(
-        (item for item in state.findings if item.agent == AgentKind.RCA_REASONING.value),
-        None,
-    )
+    rca_finding = state.authoritative_rca_finding
     reasoning_engine = (
         str(rca_finding.details.get("reasoning_engine", "legacy"))
         if rca_finding is not None
