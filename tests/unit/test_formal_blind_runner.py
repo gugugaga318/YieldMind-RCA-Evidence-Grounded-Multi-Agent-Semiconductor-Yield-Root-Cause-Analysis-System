@@ -6,7 +6,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from run_formal_blind_rca import _strict_qwen_acceptance_reasons  # noqa: E402
+from run_formal_blind_rca import (  # noqa: E402
+    _execution_layer,
+    _strict_qwen_acceptance_reasons,
+)
 
 
 def clean_result() -> dict[str, object]:
@@ -19,6 +22,8 @@ def clean_result() -> dict[str, object]:
         "hypothesis_candidate_fallback_reason": None,
         "provider_failures": [],
         "llm_call_cap_exceeded": False,
+        "planner_stop_proposed_by": "qwen",
+        "terminal_question_updates_source": "python_evidence_gate",
     }
 
 
@@ -53,9 +58,47 @@ def test_process_completion_does_not_hide_internal_qwen_fallbacks() -> None:
     assert "hypothesis_candidate_fallback" in reasons
 
 
+def test_strict_qwen_requires_qwen_stop_and_python_terminal_gate() -> None:
+    result = {
+        **clean_result(),
+        "planner_stop_proposed_by": None,
+        "terminal_question_updates_source": "qwen",
+    }
+
+    reasons = _strict_qwen_acceptance_reasons(
+        result,
+        requested_mode="llm_react",
+        agent_mode="llm",
+    )
+
+    assert "planner_stop_not_qwen" in reasons
+    assert "terminal_updates_not_python_evidence_gate" in reasons
+
+
 def test_strict_qwen_is_not_applied_to_non_real_qwen_configuration() -> None:
     assert _strict_qwen_acceptance_reasons(
         {"error": "failed"},
         requested_mode="controlled_react",
         agent_mode="deterministic",
     ) == []
+
+
+def test_execution_layer_keeps_completion_and_strict_qwen_separate() -> None:
+    clean = {**clean_result(), "workflow_completed": True, "strict_qwen_accepted": True}
+    degraded = {
+        **clean_result(),
+        "workflow_completed": True,
+        "strict_qwen_accepted": False,
+        "actual_orchestration_mode": "controlled_react",
+        "provider_failure": True,
+        "hypothesis_candidate_source": "deterministic_fallback",
+        "planner_stop_proposed_by": None,
+        "terminal_question_updates_source": None,
+    }
+
+    layer = _execution_layer([clean, degraded])
+
+    assert layer["workflow_completion_rate"] == 1.0
+    assert layer["strict_qwen_acceptance_rate"] == 0.5
+    assert layer["llm_react_preservation_rate"] == 0.5
+    assert layer["provider_clean_rate"] == 0.5

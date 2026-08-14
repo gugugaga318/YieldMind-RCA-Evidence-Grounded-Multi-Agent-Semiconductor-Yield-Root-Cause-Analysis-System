@@ -26,7 +26,7 @@ outputs/qwen_intent_diagnosis/
 outputs/qwen_full_replay_diagnostic.json
 outputs/long_task_4_evaluation/reranker_logits_cache.json
 # Formal blind scoring output includes private Ground Truth comparisons.
-outputs/formal_blind_v1/
+outputs/formal_blind_v*/
 
 .pnpm-store/
 frontend/node_modules/

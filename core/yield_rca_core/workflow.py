@@ -407,6 +407,7 @@ def build_workflow(
         SpecialistV2Executor(
             llm_client=shared_llm_client,
             agent_mode=settings.agent_mode,
+            direct_single_candidate=settings.agent_mode == "llm",
             find_affected_lots_tool=find_affected_lots_tool,
             get_lot_context_tool=get_lot_context_tool,
             find_impact_lots_tool=find_impact_lots_tool,

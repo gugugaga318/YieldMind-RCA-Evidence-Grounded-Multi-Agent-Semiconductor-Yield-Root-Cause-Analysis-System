@@ -418,6 +418,7 @@ def review_question_updates(
         decision=replace(decision, question_updates=accepted_updates),
         question_update_reviews=reviews,
         raw_question_update_count=len(raw_updates),
+        question_updates_source="qwen" if accepted_updates else None,
     )
 
 

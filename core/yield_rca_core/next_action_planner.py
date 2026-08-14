@@ -91,6 +91,8 @@ _PLANNER_INPUT_ONLY_FIELDS = (
     "legal_target_question_ids_by_action",
     "question_action_capabilities",
     "validator_ready_reference_question_updates",
+    "python_terminal_transition_available",
+    "python_terminal_question_ids",
 )
 
 
@@ -280,6 +282,13 @@ def _missing_groups_for_questions(
 
 
 def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
+    """Project only decision-relevant Finding fields into Planner context.
+
+    Full Specialist details remain in RCAState for audit and downstream tools.
+    Re-sending them after every observation caused quadratic context growth and
+    exposed the Planner to raw domain payloads it is not authorized to edit.
+    """
+
     return {
         "finding_id": finding.finding_id,
         "agent": finding.agent,
@@ -287,7 +296,6 @@ def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
         "summary": finding.summary,
         "confidence": finding.confidence,
         "evidence_ids": list(finding.evidence_ids),
-        "details": dict(finding.details),
     }
 
 
@@ -300,11 +308,15 @@ def _compact_evidence(evidence: Evidence) -> dict[str, Any]:
         "source_agent": evidence.source_agent,
         "observation": evidence.observation,
         "confidence": evidence.confidence,
-        "entities": [entity.to_dict() for entity in evidence.entities],
     }
 
 
-def _strict_outcome(decision: PlannerDecision) -> PlannerDecisionOutcome:
+def _strict_outcome(
+    decision: PlannerDecision,
+    *,
+    decision_proposed_by: str = "qwen",
+    question_updates_source: str | None = None,
+) -> PlannerDecisionOutcome:
     """Project the legacy strict path into the new outcome contract."""
 
     reviews = [
@@ -326,6 +338,12 @@ def _strict_outcome(decision: PlannerDecision) -> PlannerDecisionOutcome:
         decision=decision,
         question_update_reviews=reviews,
         raw_question_update_count=len(decision.question_updates),
+        decision_proposed_by=decision_proposed_by,
+        question_updates_source=(
+            question_updates_source
+            if decision.question_updates
+            else None
+        ),
     )
 
 
@@ -366,6 +384,47 @@ def _validate_reviewed_stop_boundary(
             "a data_unavailable stop must terminally mark every unavailable "
             f"investigation question: {open_question_ids}"
         )
+
+
+def _commit_python_goal_satisfied_transition(
+    outcome: PlannerDecisionOutcome,
+    *,
+    open_questions: list[InvestigationQuestion],
+    reference_updates: list[QuestionUpdate],
+) -> PlannerDecisionOutcome:
+    """Commit an Evidence-Gate-owned terminal transition after a Qwen stop.
+
+    Qwen owns the decision to stop. Python owns Question state and may replace
+    model-authored deltas only when its deterministic Evidence Gate can
+    terminally update every currently open Question. Partial reference updates
+    are deliberately ignored so the normal validator still fails closed.
+    """
+
+    decision = outcome.decision
+    if (
+        decision.decision_type != DecisionType.STOP.value
+        or decision.goal_status != GoalStatus.SATISFIED.value
+        or decision.stop_reason != StopReason.GOAL_SATISFIED.value
+    ):
+        return outcome
+    open_question_ids = {question.question_id for question in open_questions}
+    reference_question_ids = {update.question_id for update in reference_updates}
+    if not open_question_ids or reference_question_ids != open_question_ids:
+        return outcome
+    python_owned_decision = replace(
+        decision,
+        reason=(
+            "Qwen selected the goal_satisfied stop boundary. The Python "
+            "Evidence Gate committed the terminal Question transitions without "
+            f"changing Evidence or conclusion level. Qwen rationale: {decision.reason}"
+        ),
+        question_updates=list(reference_updates),
+    )
+    return _strict_outcome(
+        python_owned_decision,
+        decision_proposed_by="qwen",
+        question_updates_source="python_evidence_gate",
+    )
 
 
 @dataclass(frozen=True)
@@ -548,7 +607,9 @@ class QwenNextActionPlanner:
                         available_evidence_ids=available_evidence_ids,
                         question_evidence_links=normalized_question_evidence_links,
                     ),
-                )
+                ),
+                decision_proposed_by="python_runtime",
+                question_updates_source="python_evidence_gate",
             )
         baseline = self._baseline_decision(
             goal=goal,
@@ -595,16 +656,28 @@ class QwenNextActionPlanner:
         open_question_ids = [
             question.question_id for question in open_questions
         ]
+        terminal_question_ids = [
+            update.question_id for update in baseline.question_updates
+        ]
+        complete_python_terminal_transition = (
+            bool(open_question_ids)
+            and set(terminal_question_ids) == set(open_question_ids)
+        )
         goal_satisfied_stop_contract = {
             "currently_open_question_ids": open_question_ids,
-            "require_terminal_update_for_every_open_question": True,
-            "validator_ready_reference_question_updates": [
-                update.to_dict() for update in baseline.question_updates
-            ],
+            "python_terminal_transition_available": (
+                complete_python_terminal_transition
+            ),
+            "python_terminal_question_ids": (
+                terminal_question_ids
+                if complete_python_terminal_transition
+                else []
+            ),
             "boundary": (
                 "A goal_satisfied stop is invalid while any listed Question "
-                "remains open. If no validator-ready terminal update is "
-                "available, choose a legal action or a different stop boundary."
+                "remains open unless Python has a complete Evidence-Gate-owned "
+                "terminal transition. Qwen chooses the stop boundary but must "
+                "not reproduce Python-owned Question state."
             ),
         }
 
@@ -638,18 +711,22 @@ class QwenNextActionPlanner:
                     "must_terminally_update_question_ids": (
                         open_question_ids if goal_satisfied_repair else []
                     ),
-                    "validator_ready_reference_question_updates": [
-                        update.to_dict() for update in baseline.question_updates
-                    ],
+                    "python_terminal_transition_available": (
+                        complete_python_terminal_transition
+                    ),
+                    "python_terminal_question_ids": (
+                        terminal_question_ids
+                        if complete_python_terminal_transition
+                        else []
+                    ),
                     "repair_instruction": (
                         "Return exactly the fields in output_fields_exactly and never "
                         "copy an input_only_fields_never_copy_to_output field into "
                         "the decision. If the repaired decision keeps a "
-                        "goal_satisfied stop, copy "
-                        "validator_ready_reference_question_updates exactly; it must "
-                        "terminally update every currently open Question. If those "
-                        "reference updates do not match the intended stop, choose a "
-                        "legal action or a different stop boundary. For an act "
+                        "goal_satisfied stop, set question_updates=[]; Python will "
+                        "commit the Evidence-Gate-owned terminal transition only when "
+                        "python_terminal_transition_available is true. Otherwise choose "
+                        "a legal action or a different stop boundary. For an act "
                         "decision, choose one Action key from "
                         "legal_target_question_ids_by_action and copy only Question "
                         "IDs listed for that Action."
@@ -713,7 +790,10 @@ class QwenNextActionPlanner:
                         for question in open_questions
                     },
                     "legal_target_question_ids_by_action": legal_action_targets,
-                    "deterministic_planner_decision": baseline.to_dict(),
+                    "deterministic_planner_decision": replace(
+                        baseline,
+                        question_updates=[],
+                    ).to_dict(),
                     "goal_satisfied_stop_contract": goal_satisfied_stop_contract,
                     "output_attempt": attempt,
                     "previous_validation_error": (
@@ -781,6 +861,13 @@ class QwenNextActionPlanner:
                     )
                 )
                 candidate = outcome.decision
+                if review_question_updates:
+                    outcome = _commit_python_goal_satisfied_transition(
+                        outcome,
+                        open_questions=open_questions,
+                        reference_updates=baseline.question_updates,
+                    )
+                    candidate = outcome.decision
                 self._validate_candidate(
                     candidate,
                     goal=goal,
@@ -926,7 +1013,7 @@ class QwenNextActionPlanner:
             goal_id=goal.goal_id,
             decision_type=DecisionType.STOP.value,
             reason=(
-                "The deterministic Fake Client baseline reached an explicit "
+                "The deterministic planner reference reached an explicit "
                 f"{stop_reason} boundary."
             ),
             goal_status=goal_status,

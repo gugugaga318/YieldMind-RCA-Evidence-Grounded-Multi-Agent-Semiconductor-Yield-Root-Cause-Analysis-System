@@ -656,6 +656,7 @@ unset DASHSCOPE_API_KEY
 
 - [Evaluation](docs/evaluation.md)
 - [Evaluation V2 Causal Scope Specification](docs/evaluation-v2-causal-scope-spec.md)
+- [Formal Blind Evaluation Governance](docs/formal-blind-evaluation-governance.md)
 - [Retrieval Evaluation](docs/retrieval-evaluation.md)
 
 ## 本地开发

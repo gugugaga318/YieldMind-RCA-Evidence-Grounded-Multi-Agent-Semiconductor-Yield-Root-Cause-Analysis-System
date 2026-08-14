@@ -557,9 +557,10 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             stop_contract["currently_open_question_ids"],
             ["Q_DEFECT", "Q_MECHANISM"],
         )
-        self.assertTrue(
-            stop_contract["require_terminal_update_for_every_open_question"]
+        self.assertFalse(
+            stop_contract["python_terminal_transition_available"]
         )
+        self.assertEqual(stop_contract["python_terminal_question_ids"], [])
         retry_feedback = client.requests[1].payload[
             "previous_validation_feedback"
         ]
@@ -568,7 +569,7 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             ["Q_DEFECT", "Q_MECHANISM"],
         )
         self.assertIn(
-            "validator_ready_reference_question_updates",
+            "python_terminal_transition_available",
             retry_feedback["repair_instruction"],
         )
 
@@ -631,6 +632,116 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             )
         )
 
+    def test_qwen_goal_satisfied_stop_uses_complete_python_terminal_transition(
+        self,
+    ) -> None:
+        current_questions = questions()
+        links = [
+            QuestionEvidenceLink(
+                question_id="Q_DEFECT",
+                evidence_id="EV_DEFECT",
+                action_id="ACT_DEFECT",
+                relation=QuestionEvidenceRelation.SUPPORTS.value,
+                matched_evidence_group="product_signal",
+                reason="The defect observation fills the product-signal group.",
+            ),
+            QuestionEvidenceLink(
+                question_id="Q_MECHANISM",
+                evidence_id="EV_PROCESS",
+                action_id="ACT_PROCESS",
+                relation=QuestionEvidenceRelation.SUPPORTS.value,
+                matched_evidence_group="process_anomaly",
+                reason="The FDC observation fills the process-anomaly group.",
+            ),
+            QuestionEvidenceLink(
+                question_id="Q_MECHANISM",
+                evidence_id="EV_DEFECT",
+                action_id="ACT_DEFECT",
+                relation=QuestionEvidenceRelation.SUPPORTS.value,
+                matched_evidence_group="product_signal",
+                reason="The defect observation fills the product-signal group.",
+            ),
+            QuestionEvidenceLink(
+                question_id="Q_MECHANISM",
+                evidence_id="EV_EXPOSURE",
+                action_id="ACT_EXPOSURE",
+                relation=QuestionEvidenceRelation.SUPPORTS.value,
+                matched_evidence_group="shared_exposure",
+                reason="The MES observation fills the shared-exposure group.",
+            ),
+            QuestionEvidenceLink(
+                question_id="Q_MECHANISM",
+                evidence_id="EV_SHARED_DEFECT",
+                action_id="ACT_SHARED_DEFECT",
+                relation=QuestionEvidenceRelation.SUPPORTS.value,
+                matched_evidence_group="shared_product_signal",
+                reason="The cross-Lot observation fills the shared-product group.",
+            ),
+        ]
+
+        def stop_without_updates(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            payload.clear()
+            payload.update(
+                {
+                    "decision_id": "QWEN_STOP",
+                    "goal_id": request.payload["goal"]["goal_id"],
+                    "decision_type": DecisionType.STOP.value,
+                    "reason": "The investigation goal is satisfied.",
+                    "goal_status": GoalStatus.SATISFIED.value,
+                    "proposed_conclusion_level": ConclusionLevel.SUPPORTED.value,
+                    "next_action": None,
+                    "target_question_ids": [],
+                    "new_questions": [],
+                    "stop_reason": StopReason.GOAL_SATISFIED.value,
+                    "question_updates": [],
+                }
+            )
+
+        client = RecordingNextActionClient(stop_without_updates)
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=current_questions,
+            findings=[
+                finding(AgentKind.DEFECT_WAT.value, evidence_id="EV_DEFECT"),
+                finding(AgentKind.FDC.value, evidence_id="EV_PROCESS"),
+                finding(AgentKind.MES.value, evidence_id="EV_EXPOSURE"),
+            ],
+            action_records=[],
+            tool_call_count=3,
+            evidence_ids=[
+                "EV_DEFECT",
+                "EV_PROCESS",
+                "EV_EXPOSURE",
+                "EV_SHARED_DEFECT",
+            ],
+            question_evidence_links=links,
+        )
+
+        self.assertEqual(len(client.requests), 1)
+        self.assertEqual(outcome.decision.decision_id, "QWEN_STOP")
+        self.assertEqual(
+            {update.question_id for update in outcome.decision.question_updates},
+            {"Q_DEFECT", "Q_MECHANISM"},
+        )
+        self.assertEqual(outcome.decision_proposed_by, "qwen")
+        self.assertEqual(
+            outcome.question_updates_source,
+            "python_evidence_gate",
+        )
+        self.assertIn(
+            "Python Evidence Gate committed the terminal Question transitions",
+            outcome.decision.reason,
+        )
+        self.assertTrue(
+            all(
+                review.disposition == QuestionUpdateDisposition.ACCEPTED.value
+                for review in outcome.question_update_reviews
+            )
+        )
+
     def test_modified_input_echo_retry_also_repairs_goal_satisfied_stop(self) -> None:
         defect_question = questions()[0]
         defect_link = QuestionEvidenceLink(
@@ -646,9 +757,6 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             payload: dict[str, Any],
             request: LLMRequest,
         ) -> None:
-            reference_updates = request.payload[
-                "goal_satisfied_stop_contract"
-            ]["validator_ready_reference_question_updates"]
             payload.clear()
             payload.update(
                 {
@@ -662,7 +770,7 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
                     "target_question_ids": [],
                     "new_questions": [],
                     "stop_reason": StopReason.GOAL_SATISFIED.value,
-                    "question_updates": reference_updates,
+                    "question_updates": [],
                 }
             )
             if request.payload["output_attempt"] == 1:
@@ -692,9 +800,9 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             feedback["input_only_fields_never_copy_to_output"],
         )
         self.assertEqual(
-            feedback["validator_ready_reference_question_updates"],
+            feedback["python_terminal_question_ids"],
             client.requests[1].payload["goal_satisfied_stop_contract"][
-                "validator_ready_reference_question_updates"
+                "python_terminal_question_ids"
             ],
         )
         self.assertEqual(outcome.decision.decision_type, DecisionType.STOP.value)
@@ -717,9 +825,9 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
             payload: dict[str, Any],
             request: LLMRequest,
         ) -> None:
-            reference_updates = copy.deepcopy(
+            terminal_question_ids = copy.deepcopy(
                 request.payload["goal_satisfied_stop_contract"][
-                    "validator_ready_reference_question_updates"
+                    "python_terminal_question_ids"
                 ]
             )
             payload.clear()
@@ -736,9 +844,8 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
                     "new_questions": [],
                     "stop_reason": StopReason.GOAL_SATISFIED.value,
                     "question_updates": [],
-                    "validator_ready_reference_question_updates": (
-                        reference_updates
-                    ),
+                    "python_terminal_question_ids": terminal_question_ids,
+                    "python_terminal_transition_available": True,
                 }
             )
 

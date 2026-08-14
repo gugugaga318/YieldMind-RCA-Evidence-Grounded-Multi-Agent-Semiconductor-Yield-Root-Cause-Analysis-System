@@ -58,6 +58,54 @@ class RecordingFakeClient(FakeLLMClient):
         return super().complete_json(request)
 
 
+class ExposureFirstRootCauseClient(RecordingFakeClient):
+    """Choose a different legal first direction for the same root-cause intent."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.next_action_call_count = 0
+
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        response = super().complete_json(request)
+        if request.prompt_name != "next_action_planner":
+            return response
+        self.next_action_call_count += 1
+        if self.next_action_call_count != 1:
+            return response
+        target_ids = request.payload["legal_target_question_ids_by_action"][
+            "find_shared_exposure"
+        ]
+        known_facts = dict(request.payload["goal"]["known_facts"])
+        return LLMResponse(
+            data={
+                "decision_id": "EXPOSURE_FIRST_DECISION",
+                "goal_id": request.payload["goal"]["goal_id"],
+                "decision_type": DecisionType.ACT.value,
+                "reason": (
+                    "The initial symptom is already known; collect the shared "
+                    "equipment and recipe exposure before selecting the next domain."
+                ),
+                "goal_status": "in_progress",
+                "proposed_conclusion_level": ConclusionLevel.SIGNAL.value,
+                "next_action": {
+                    "action_id": "EXPOSURE_FIRST_ACTION",
+                    "kind": "find_shared_exposure",
+                    "agent": "mes",
+                    "reason": "Establish the shared process exposure first.",
+                    "inputs": known_facts,
+                    "scope": known_facts,
+                    "required_evidence_ids": [],
+                    "max_attempts": 1,
+                },
+                "target_question_ids": target_ids,
+                "new_questions": [],
+                "stop_reason": None,
+                "question_updates": [],
+            },
+            usage=response.usage,
+        )
+
+
 class InvalidNextActionAfterFirstClient(RecordingFakeClient):
     """Run one real observation, then fail both structured-output attempts."""
 
@@ -343,6 +391,63 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
             self.assertEqual(diagnostics[0]["outcome"], "success")
             self.assertIsNone(diagnostics[0]["failure_category"])
 
+    def test_same_root_cause_intent_replans_from_an_exposure_first_observation(
+        self,
+    ) -> None:
+        default = run_lot(
+            RecordingFakeClient(),
+            ROOT_CAUSE_QUERY,
+            job_id="JOB_LLM_REACT_DEFAULT_DIRECTION",
+        )
+        client = ExposureFirstRootCauseClient()
+        exposure_first = run_lot(
+            client,
+            ROOT_CAUSE_QUERY,
+            job_id="JOB_LLM_REACT_EXPOSURE_FIRST",
+        )
+
+        default_path = [record.action.kind for record in default.action_history]
+        exposure_first_path = [
+            record.action.kind for record in exposure_first.action_history
+        ]
+        self.assertEqual(default.investigation_goal.intent, "root_cause")
+        self.assertEqual(exposure_first.investigation_goal.intent, "root_cause")
+        self.assertEqual(default_path[0], "inspect_defect_pattern")
+        self.assertEqual(exposure_first_path[0], "find_shared_exposure")
+        self.assertEqual(exposure_first_path[1], "inspect_defect_pattern")
+        self.assertNotEqual(default_path, exposure_first_path)
+        self.assertEqual(len(exposure_first_path), len(set(exposure_first_path)))
+        self.assertEqual(
+            exposure_first.execution_metadata["orchestration_mode"],
+            "llm_react",
+        )
+        planner_requests = [
+            request
+            for request in client.requests
+            if request.prompt_name == "next_action_planner"
+        ]
+        self.assertEqual(
+            planner_requests[1].payload["action_history"][0]["action"]["kind"],
+            "find_shared_exposure",
+        )
+        self.assertTrue(
+            any(
+                finding["agent"] == "mes"
+                for finding in planner_requests[1].payload["findings"]
+            )
+        )
+
+        impact = run_lot(
+            RecordingFakeClient(),
+            IMPACT_QUERY,
+            job_id="JOB_LLM_REACT_EARLY_STOP_BASELINE",
+        )
+        self.assertEqual(
+            [record.action.kind for record in impact.action_history],
+            ["find_shared_exposure"],
+        )
+        self.assertEqual(impact.stop_reason, StopReason.GOAL_SATISFIED.value)
+
     def test_scratch_cu_cmp_replans_after_observation_and_keeps_auditable_links(
         self,
     ) -> None:
@@ -369,6 +474,29 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(len(planner_requests[1].payload["action_history"]), 1)
         self.assertTrue(planner_requests[1].payload["available_evidence_ids"])
+        self.assertTrue(
+            all(
+                "details" not in finding
+                for request in planner_requests
+                for finding in request.payload["findings"]
+            )
+        )
+        self.assertTrue(
+            all(
+                "entities" not in evidence
+                for request in planner_requests
+                for evidence in request.payload["evidence"]
+            )
+        )
+        self.assertTrue(
+            all(
+                request.payload["deterministic_planner_decision"][
+                    "question_updates"
+                ]
+                == []
+                for request in planner_requests
+            )
+        )
 
         act_decisions = [
             decision

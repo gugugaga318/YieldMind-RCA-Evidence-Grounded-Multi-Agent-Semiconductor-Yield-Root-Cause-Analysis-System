@@ -223,6 +223,49 @@ def test_root_cause_deterministic_fdc_baseline_is_parameter_then_basic_spc() -> 
     assert ooc.calls == []
 
 
+def test_real_llm_mode_skips_model_selection_when_only_one_tool_is_legal() -> None:
+    defect = RecordingTool(
+        "summarize_defect_wat",
+        {
+            "lot_ids": ["LOT-01"],
+            "defect_counts": {"scratch": 2},
+            "defect_patterns": {"linear": 2},
+            "wat_fail_modes": {},
+            "wat_fail_count": 0,
+            "wat_fail_record_count": 0,
+            "missing_wat_lot_ids": [],
+            "metrology_summaries": [],
+            "metrology_fail_count": 0,
+        },
+        "EV_DEFECT_DIRECT",
+    )
+    client = ScriptedClient()
+
+    finding = SpecialistV2Executor(
+        llm_client=client,
+        summarize_defect_wat_tool=defect,
+        agent_mode="llm",
+        direct_single_candidate=True,
+    ).execute(
+        _action(
+            ActionKind.INSPECT_DEFECT_PATTERN.value,
+            AgentKind.DEFECT_WAT.value,
+        ),
+        request_id="REQ_DIRECT_SINGLE_CANDIDATE",
+        context={"source_lot_id": "LOT-01"},
+    )
+
+    assert client.planner_calls == 0
+    assert client.analysis_calls == 1
+    assert len(defect.calls) == 1
+    assert (
+        finding.details["specialist_v2"][
+            "direct_single_candidate_selection_count"
+        ]
+        == 1
+    )
+
+
 def test_cross_domain_candidate_is_rejected_then_valid_same_domain_retry_runs() -> None:
     defect = RecordingTool(
         "summarize_defect_wat",
