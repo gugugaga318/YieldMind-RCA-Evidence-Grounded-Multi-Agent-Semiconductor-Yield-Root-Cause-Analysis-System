@@ -2,6 +2,16 @@
 
 from __future__ import annotations
 
+from yield_rca_core.causal_candidate_comparison import (
+    QwenHypothesisCandidateComparator,
+    compare_candidate_matrices,
+)
+from yield_rca_core.causal_confirmation import (
+    ConfirmationGateResult,
+    confirm_candidate,
+    evaluate_impact_lot_gate,
+)
+from yield_rca_core.causal_evidence_gap import build_causal_evidence_gaps
 from yield_rca_core.causal_evidence_matrix import (
     CausalClaimResult,
     CausalEvidenceMatrix,
@@ -39,6 +49,7 @@ from yield_rca_core.evidence_models import (
     EvidenceEntity,
     EvidenceType,
 )
+from yield_rca_core.evidence_synthesis import build_evidence_synthesis
 from yield_rca_core.hybrid_retrieval import (
     BM25DocumentChunkRetriever,
     DeterministicHashEmbeddingBackend,
@@ -245,6 +256,10 @@ __all__ = [
     "CausalClaimResult",
     "CausalClaimStatus",
     "CausalEvidenceMatrix",
+    "ConfirmationGateResult",
+    "QwenHypothesisCandidateComparator",
+    "build_causal_evidence_gaps",
+    "build_evidence_synthesis",
     "CausalHypothesis",
     "CausalScopeMode",
     "CausalScopePolicy",
@@ -395,6 +410,9 @@ __all__ = [
     "build_knowledge_retriever",
     "build_causal_search_scope",
     "build_causal_evidence_matrix",
+    "compare_candidate_matrices",
+    "confirm_candidate",
+    "evaluate_impact_lot_gate",
     "explicit_module_limit_requested",
     "validate_causal_candidate",
     "calculate_imr",

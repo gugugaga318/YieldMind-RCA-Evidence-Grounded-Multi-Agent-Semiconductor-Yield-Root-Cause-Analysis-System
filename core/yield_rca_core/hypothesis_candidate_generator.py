@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yield_rca_core.evidence_models import Evidence, EvidenceType
+from yield_rca_core.evidence_synthesis import build_evidence_synthesis
 from yield_rca_core.llm_gateway import (
     LLMClient,
     LLMOutputValidationError,
@@ -352,6 +353,7 @@ class QwenHypothesisCandidateGenerator:
         }
         if not evidence_by_id:
             return HypothesisCandidateGeneration(candidates=(), attempt_count=0)
+        evidence_synthesis = build_evidence_synthesis(evidence_by_id.values())
 
         validation_errors: list[str] = []
         for attempt in range(1, _OUTPUT_ATTEMPTS + 1):
@@ -371,6 +373,7 @@ class QwenHypothesisCandidateGenerator:
                             for finding in findings
                         ],
                         "typed_evidence_register": _evidence_register(findings),
+                        "evidence_synthesis": evidence_synthesis,
                         "max_candidates": _MAX_CANDIDATES,
                         "output_attempt": attempt,
                         "previous_validation_feedback": (

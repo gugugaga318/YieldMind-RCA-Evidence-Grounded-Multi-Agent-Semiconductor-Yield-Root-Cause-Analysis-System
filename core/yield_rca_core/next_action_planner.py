@@ -289,7 +289,7 @@ def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
     exposed the Planner to raw domain payloads it is not authorized to edit.
     """
 
-    return {
+    compact = {
         "finding_id": finding.finding_id,
         "agent": finding.agent,
         "finding_kind": finding.finding_kind,
@@ -297,6 +297,25 @@ def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
         "confidence": finding.confidence,
         "evidence_ids": list(finding.evidence_ids),
     }
+    # RCA diagnostics are already Python-compressed and contain only Evidence
+    # IDs, claim statuses, and registry-derived Actions.  Expose this small
+    # projection so the next Qwen decision can target a real causal gap without
+    # replaying the full specialist payload.
+    if finding.agent == AgentKind.RCA_REASONING.value:
+        compact.update(
+            {
+                "causal_evidence_gaps": list(
+                    finding.details.get("causal_evidence_gaps", [])
+                ),
+                "candidate_comparison": dict(
+                    finding.details.get("candidate_comparison", {})
+                ),
+                "confirmation_gate": dict(
+                    finding.details.get("confirmation_gate", {})
+                ),
+            }
+        )
+    return compact
 
 
 def _compact_evidence(evidence: Evidence) -> dict[str, Any]:

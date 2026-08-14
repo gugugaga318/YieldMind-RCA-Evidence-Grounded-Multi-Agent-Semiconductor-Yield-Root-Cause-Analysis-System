@@ -10,8 +10,15 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from yield_rca_core.causal_evidence_matrix import build_causal_evidence_matrix
+from yield_rca_core.causal_candidate_comparison import compare_candidate_matrices
+from yield_rca_core.causal_confirmation import confirm_candidate
+from yield_rca_core.causal_evidence_gap import build_causal_evidence_gaps
+from yield_rca_core.causal_evidence_matrix import (
+    CausalEvidenceMatrix,
+    build_causal_evidence_matrix,
+)
 from yield_rca_core.causal_hypothesis import CausalHypothesis
+from yield_rca_core.evidence_synthesis import build_evidence_synthesis
 from yield_rca_core.models import (
     AgentFinding,
     AgentKind,
@@ -749,6 +756,8 @@ class HypothesisEngine:
         mode: str = "shadow",
         external_candidates: list[dict[str, Any]] | None = None,
         include_deterministic_candidates: bool = True,
+        candidate_comparison: dict[str, Any] | None = None,
+        strict_confirmation: bool = False,
     ) -> dict[str, Any]:
         """Return a JSON-safe deterministic hypothesis decision result."""
         by_kind = _findings_by_kind(findings)
@@ -837,6 +846,57 @@ class HypothesisEngine:
             if existing is None or candidate["confidence"] > existing["confidence"]:
                 candidates[root_cause] = candidate
 
+        matrices_by_root: dict[str, CausalEvidenceMatrix] = {}
+        for candidate in candidates.values():
+            try:
+                matrix = build_causal_evidence_matrix(
+                    CausalHypothesis(
+                        root_cause=str(candidate["root_cause"]),
+                        causal_explanation=str(
+                            candidate.get("causal_explanation", candidate["root_cause"])
+                        ),
+                        supporting_evidence_ids=tuple(
+                            candidate.get("supporting_evidence_ids", [])
+                        ),
+                        contradicting_evidence_ids=tuple(
+                            candidate.get("contradicting_evidence_ids", [])
+                        ),
+                    ),
+                    evidence_by_id.values(),
+                )
+            except (TypeError, ValueError):
+                continue
+            matrices_by_root[str(candidate["root_cause"])] = matrix
+            candidate["causal_evidence_matrix"] = matrix.to_dict()
+            candidate["causal_matrix_status"] = matrix.status
+            candidate["mechanism_support_source"] = matrix.mechanism_support_source
+
+        matrices = list(matrices_by_root.values())
+        evidence_gaps = build_causal_evidence_gaps(matrices)
+        python_comparison = compare_candidate_matrices(
+            matrices,
+            evidence_gaps=evidence_gaps,
+        )
+        effective_comparison = dict(python_comparison)
+        if candidate_comparison is not None:
+            preferred = candidate_comparison.get("preferred_candidate_index")
+            if preferred is None or (
+                isinstance(preferred, int) and 0 <= preferred < len(matrices)
+            ):
+                effective_comparison.update(candidate_comparison)
+        preferred_root: str | None = None
+        # The deterministic comparison is diagnostic by default.  It may
+        # reorder an active Qwen two-candidate decision only after an explicit
+        # comparator result has been supplied; legacy deterministic ranking
+        # remains gate-first and unchanged.
+        preferred_index = (
+            effective_comparison.get("preferred_candidate_index")
+            if candidate_comparison is not None
+            else None
+        )
+        if isinstance(preferred_index, int) and 0 <= preferred_index < len(matrices):
+            preferred_root = matrices[preferred_index].candidate.root_cause
+
         mes_strength = _mes_strength(mes)
         fdc_strength = _fdc_strength(fdc)
         defect_wat_strength = _defect_wat_strength(defect_wat)
@@ -846,7 +906,15 @@ class HypothesisEngine:
             if candidate["status"] != "supported" or conflicting_physics:
                 return False
             if candidate["basis"] == "llm_evidence_composition":
-                return bool(candidate.get("llm_gate_passed", False))
+                if not bool(candidate.get("llm_gate_passed", False)):
+                    return False
+                if strict_confirmation:
+                    matrix = matrices_by_root.get(str(candidate["root_cause"]))
+                    return bool(
+                        matrix is not None
+                        and confirm_candidate(matrix, strict=True).status == "supported"
+                    )
+                return True
             if candidate["basis"] == "recipe_change":
                 return mes_strength >= 0.8 and defect_wat_strength >= 0.6
             return (
@@ -859,6 +927,12 @@ class HypothesisEngine:
         ranked = sorted(
             candidates.values(),
             key=lambda item: (
+                (
+                    -1
+                    if preferred_root is not None
+                    and str(item["root_cause"]) == preferred_root
+                    else 0
+                ),
                 not passes_decision_gate(item),
                 -float(item["confidence"]),
                 str(item["root_cause"]),
@@ -872,6 +946,24 @@ class HypothesisEngine:
             selected is not None
             and bool(selected["decision_gate_passed"])
         )
+        selected_matrix = (
+            matrices_by_root.get(str(selected["root_cause"])) if selected is not None else None
+        )
+        confirmation = (
+            confirm_candidate(
+                selected_matrix,
+                alternative_matrices=[
+                    matrix
+                    for matrix in matrices
+                    if selected_matrix is None or matrix is not selected_matrix
+                ],
+                strict=strict_confirmation,
+            )
+            if selected_matrix is not None
+            else None
+        )
+        if strict_confirmation and confirmation is not None:
+            supported = confirmation.status == "supported"
         decision = {
             "status": "supported" if supported else "inconclusive",
             "root_cause": (
@@ -884,6 +976,21 @@ class HypothesisEngine:
                 else ["No ranked hypothesis passed the deterministic decision gate."]
             ),
             "conflicting_physics": conflicting_physics,
+            "conclusion_status": (
+                confirmation.status
+                if confirmation is not None
+                else "insufficient_evidence"
+            ),
+            "confirmation_gate": (
+                confirmation.to_dict()
+                if confirmation is not None
+                else {
+                    "status": "insufficient_evidence",
+                    "checks": {},
+                    "reasons": ["No candidate matrix is available."],
+                    "unresolved_gaps": [],
+                }
+            ),
         }
         return {
             "engine": "hypothesis_v1",
@@ -898,5 +1005,9 @@ class HypothesisEngine:
                 "knowledge_validation_present": validation is not None,
                 "external_candidate_count": len(external_candidates or []),
                 "deterministic_candidates_enabled": include_deterministic_candidates,
+                "strict_confirmation": strict_confirmation,
             },
+            "evidence_synthesis": build_evidence_synthesis(evidence_by_id.values()),
+            "causal_evidence_gaps": evidence_gaps,
+            "candidate_comparison": effective_comparison,
         }

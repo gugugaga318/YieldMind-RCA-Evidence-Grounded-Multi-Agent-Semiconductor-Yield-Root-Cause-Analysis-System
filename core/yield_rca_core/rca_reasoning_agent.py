@@ -10,6 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from yield_rca_core.causal_candidate_comparison import (
+    QwenHypothesisCandidateComparator,
+)
+from yield_rca_core.causal_confirmation import evaluate_impact_lot_gate
+from yield_rca_core.causal_evidence_gap import build_causal_evidence_gaps
+from yield_rca_core.causal_evidence_matrix import build_causal_evidence_matrix
+from yield_rca_core.causal_hypothesis import CausalHypothesis
+from yield_rca_core.evidence_synthesis import build_evidence_synthesis
 from yield_rca_core.hypothesis_candidate_generator import (
     QwenHypothesisCandidateGenerator,
 )
@@ -214,6 +222,7 @@ class RCAReasoningAgent:
         }
         external_candidates: list[dict[str, Any]] = []
         deterministic_candidates_enabled = True
+        candidate_comparison: dict[str, Any] | None = None
         if self.agent_mode == AgentMode.LLM.value and self.llm_client is not None:
             try:
                 generated = QwenHypothesisCandidateGenerator(
@@ -247,6 +256,45 @@ class RCAReasoningAgent:
                             evidence_ids=evidence_ids,
                         )
                     )
+                if len(external_candidates) >= 2:
+                    evidence_by_id = {
+                        evidence.evidence_id: evidence
+                        for finding in findings
+                        for evidence in finding.evidence
+                        if evidence.is_typed
+                    }
+                    matrices = [
+                        build_causal_evidence_matrix(
+                            CausalHypothesis(
+                                root_cause=str(candidate["root_cause"]),
+                                causal_explanation=str(candidate["causal_explanation"]),
+                                supporting_evidence_ids=tuple(
+                                    candidate["supporting_evidence_ids"]
+                                ),
+                                contradicting_evidence_ids=tuple(
+                                    candidate["contradicting_evidence_ids"]
+                                ),
+                            ),
+                            evidence_by_id.values(),
+                        )
+                        for candidate in external_candidates
+                    ]
+                    gaps = build_causal_evidence_gaps(matrices)
+                    try:
+                        candidate_comparison = QwenHypothesisCandidateComparator(
+                            self.llm_client,
+                            prompt_version=self.prompt_version,
+                        ).compare(
+                            request_id=request_id,
+                            candidates=external_candidates,
+                            matrices=matrices,
+                            evidence_gaps=gaps,
+                        )
+                    except (LLMCallError, LLMOutputValidationError) as exc:
+                        candidate_comparison = {
+                            "source": "python",
+                            "comparison_error": str(exc),
+                        }
             except (LLMCallError, LLMOutputValidationError) as exc:
                 candidate_generation = {
                     "source": "qwen",
@@ -302,6 +350,19 @@ class RCAReasoningAgent:
             mode="active",
             external_candidates=external_candidates,
             include_deterministic_candidates=deterministic_candidates_enabled,
+            candidate_comparison=candidate_comparison,
+            # Older typed snapshots may have no temporal fields at all.  They
+            # remain compatible; once a run provides temporal observations the
+            # active Qwen path applies the full strict temporal gate.
+            strict_confirmation=(
+                self.agent_mode == AgentMode.LLM.value
+                and any(
+                    item.timestamp
+                    for finding in findings
+                    for item in finding.evidence
+                    if item.is_typed
+                )
+            ),
         )
         decision = engine_result["decision_gate"]
         root_cause = str(decision["root_cause"])
@@ -415,6 +476,40 @@ class RCAReasoningAgent:
         )
         if unsupported_source is not None:
             warnings.append(unsupported_source)
+        selected_candidate = active_candidate or (
+            engine_result["candidates"][0] if engine_result["candidates"] else None
+        )
+        source_lot_id = next(
+            (
+                str(finding.details.get("source_lot_id"))
+                for finding in findings
+                if finding.details.get("source_lot_id")
+            ),
+            None,
+        )
+        observed_impact_lots = next(
+            (
+                [str(item) for item in finding.details.get("impact_lots", [])]
+                for finding in findings
+                if finding.details.get("impact_lots") is not None
+            ),
+            [],
+        )
+        impact_lot_gate = (
+            evaluate_impact_lot_gate(
+                source_lot_id=source_lot_id,
+                candidate=selected_candidate,
+                evidence=[item for finding in findings for item in finding.evidence],
+                observed_impact_lots=observed_impact_lots,
+            )
+            if selected_candidate is not None
+            else {
+                "source_lot_id": source_lot_id,
+                "candidate_root_cause": None,
+                "confirmed_impact_lots": [],
+                "rows": [],
+            }
+        )
         return AgentFinding(
             finding_id=f"{request_id}:rca",
             agent=AgentKind.RCA_REASONING.value,
@@ -444,6 +539,23 @@ class RCAReasoningAgent:
                 "reasoning_engine": "hypothesis_v1",
                 "hypothesis_candidate_generation": candidate_generation,
                 "hypothesis_engine_result": engine_result,
+                "conclusion_status": str(decision.get("conclusion_status", status)),
+                "evidence_synthesis": engine_result.get(
+                    "evidence_synthesis",
+                    build_evidence_synthesis(
+                        item for finding in findings for item in finding.evidence
+                    ),
+                ),
+                "causal_evidence_gaps": list(
+                    engine_result.get("causal_evidence_gaps", [])
+                ),
+                "candidate_comparison": dict(
+                    engine_result.get("candidate_comparison", candidate_comparison or {})
+                ),
+                "confirmation_gate": dict(
+                    decision.get("confirmation_gate", {})
+                ),
+                "impact_lot_gate": impact_lot_gate,
                 "evidence": _merge_evidence_payload(findings),
             },
             warnings=list({warning.warning_id: warning for warning in warnings}.values()),
