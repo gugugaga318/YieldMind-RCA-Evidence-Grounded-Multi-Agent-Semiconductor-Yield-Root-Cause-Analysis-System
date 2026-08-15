@@ -24,6 +24,15 @@ from yield_rca_core.causal_hypothesis import (
     CausalHypothesis,
     MechanismSupportSource,
 )
+from yield_rca_core.causal_investigation_models import (
+    AlternativeSearchStatus,
+    CandidateChallenge,
+    CausalChainCompleteness,
+    CausalLaneRecord,
+    ChallengeStatus,
+    CompetitionTrace,
+    InvestigationLaneStatus,
+)
 from yield_rca_core.causal_retrieval import (
     CausalLaneKnowledgeRetriever,
     prepare_causal_plan,
@@ -256,6 +265,13 @@ __all__ = [
     "CausalClaimResult",
     "CausalClaimStatus",
     "CausalEvidenceMatrix",
+    "CausalChainCompleteness",
+    "CausalLaneRecord",
+    "CandidateChallenge",
+    "ChallengeStatus",
+    "CompetitionTrace",
+    "AlternativeSearchStatus",
+    "InvestigationLaneStatus",
     "ConfirmationGateResult",
     "QwenHypothesisCandidateComparator",
     "build_causal_evidence_gaps",

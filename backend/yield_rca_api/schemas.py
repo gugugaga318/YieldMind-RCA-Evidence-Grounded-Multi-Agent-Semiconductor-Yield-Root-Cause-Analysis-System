@@ -454,6 +454,10 @@ class RCAJobStateResponse(APIModel):
     evidence: list[EvidenceResponse] = Field(default_factory=list)
     findings: list[AgentFindingResponse] = Field(default_factory=list)
     hypotheses: list[HypothesisResponse] = Field(default_factory=list)
+    causal_lanes: list[dict[str, Any]] = Field(default_factory=list)
+    candidate_challenges: list[dict[str, Any]] = Field(default_factory=list)
+    competition_trace: dict[str, Any] | None = None
+    causal_chain_completeness: str | None = None
     warnings: list[WarningResponse] = Field(default_factory=list)
     report: ReportResponse | None = None
     llm_usage: list[LLMUsageEventResponse] = Field(default_factory=list)

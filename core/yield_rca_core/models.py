@@ -12,6 +12,12 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Self
 
+from yield_rca_core.causal_investigation_models import (
+    CandidateChallenge,
+    CausalChainCompleteness,
+    CausalLaneRecord,
+    CompetitionTrace,
+)
 from yield_rca_core.evidence_models import (
     SCHEMA_VERSION as SCHEMA_VERSION,
 )
@@ -825,6 +831,12 @@ class RCAState:
     evidence: list[Evidence] = field(default_factory=list)
     findings: list[AgentFinding] = field(default_factory=list)
     hypotheses: list[Hypothesis] = field(default_factory=list)
+    # Python-owned causal investigation state.  These fields are additive so
+    # states written before Batch 25.0 remain readable with empty defaults.
+    causal_lanes: list[CausalLaneRecord] = field(default_factory=list)
+    candidate_challenges: list[CandidateChallenge] = field(default_factory=list)
+    competition_trace: CompetitionTrace | None = None
+    causal_chain_completeness: str | None = None
     warnings: list[Warning] = field(default_factory=list)
     report: Report | None = None
     llm_usage: list[LLMUsageEvent] = field(default_factory=list)
@@ -869,6 +881,7 @@ class RCAState:
         for usage in self.llm_usage:
             if not isinstance(usage, LLMUsageEvent):
                 raise ModelValidationError("llm_usage must contain LLMUsageEvent instances")
+        self._validate_causal_investigation()
         if self.investigation_goal is not None and not isinstance(
             self.investigation_goal, InvestigationGoal
         ):
@@ -1082,6 +1095,101 @@ class RCAState:
                 known_evidence_ids,
                 "report",
             )
+
+    def _validate_causal_investigation(self) -> None:
+        """Validate Python-owned causal lane and competition references.
+
+        The model deliberately validates identifiers and enum state here, but
+        does not infer a causal conclusion.  That keeps lane search and
+        adversarial challenge state auditable without allowing an LLM payload
+        to become an implicit confirmation decision.
+        """
+
+        if not isinstance(self.causal_lanes, list) or any(
+            not isinstance(lane, CausalLaneRecord) for lane in self.causal_lanes
+        ):
+            raise ModelValidationError(
+                "causal_lanes must contain CausalLaneRecord instances"
+            )
+        lane_ids = [lane.lane_id for lane in self.causal_lanes]
+        duplicate_lane_ids = {
+            lane_id for lane_id in lane_ids if lane_ids.count(lane_id) > 1
+        }
+        if duplicate_lane_ids:
+            raise ModelValidationError(
+                f"duplicate causal lane_id values: {sorted(duplicate_lane_ids)}"
+            )
+        known_lane_ids = set(lane_ids)
+        known_evidence_ids = set(self.evidence_by_id)
+        for lane in self.causal_lanes:
+            self._validate_reference_set(
+                list(lane.initial_evidence_ids),
+                known_evidence_ids,
+                "causal lane",
+            )
+
+        if not isinstance(self.candidate_challenges, list) or any(
+            not isinstance(challenge, CandidateChallenge)
+            for challenge in self.candidate_challenges
+        ):
+            raise ModelValidationError(
+                "candidate_challenges must contain CandidateChallenge instances"
+            )
+        for challenge in self.candidate_challenges:
+            self._validate_reference_set(
+                list(
+                    challenge.supporting_evidence_ids
+                    + challenge.contradicting_evidence_ids
+                    + challenge.unexplained_precursor_evidence_ids
+                ),
+                known_evidence_ids,
+                "candidate challenge",
+            )
+            if (
+                challenge.strongest_alternative_lane_id is not None
+                and challenge.strongest_alternative_lane_id not in known_lane_ids
+            ):
+                raise ModelValidationError(
+                    "candidate challenge references an unknown strongest alternative lane: "
+                    f"{challenge.strongest_alternative_lane_id!r}"
+                )
+
+        if self.competition_trace is not None and not isinstance(
+            self.competition_trace, CompetitionTrace
+        ):
+            raise ModelValidationError("competition_trace must be a CompetitionTrace")
+        if self.competition_trace is not None:
+            trace = self.competition_trace
+            referenced_lane_ids = set(
+                trace.active_lane_ids
+                + trace.overflow_lane_ids
+                + trace.represented_lane_ids
+                + trace.unresolved_lane_ids
+                + trace.eliminated_lane_ids
+            )
+            unknown_lane_ids = referenced_lane_ids - known_lane_ids
+            if unknown_lane_ids:
+                raise ModelValidationError(
+                    "competition_trace references unknown causal lanes: "
+                    f"{sorted(unknown_lane_ids)}"
+                )
+            self._validate_reference_set(
+                list(trace.resolution_evidence_ids),
+                known_evidence_ids,
+                "competition trace",
+            )
+
+        if self.causal_chain_completeness is not None:
+            try:
+                normalized_status = CausalChainCompleteness(
+                    self.causal_chain_completeness
+                ).value
+            except ValueError as exc:
+                allowed = ", ".join(item.value for item in CausalChainCompleteness)
+                raise ModelValidationError(
+                    f"causal_chain_completeness must be one of: {allowed}"
+                ) from exc
+            object.__setattr__(self, "causal_chain_completeness", normalized_status)
 
     def _validate_authority_references(self) -> None:
         if self.authoritative_rca_finding_id is not None:
@@ -1335,6 +1443,16 @@ class RCAState:
             "evidence": [item.to_dict() for item in self.evidence],
             "findings": [item.to_dict() for item in self.findings],
             "hypotheses": [item.to_dict() for item in self.hypotheses],
+            "causal_lanes": [item.to_dict() for item in self.causal_lanes],
+            "candidate_challenges": [
+                item.to_dict() for item in self.candidate_challenges
+            ],
+            "competition_trace": (
+                self.competition_trace.to_dict()
+                if self.competition_trace is not None
+                else None
+            ),
+            "causal_chain_completeness": self.causal_chain_completeness,
             "warnings": [item.to_dict() for item in self.warnings],
             "report": self.report.to_dict() if self.report else None,
             "llm_usage": [item.to_dict() for item in self.llm_usage],
@@ -1420,6 +1538,20 @@ class RCAState:
             evidence=evidence,
             findings=findings,
             hypotheses=hypotheses,
+            causal_lanes=[
+                CausalLaneRecord.from_dict(item)
+                for item in data.get("causal_lanes", [])
+            ],
+            candidate_challenges=[
+                CandidateChallenge.from_dict(item)
+                for item in data.get("candidate_challenges", [])
+            ],
+            competition_trace=(
+                CompetitionTrace.from_dict(data["competition_trace"])
+                if data.get("competition_trace") is not None
+                else None
+            ),
+            causal_chain_completeness=data.get("causal_chain_completeness"),
             warnings=[Warning.from_dict(item) for item in data.get("warnings", [])],
             report=Report.from_dict(data["report"]) if data.get("report") else None,
             llm_usage=[LLMUsageEvent.from_dict(item) for item in data.get("llm_usage", [])],
