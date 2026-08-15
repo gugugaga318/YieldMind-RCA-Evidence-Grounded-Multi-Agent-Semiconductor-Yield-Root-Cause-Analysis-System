@@ -18,6 +18,13 @@ import type {
   OrchestrationMode,
   PlannerDecision,
   RCAState,
+  CausalClaimStatus,
+  CausalEvidenceGap,
+  CausalEvidenceMatrix,
+  CausalMatrixClaim,
+  ImpactLotGateRow,
+  RcaCandidateTrace,
+  RcaDiagnosisTrace,
   RecommendedAction,
   SpecialistToolStepViewModel,
   SpecialistTraceViewModel,
@@ -95,6 +102,155 @@ export function authoritativeHypothesisFor(state: RCAState): RCAState["hypothese
     return state.hypotheses.find((hypothesis) => hypothesis.hypothesis_id === authoritativeId);
   }
   return state.hypotheses.length === 1 ? state.hypotheses[0] : undefined;
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function causalStatus(value: unknown): CausalClaimStatus {
+  return value === "supported" || value === "incomplete" || value === "conflicted" || value === "unavailable"
+    ? value
+    : "unavailable";
+}
+
+function matrixClaim(value: unknown, claim: string): CausalMatrixClaim {
+  const raw = isRecord(value) ? value : {};
+  return {
+    claim: typeof raw.claim === "string" ? raw.claim : claim,
+    status: causalStatus(raw.status),
+    evidence_ids: stringList(raw.evidence_ids),
+    reason: typeof raw.reason === "string" ? raw.reason : "",
+    facts: isRecord(raw.facts) ? raw.facts : {},
+    support_source: typeof raw.support_source === "string" ? raw.support_source : null,
+  };
+}
+
+function causalMatrix(value: unknown): CausalEvidenceMatrix | null {
+  if (!isRecord(value)) return null;
+  const rawClaims = isRecord(value.claims) ? value.claims : {};
+  const claims: Record<string, CausalMatrixClaim> = {};
+  for (const [claim, item] of Object.entries(rawClaims)) claims[claim] = matrixClaim(item, claim);
+  return {
+    root_cause: typeof value.root_cause === "string" ? value.root_cause : "",
+    claims,
+    status: causalStatus(value.status),
+    invalid_evidence_ids: stringList(value.invalid_evidence_ids),
+    mechanism_support_source:
+      typeof value.mechanism_support_source === "string" ? value.mechanism_support_source : null,
+  };
+}
+
+function candidateTrace(value: unknown): RcaCandidateTrace | null {
+  if (!isRecord(value) || typeof value.root_cause !== "string") return null;
+  return {
+    root_cause: value.root_cause,
+    score: typeof value.score === "number" ? value.score : null,
+    basis: typeof value.basis === "string" ? value.basis : null,
+    status: typeof value.status === "string" ? value.status : null,
+    evidence_ids: stringList(value.evidence_ids),
+    supporting_evidence_ids: stringList(value.supporting_evidence_ids),
+    contradicting_evidence_ids: stringList(value.contradicting_evidence_ids),
+    rejection_reasons: stringList(value.rejection_reasons),
+    causal_matrix_status:
+      value.causal_matrix_status === null || value.causal_matrix_status === undefined
+        ? null
+        : causalStatus(value.causal_matrix_status),
+    mechanism_support_source:
+      typeof value.mechanism_support_source === "string" ? value.mechanism_support_source : null,
+    causal_evidence_matrix: causalMatrix(value.causal_evidence_matrix),
+  };
+}
+
+function diagnosisTrace(value: unknown, findingId: string): RcaDiagnosisTrace | undefined {
+  if (!isRecord(value)) return undefined;
+  const candidates = Array.isArray(value.ranked_candidates)
+    ? value.ranked_candidates.flatMap((item) => {
+        const candidate = candidateTrace(item);
+        return candidate ? [candidate] : [];
+      })
+    : [];
+  const gaps = Array.isArray(value.causal_evidence_gaps)
+    ? value.causal_evidence_gaps.flatMap((item) => {
+        if (!isRecord(item) || typeof item.gap_id !== "string") return [];
+        return [{
+          gap_id: item.gap_id,
+          candidate_index: typeof item.candidate_index === "number" ? item.candidate_index : -1,
+          claim: typeof item.claim === "string" ? item.claim : "unknown",
+          status: causalStatus(item.status),
+          reason: typeof item.reason === "string" ? item.reason : "",
+          question_kind: typeof item.question_kind === "string" ? item.question_kind : "",
+          allowed_actions: stringList(item.allowed_actions),
+          evidence_ids: stringList(item.evidence_ids),
+        } satisfies CausalEvidenceGap];
+      })
+    : [];
+  const rawGate = isRecord(value.confirmation_gate) ? value.confirmation_gate : {};
+  const rawImpact = isRecord(value.impact_lot_gate) ? value.impact_lot_gate : {};
+  const impactRows = Array.isArray(rawImpact.rows)
+    ? rawImpact.rows.flatMap((item) => {
+        if (!isRecord(item) || typeof item.lot_id !== "string") return [];
+        return [{
+          lot_id: item.lot_id,
+          included: item.included === true,
+          included_reason: typeof item.included_reason === "string" ? item.included_reason : null,
+          excluded_reason: typeof item.excluded_reason === "string" ? item.excluded_reason : null,
+          supporting_evidence_ids: stringList(item.supporting_evidence_ids),
+        } satisfies ImpactLotGateRow];
+      })
+    : [];
+  return {
+    finding_id: findingId,
+    conclusion_status: typeof value.conclusion_status === "string" ? value.conclusion_status : "inconclusive",
+    root_cause: typeof value.root_cause === "string" ? value.root_cause : null,
+    ranked_candidates: candidates,
+    evidence_synthesis: isRecord(value.evidence_synthesis) ? value.evidence_synthesis : {},
+    causal_evidence_gaps: gaps,
+    candidate_comparison: isRecord(value.candidate_comparison) ? value.candidate_comparison : {},
+    confirmation_gate: {
+      status: typeof rawGate.status === "string" ? rawGate.status : undefined,
+      checks: isRecord(rawGate.checks)
+        ? Object.fromEntries(Object.entries(rawGate.checks).flatMap(([key, item]) => typeof item === "boolean" ? [[key, item]] : []))
+        : undefined,
+      reasons: stringList(rawGate.reasons),
+      unresolved_gaps: stringList(rawGate.unresolved_gaps),
+    },
+    impact_lot_gate: {
+      confirmed_impact_lots: stringList(rawImpact.confirmed_impact_lots),
+      rows: impactRows,
+    },
+  };
+}
+
+export function authoritativeRcaDiagnosisFor(state: RCAState): RcaDiagnosisTrace | undefined {
+  const finding = authoritativeRcaFindingFor(state);
+  if (!finding) return undefined;
+  if (state.rca_diagnosis?.finding_id === finding.finding_id) {
+    return state.rca_diagnosis;
+  }
+  const details = finding.details;
+  return diagnosisTrace(
+    {
+      finding_id: finding.finding_id,
+      conclusion_status: details.conclusion_status ?? details.status,
+      root_cause: details.root_cause,
+      ranked_candidates: details.ranked_candidates,
+      evidence_synthesis: details.evidence_synthesis,
+      causal_evidence_gaps: details.causal_evidence_gaps,
+      candidate_comparison: details.candidate_comparison,
+      confirmation_gate: details.confirmation_gate,
+      impact_lot_gate: details.impact_lot_gate,
+    },
+    finding.finding_id,
+  );
+}
+
+export function getRcaCandidates(state: RCAState): RcaCandidateTrace[] {
+  return authoritativeRcaDiagnosisFor(state)?.ranked_candidates ?? [];
+}
+
+export function getCausalEvidenceGaps(state: RCAState): CausalEvidenceGap[] {
+  return authoritativeRcaDiagnosisFor(state)?.causal_evidence_gaps ?? [];
 }
 
 export function getYieldTrend(state: RCAState): YieldTrendPoint[] {

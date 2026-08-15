@@ -16,6 +16,7 @@ from yield_rca_api.schemas import (  # noqa: E402
     ExecutionMetadataResponse,
     PlannerAttemptDiagnosticResponse,
     QuestionUpdateReviewResponse,
+    RcaDiagnosisResponse,
     RCAJobStateResponse,
     RunEvaluationResponse,
 )
@@ -276,6 +277,44 @@ class FastAPIContractTest(unittest.TestCase):
                 "question_id",
                 "claimed_status",
             },
+        )
+
+    def test_job_state_exposes_rca_diagnosis_projection(self) -> None:
+        diagnosis = RcaDiagnosisResponse(
+            finding_id="RCA_AUTH",
+            conclusion_status="inconclusive",
+            root_cause="Pressure excursion",
+            ranked_candidates=[
+                {
+                    "root_cause": "Pressure excursion",
+                    "causal_evidence_matrix": {
+                        "status": "incomplete",
+                        "claims": {},
+                    },
+                }
+            ],
+            causal_evidence_gaps=[
+                {
+                    "gap_id": "candidate_0.mechanism.incomplete",
+                    "candidate_index": 0,
+                    "claim": "mechanism",
+                    "status": "incomplete",
+                    "reason": "Mechanism Evidence is incomplete.",
+                    "question_kind": "process_mechanism",
+                    "allowed_actions": ["retrieve_knowledge"],
+                    "evidence_ids": [],
+                }
+            ],
+            confirmation_gate={"status": "inconclusive", "checks": {"mechanism": False}},
+            impact_lot_gate={"confirmed_impact_lots": ["LOT_IMPACT"], "rows": []},
+        )
+        state = RCAJobStateResponse(job={"job_id": "JOB_DIAGNOSIS"}, rca_diagnosis=diagnosis)
+        self.assertEqual(state.rca_diagnosis.finding_id, "RCA_AUTH")
+        components = create_app().openapi()["components"]["schemas"]
+        self.assertIn("rca_diagnosis", components["RCAJobStateResponse"]["properties"])
+        self.assertIn(
+            "RcaDiagnosisResponse",
+            str(components["RCAJobStateResponse"]["properties"]["rca_diagnosis"]),
         )
 
 

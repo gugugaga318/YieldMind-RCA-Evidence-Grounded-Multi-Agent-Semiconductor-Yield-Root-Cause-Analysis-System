@@ -29,6 +29,7 @@ import { KnowledgeWorkspace } from "./components/KnowledgeWorkspace";
 import { MemoryApprovalPanel } from "./components/MemoryApprovalPanel";
 import { ReportView } from "./components/ReportView";
 import { RootCausePanel } from "./components/RootCausePanel";
+import { RcaDiagnosisTrace } from "./components/RcaDiagnosisTrace";
 import { SpcEvidencePanel } from "./components/SpcEvidencePanel";
 import { RuntimeMetadata } from "./components/RuntimeMetadata";
 import { StatusBadge } from "./components/StatusBadge";
@@ -511,6 +512,8 @@ function InvestigationView({
       </div>
 
       <SpcEvidencePanel state={state} />
+
+      <RcaDiagnosisTrace state={state} />
 
       <EvidenceChain state={state} />
 

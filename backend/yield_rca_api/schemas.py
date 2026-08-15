@@ -312,6 +312,27 @@ class HypothesisResponse(APIModel):
     schema_version: str | None = None
 
 
+class RcaDiagnosisResponse(APIModel):
+    """Public projection of the Python-owned RCA diagnosis trace.
+
+    The nested payloads intentionally remain extensible dictionaries: the
+    causal matrix is versioned by the core and the UI only consumes its stable
+    claim/status/evidence fields.  Keeping this projection separate from the
+    raw Finding details prevents clients from having to discover the
+    authoritative Finding themselves.
+    """
+
+    finding_id: str
+    conclusion_status: str
+    root_cause: str | None = None
+    ranked_candidates: list[dict[str, Any]] = Field(default_factory=list)
+    evidence_synthesis: dict[str, Any] = Field(default_factory=dict)
+    causal_evidence_gaps: list[dict[str, Any]] = Field(default_factory=list)
+    candidate_comparison: dict[str, Any] = Field(default_factory=dict)
+    confirmation_gate: dict[str, Any] = Field(default_factory=dict)
+    impact_lot_gate: dict[str, Any] = Field(default_factory=dict)
+
+
 class ReportResponse(APIModel):
     """Serialized Markdown report."""
 
@@ -446,6 +467,7 @@ class RCAJobStateResponse(APIModel):
     question_update_reviews: list[QuestionUpdateReviewResponse] = Field(default_factory=list)
     authoritative_rca_finding_id: str | None = None
     authoritative_hypothesis_id: str | None = None
+    rca_diagnosis: RcaDiagnosisResponse | None = None
     run_evaluation: RunEvaluationResponse | None = None
     goal_status: str | None = None
     conclusion_level: str | None = None

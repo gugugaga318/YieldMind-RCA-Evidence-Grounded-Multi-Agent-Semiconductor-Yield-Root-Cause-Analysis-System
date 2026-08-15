@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   authoritativeHypothesisFor,
+  authoritativeRcaDiagnosisFor,
   authoritativeRcaFindingFor,
   buildRCAJobRequest,
   formatAgentName,
@@ -403,6 +404,23 @@ describe("RCAState display selectors", () => {
 
     expect(authoritativeRcaFindingFor(state)?.finding_id).toBe("RCA_FINDING");
     expect(authoritativeHypothesisFor(state)).toBeUndefined();
+  });
+
+  it("projects RCA diagnosis only from the authoritative Finding", () => {
+    const state = stateFixture();
+    const current = state.findings.find((finding) => finding.finding_id === "RCA_FINDING");
+    expect(current).toBeDefined();
+    current!.details = {
+      conclusion_status: "inconclusive",
+      ranked_candidates: [],
+      confirmation_gate: { status: "inconclusive" },
+    };
+    state.authoritative_rca_finding_id = "RCA_FINDING";
+    expect(authoritativeRcaDiagnosisFor(state)?.finding_id).toBe("RCA_FINDING");
+
+    state.authoritative_rca_finding_id = null;
+    state.findings.push({ ...current!, finding_id: "RCA_HISTORY" });
+    expect(authoritativeRcaDiagnosisFor(state)).toBeUndefined();
   });
 
   it("returns empty display data when optional backend fields are absent", () => {

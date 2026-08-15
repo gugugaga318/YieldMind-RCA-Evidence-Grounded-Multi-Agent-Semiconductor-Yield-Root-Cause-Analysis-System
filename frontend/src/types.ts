@@ -240,6 +240,78 @@ export interface AgentFinding {
   warnings: Warning[];
 }
 
+export type CausalClaimStatus = "supported" | "incomplete" | "conflicted" | "unavailable";
+
+export interface CausalMatrixClaim {
+  claim: string;
+  status: CausalClaimStatus;
+  evidence_ids: string[];
+  reason: string;
+  facts: Record<string, unknown>;
+  support_source: string | null;
+}
+
+export interface CausalEvidenceMatrix {
+  root_cause: string;
+  claims: Record<string, CausalMatrixClaim>;
+  status: CausalClaimStatus;
+  invalid_evidence_ids: string[];
+  mechanism_support_source: string | null;
+}
+
+export interface RcaCandidateTrace {
+  root_cause: string;
+  score: number | null;
+  basis: string | null;
+  status: string | null;
+  evidence_ids: string[];
+  supporting_evidence_ids: string[];
+  contradicting_evidence_ids: string[];
+  rejection_reasons: string[];
+  causal_matrix_status: CausalClaimStatus | null;
+  mechanism_support_source: string | null;
+  causal_evidence_matrix: CausalEvidenceMatrix | null;
+}
+
+export interface CausalEvidenceGap {
+  gap_id: string;
+  candidate_index: number;
+  claim: string;
+  status: CausalClaimStatus;
+  reason: string;
+  question_kind: string;
+  allowed_actions: string[];
+  evidence_ids: string[];
+}
+
+export interface ImpactLotGateRow {
+  lot_id: string;
+  included: boolean;
+  included_reason: string | null;
+  excluded_reason: string | null;
+  supporting_evidence_ids: string[];
+}
+
+export interface RcaDiagnosisTrace {
+  finding_id: string;
+  conclusion_status: string;
+  root_cause: string | null;
+  ranked_candidates: RcaCandidateTrace[];
+  evidence_synthesis: Record<string, unknown>;
+  causal_evidence_gaps: CausalEvidenceGap[];
+  candidate_comparison: Record<string, unknown>;
+  confirmation_gate: {
+    status?: string;
+    checks?: Record<string, boolean>;
+    reasons?: string[];
+    unresolved_gaps?: string[];
+  };
+  impact_lot_gate: {
+    confirmed_impact_lots?: string[];
+    rows?: ImpactLotGateRow[];
+  };
+}
+
 export interface Hypothesis {
   hypothesis_id: string;
   root_cause: string;
@@ -384,6 +456,7 @@ export interface RCAState {
   question_update_reviews?: QuestionUpdateReview[];
   authoritative_rca_finding_id?: string | null;
   authoritative_hypothesis_id?: string | null;
+  rca_diagnosis?: RcaDiagnosisTrace | null;
   run_evaluation?: RunEvaluation | null;
   goal_status?: GoalStatus | null;
   conclusion_level?: ConclusionLevel | null;

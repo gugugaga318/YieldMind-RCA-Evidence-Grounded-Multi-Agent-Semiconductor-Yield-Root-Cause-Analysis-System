@@ -174,6 +174,54 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
                 definition.allowed_actions if definition is not None else ()
             )
             question["evidence_links"] = question_links
+    finding = state.authoritative_rca_finding
+    if finding is not None:
+        details = finding.details
+        payload["rca_diagnosis"] = {
+            "finding_id": finding.finding_id,
+            "conclusion_status": str(
+                details.get("conclusion_status")
+                or details.get("status")
+                or "inconclusive"
+            ),
+            "root_cause": (
+                str(details["root_cause"])
+                if details.get("root_cause") is not None
+                else None
+            ),
+            "ranked_candidates": [
+                dict(item)
+                for item in details.get("ranked_candidates", [])
+                if isinstance(item, dict)
+            ],
+            "evidence_synthesis": (
+                dict(details.get("evidence_synthesis", {}))
+                if isinstance(details.get("evidence_synthesis"), dict)
+                else {}
+            ),
+            "causal_evidence_gaps": [
+                dict(item)
+                for item in details.get("causal_evidence_gaps", [])
+                if isinstance(item, dict)
+            ],
+            "candidate_comparison": (
+                dict(details.get("candidate_comparison", {}))
+                if isinstance(details.get("candidate_comparison"), dict)
+                else {}
+            ),
+            "confirmation_gate": (
+                dict(details.get("confirmation_gate", {}))
+                if isinstance(details.get("confirmation_gate"), dict)
+                else {}
+            ),
+            "impact_lot_gate": (
+                dict(details.get("impact_lot_gate", {}))
+                if isinstance(details.get("impact_lot_gate"), dict)
+                else {}
+            ),
+        }
+    else:
+        payload["rca_diagnosis"] = None
     return dict(payload)
 
 
