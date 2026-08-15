@@ -948,7 +948,14 @@ class HypothesisEngine:
                     matrix = matrices_by_root.get(str(candidate["root_cause"]))
                     return bool(
                         matrix is not None
-                        and confirm_candidate(matrix, strict=True).status == "supported"
+                        and confirm_candidate(
+                            matrix,
+                            strict=True,
+                            alternative_search_status=(
+                                competition_status if competition_status_supplied else None
+                            ),
+                        ).status
+                        == "supported"
                     )
                 return True
             if candidate["basis"] == "recipe_change":
@@ -998,6 +1005,7 @@ class HypothesisEngine:
                 alternative_search_status=(
                     competition_status if competition_status_supplied else None
                 ),
+                require_causal_chain=strict_confirmation,
             )
             if selected_matrix is not None
             else None
@@ -1018,6 +1026,16 @@ class HypothesisEngine:
             "conflicting_physics": conflicting_physics,
             "alternative_search_status": competition_status,
             "candidate_challenges": [item.to_dict() for item in challenges],
+            "causal_chain_completeness": (
+                confirmation.causal_chain_completeness
+                if confirmation is not None
+                else None
+            ),
+            "data_missing_evidence_ids": (
+                list(confirmation.data_missing_evidence_ids)
+                if confirmation is not None
+                else []
+            ),
             "conclusion_status": (
                 confirmation.status
                 if confirmation is not None

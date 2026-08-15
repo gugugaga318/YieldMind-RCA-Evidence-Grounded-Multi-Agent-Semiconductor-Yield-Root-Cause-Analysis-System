@@ -579,6 +579,10 @@ def _root_cause_sections(
 
     root_cause = str(rca_finding.details.get("root_cause", "")).strip()
     status = str(rca_finding.details.get("status", "")).strip()
+    conclusion_status = str(
+        rca_finding.details.get("conclusion_status", status)
+    ).strip()
+    chain_status = rca_finding.details.get("causal_chain_completeness")
     if not root_cause or not status:
         raise ReportGenerationError("RCA finding must include root_cause and status")
     evidence_ids = [
@@ -593,6 +597,12 @@ def _root_cause_sections(
     lines.extend(
         [
             f"- Status: `{status}`",
+            f"- Conclusion Status: `{conclusion_status}`",
+            *(
+                [f"- Causal Chain: `{chain_status}`"]
+                if chain_status
+                else []
+            ),
             f"- Root Cause: **{root_cause}**",
             f"- Evidence: {_format_evidence_ids(evidence_ids)}",
         ]

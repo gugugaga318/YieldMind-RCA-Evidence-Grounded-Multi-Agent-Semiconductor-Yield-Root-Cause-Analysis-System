@@ -97,6 +97,16 @@ def build_causal_evidence_gaps(
                     "question_kind": question_kind,
                     "allowed_actions": actions,
                     "evidence_ids": list(result.evidence_ids),
+                    "data_missing_evidence_ids": (
+                        list(matrix.data_missing_evidence_ids)
+                        if result.status == "unavailable"
+                        else []
+                    ),
+                    "unavailable_sources": (
+                        [dict(item) for item in matrix.data_missing_sources]
+                        if result.status == "unavailable"
+                        else []
+                    ),
                 }
             )
     return sorted(

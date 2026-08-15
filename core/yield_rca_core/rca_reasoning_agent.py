@@ -154,7 +154,12 @@ def _unsupported_source_warning(
             evidence.evidence_id
             for finding in findings
             for evidence in finding.evidence
-            if evidence.evidence_id == "EV_FDC_FEATURE_DATA_MISSING"
+            if evidence.evidence_type == "data_missing"
+            and evidence.source_type in {"fdc", "wat", "mes", "analytics"}
+            and (
+                not supported
+                or evidence.evidence_id == "EV_FDC_FEATURE_DATA_MISSING"
+            )
         ]
     )
     if missing_ids:
@@ -604,6 +609,14 @@ class RCAReasoningAgent:
                 ),
                 "rejection_reasons": list(candidate["rejection_reasons"]),
                 "causal_matrix_status": candidate.get("causal_matrix_status"),
+                "causal_chain_completeness": candidate.get(
+                    "causal_evidence_matrix", {}
+                ).get("causal_chain_completeness"),
+                "data_missing_evidence_ids": list(
+                    candidate.get("causal_evidence_matrix", {}).get(
+                        "data_missing_evidence_ids", []
+                    )
+                ),
                 "mechanism_support_source": candidate.get("mechanism_support_source"),
                 "causal_evidence_matrix": dict(
                     candidate.get("causal_evidence_matrix", {})
@@ -697,6 +710,12 @@ class RCAReasoningAgent:
                 "alternative_search_status": alternative_search_status,
                 "hypothesis_engine_result": engine_result,
                 "conclusion_status": str(decision.get("conclusion_status", status)),
+                "causal_chain_completeness": decision.get(
+                    "causal_chain_completeness"
+                ),
+                "data_missing_evidence_ids": list(
+                    decision.get("data_missing_evidence_ids", [])
+                ),
                 "evidence_synthesis": engine_result.get(
                     "evidence_synthesis",
                     build_evidence_synthesis(

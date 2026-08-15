@@ -83,6 +83,7 @@ def build_evidence_synthesis(evidence: Iterable[Evidence]) -> dict[str, Any]:
         "outcomes": [],
         "controls": [],
         "knowledge": [],
+        "data_missing": [],
         "contradictions": [],
         "other": [],
     }
@@ -98,10 +99,9 @@ def build_evidence_synthesis(evidence: Iterable[Evidence]) -> dict[str, Any]:
             groups["controls"].append(record)
         elif item.evidence_type in _KNOWLEDGE_TYPES:
             groups["knowledge"].append(record)
-        elif item.evidence_type in {
-            EvidenceType.DATA_MISSING.value,
-            EvidenceType.SOP_GUIDANCE.value,
-        }:
+        elif item.evidence_type == EvidenceType.DATA_MISSING.value:
+            groups["data_missing"].append(record)
+        elif item.evidence_type == EvidenceType.SOP_GUIDANCE.value:
             groups["other"].append(record)
         else:
             groups["other"].append(record)

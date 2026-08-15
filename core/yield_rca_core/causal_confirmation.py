@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, cast
 
+from yield_rca_core.causal_chain import assess_causal_chain
 from yield_rca_core.causal_evidence_matrix import CausalEvidenceMatrix
 from yield_rca_core.causal_hypothesis import CausalClaim, CausalClaimStatus, CausalHypothesis
 from yield_rca_core.causal_investigation_models import AlternativeSearchStatus
@@ -47,6 +48,8 @@ class ConfirmationGateResult:
     checks: Mapping[str, bool]
     reasons: tuple[str, ...] = ()
     unresolved_gaps: tuple[str, ...] = ()
+    data_missing_evidence_ids: tuple[str, ...] = ()
+    causal_chain_completeness: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,6 +57,8 @@ class ConfirmationGateResult:
             "checks": dict(self.checks),
             "reasons": list(self.reasons),
             "unresolved_gaps": list(self.unresolved_gaps),
+            "data_missing_evidence_ids": list(self.data_missing_evidence_ids),
+            "causal_chain_completeness": self.causal_chain_completeness,
         }
 
 
@@ -72,6 +77,7 @@ def confirm_candidate(
     alternative_matrices: Sequence[CausalEvidenceMatrix] = (),
     strict: bool = True,
     alternative_search_status: str | None = None,
+    require_causal_chain: bool = True,
 ) -> ConfirmationGateResult:
     """Apply the final Python confirmation gate.
 
@@ -84,6 +90,41 @@ def confirm_candidate(
     checks: dict[str, bool] = {}
     reasons: list[str] = []
     gaps: list[str] = []
+    chain = matrix.causal_chain or assess_causal_chain(
+        matrix.claims,
+        data_missing_evidence_ids=matrix.data_missing_evidence_ids,
+    )
+    checks["causal_chain"] = chain.status == "complete"
+    if require_causal_chain and not checks["causal_chain"]:
+        reasons.append(f"causal chain is {chain.status}.")
+        gaps.append(f"causal_chain.{chain.status}")
+    data_missing_ids = tuple(matrix.data_missing_evidence_ids)
+    required_statuses = {
+        claim: _status(matrix, claim)
+        for claim in (
+            CausalClaim.PARAMETER.value,
+            CausalClaim.OUTCOME.value,
+            CausalClaim.MECHANISM.value,
+            CausalClaim.SCOPE.value,
+        )
+    }
+    data_missing_relevant = bool(data_missing_ids) and (
+        any(
+            status
+            in {
+                CausalClaimStatus.UNAVAILABLE.value,
+                CausalClaimStatus.INCOMPLETE.value,
+            }
+            for status in required_statuses.values()
+        )
+        or not checks["causal_chain"]
+    )
+    checks["data_available"] = not data_missing_relevant
+    if data_missing_relevant:
+        reasons.append(
+            "One or more typed operational sources explicitly report unavailable data."
+        )
+        gaps.extend(f"data_missing.{evidence_id}" for evidence_id in data_missing_ids)
 
     exposure_types = {
         evidence_type
@@ -192,6 +233,7 @@ def confirm_candidate(
         checks["scope"],
         checks["temporal"],
         checks["contradiction_free"],
+        *([checks["causal_chain"]] if require_causal_chain else []),
         *(
             [checks["no_equal_alternative"]]
             if strict and alternative_search_status is not None
@@ -205,6 +247,8 @@ def confirm_candidate(
     ]
     if all(hard_checks):
         status = CONCLUSION_SUPPORTED
+    elif data_missing_relevant:
+        status = CONCLUSION_INSUFFICIENT_EVIDENCE
     elif any(
         _status(matrix, claim) == CausalClaimStatus.UNAVAILABLE.value
         for claim in required_claims
@@ -217,6 +261,8 @@ def confirm_candidate(
         checks=checks,
         reasons=tuple(dict.fromkeys(reasons)),
         unresolved_gaps=tuple(dict.fromkeys(gaps)),
+        data_missing_evidence_ids=data_missing_ids,
+        causal_chain_completeness=chain.status,
     )
 
 

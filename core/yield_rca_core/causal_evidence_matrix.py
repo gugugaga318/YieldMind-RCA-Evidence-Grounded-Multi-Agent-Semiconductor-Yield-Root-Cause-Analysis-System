@@ -14,6 +14,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from yield_rca_core.causal_chain import (
+    CausalChainAssessment,
+    assess_causal_chain,
+    collect_data_missing_sources,
+)
 from yield_rca_core.causal_hypothesis import (
     CausalClaim,
     CausalClaimStatus,
@@ -584,6 +589,9 @@ class CausalEvidenceMatrix:
     candidate: CausalHypothesis
     claims: Mapping[str, CausalClaimResult]
     invalid_evidence_ids: tuple[str, ...] = ()
+    data_missing_evidence_ids: tuple[str, ...] = ()
+    data_missing_sources: tuple[Mapping[str, Any], ...] = ()
+    causal_chain: CausalChainAssessment | None = None
 
     @property
     def status(self) -> str:
@@ -616,6 +624,17 @@ class CausalEvidenceMatrix:
     def mechanism_support_source(self) -> str | None:
         return self.claims[CausalClaim.MECHANISM.value].support_source
 
+    @property
+    def causal_chain_completeness(self) -> str:
+        """Return the Python-derived chain status for this candidate."""
+
+        if self.causal_chain is None:
+            return assess_causal_chain(
+                self.claims,
+                data_missing_evidence_ids=self.data_missing_evidence_ids,
+            ).status
+        return self.causal_chain.status
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "root_cause": self.candidate.root_cause,
@@ -624,6 +643,17 @@ class CausalEvidenceMatrix:
             },
             "status": self.status,
             "invalid_evidence_ids": list(self.invalid_evidence_ids),
+            "data_missing_evidence_ids": list(self.data_missing_evidence_ids),
+            "data_missing_sources": [dict(item) for item in self.data_missing_sources],
+            "causal_chain": (
+                self.causal_chain.to_dict()
+                if self.causal_chain is not None
+                else assess_causal_chain(
+                    self.claims,
+                    data_missing_evidence_ids=self.data_missing_evidence_ids,
+                ).to_dict()
+            ),
+            "causal_chain_completeness": self.causal_chain_completeness,
             "mechanism_support_source": self.mechanism_support_source,
         }
 
@@ -977,15 +1007,30 @@ def build_causal_evidence_matrix(
         if isinstance(candidate, CausalHypothesis)
         else CausalHypothesis.from_mapping(candidate)
     )
-    evidence_by_id = {item.evidence_id: item for item in evidence}
+    evidence_items = list(evidence)
+    evidence_by_id = {item.evidence_id: item for item in evidence_items}
     referenced_ids = set(normalized.supporting_evidence_ids) | set(
         normalized.contradicting_evidence_ids
     )
     invalid_ids = tuple(sorted(referenced_ids - set(evidence_by_id)))
+    non_supporting_types = {
+        EvidenceType.DATA_MISSING.value,
+        EvidenceType.NEGATIVE_SIGNAL.value,
+        EvidenceType.SOP_GUIDANCE.value,
+    }
+    non_supporting_ids = tuple(
+        sorted(
+            evidence_id
+            for evidence_id in normalized.supporting_evidence_ids
+            if evidence_id in evidence_by_id
+            and evidence_by_id[evidence_id].evidence_type in non_supporting_types
+        )
+    )
     supporting = [
         evidence_by_id[item]
         for item in normalized.supporting_evidence_ids
         if item in evidence_by_id
+        and evidence_by_id[item].evidence_type not in non_supporting_types
     ]
     contradicting = [
         evidence_by_id[item]
@@ -1026,10 +1071,16 @@ def build_causal_evidence_matrix(
         parameter=claims[CausalClaim.PARAMETER.value],
         outcome=claims[CausalClaim.OUTCOME.value],
     )
+    missing_sources = collect_data_missing_sources(evidence_items)
+    missing_ids = tuple(source.evidence_id for source in missing_sources)
+    chain = assess_causal_chain(claims, data_missing_evidence_ids=missing_ids)
     return CausalEvidenceMatrix(
         candidate=normalized,
         claims=claims,
-        invalid_evidence_ids=invalid_ids,
+        invalid_evidence_ids=tuple(dict.fromkeys([*invalid_ids, *non_supporting_ids])),
+        data_missing_evidence_ids=missing_ids,
+        data_missing_sources=tuple(source.to_dict() for source in missing_sources),
+        causal_chain=chain,
     )
 
 

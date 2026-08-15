@@ -11,6 +11,14 @@ from yield_rca_core.causal_candidate_comparison import (
     QwenHypothesisCandidateComparator,
     compare_candidate_matrices,
 )
+from yield_rca_core.causal_chain import (
+    CausalChainAssessment,
+    DataMissingSource,
+    assess_causal_chain,
+    build_causal_chain_assessment,
+    collect_data_missing_sources,
+    extract_data_missing_sources,
+)
 from yield_rca_core.causal_confirmation import (
     ConfirmationGateResult,
     confirm_candidate,
@@ -273,6 +281,7 @@ __all__ = [
     "CausalClaimResult",
     "CausalClaimStatus",
     "CausalEvidenceMatrix",
+    "CausalChainAssessment",
     "CausalChainCompleteness",
     "CausalLaneRecord",
     "CandidateChallenge",
@@ -282,6 +291,7 @@ __all__ = [
     "AdversarialChallengeGeneration",
     "InvestigationLaneStatus",
     "ConfirmationGateResult",
+    "DataMissingSource",
     "QwenHypothesisCandidateComparator",
     "QwenAdversarialChallenger",
     "build_causal_evidence_gaps",
@@ -437,6 +447,10 @@ __all__ = [
     "build_knowledge_retriever",
     "build_causal_search_scope",
     "build_causal_evidence_matrix",
+    "assess_causal_chain",
+    "build_causal_chain_assessment",
+    "collect_data_missing_sources",
+    "extract_data_missing_sources",
     "compare_candidate_matrices",
     "derive_alternative_search_status",
     "confirm_candidate",

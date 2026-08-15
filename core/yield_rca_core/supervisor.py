@@ -8,6 +8,7 @@ from typing import Any
 from yield_rca_core.causal_investigation_models import (
     AlternativeSearchStatus,
     CandidateChallenge,
+    CausalChainCompleteness,
     CausalLaneRecord,
     CompetitionTrace,
     InvestigationLaneStatus,
@@ -304,6 +305,27 @@ def _update_competition_state(state: RCAState, finding: AgentFinding) -> RCAStat
         candidate_challenges=[*state.candidate_challenges, *challenges],
         competition_trace=trace,
     )
+
+
+def _update_causal_chain_state(state: RCAState, finding: AgentFinding) -> RCAState:
+    """Persist the RCA Finding's Python-derived causal-chain status."""
+
+    if finding.agent != AgentKind.RCA_REASONING.value:
+        return state
+    raw_status = finding.details.get("causal_chain_completeness")
+    if raw_status is None:
+        raw_gate = finding.details.get("confirmation_gate", {})
+        if isinstance(raw_gate, dict):
+            raw_status = raw_gate.get("causal_chain_completeness")
+    if raw_status is None:
+        return state
+    try:
+        status = CausalChainCompleteness(str(raw_status)).value
+    except ValueError:
+        # A malformed diagnostic must not make a valid RCA Finding
+        # unpersistable; the Confirmation Gate remains the source of truth.
+        return state
+    return replace(state, causal_chain_completeness=status)
 
 
 def _llm_call_fallback_diagnostics(error: LLMCallError) -> dict[str, Any]:
@@ -1746,7 +1768,8 @@ class Supervisor:
             warnings=_merge_warnings(state.warnings, finding.warnings),
         )
         lane_state = _update_causal_lane_state(recorded_state, finding)
-        return _update_competition_state(lane_state, finding)
+        competition_state = _update_competition_state(lane_state, finding)
+        return _update_causal_chain_state(competition_state, finding)
 
     def execute(self, job: RCAJob, task_plan: TaskPlan) -> RCAState:
         plan_agents = {task.agent for task in task_plan.tasks}
@@ -2090,7 +2113,7 @@ class Supervisor:
             task.task_id,
             TaskStatus.COMPLETED.value,
         )
-        return replace(
+        recorded_state = replace(
             state,
             job=updated_job,
             task_plan=completed_plan,
@@ -2109,3 +2132,6 @@ class Supervisor:
             authoritative_hypothesis_id=authoritative_hypothesis_id,
             warnings=_merge_warnings(state.warnings, finding.warnings),
         )
+        lane_state = _update_causal_lane_state(recorded_state, finding)
+        competition_state = _update_competition_state(lane_state, finding)
+        return _update_causal_chain_state(competition_state, finding)
