@@ -10,6 +10,7 @@ from typing import Any, cast
 
 from yield_rca_core.causal_evidence_matrix import CausalEvidenceMatrix
 from yield_rca_core.causal_hypothesis import CausalClaim, CausalClaimStatus, CausalHypothesis
+from yield_rca_core.causal_investigation_models import AlternativeSearchStatus
 from yield_rca_core.evidence_models import EntityType, Evidence, EvidenceType
 
 CONCLUSION_SUPPORTED = "supported"
@@ -70,6 +71,7 @@ def confirm_candidate(
     *,
     alternative_matrices: Sequence[CausalEvidenceMatrix] = (),
     strict: bool = True,
+    alternative_search_status: str | None = None,
 ) -> ConfirmationGateResult:
     """Apply the final Python confirmation gate.
 
@@ -155,6 +157,17 @@ def confirm_candidate(
     # Alternative comparison is diagnostic.  It is not a hard gate because the
     # user explicitly chose not to require exclusionary proof for confirmation.
     checks["no_equal_alternative"] = True
+    if strict and alternative_search_status is not None:
+        checks["no_equal_alternative"] = (
+            alternative_search_status
+            == AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value
+        )
+        if not checks["no_equal_alternative"]:
+            reasons.append(
+                "Adversarial alternative search is not complete; a single candidate "
+                "cannot be treated as the only explanation."
+            )
+            gaps.append(f"alternative_search.{alternative_search_status}")
     if alternative_matrices:
         current_score = sum(
             result.status == CausalClaimStatus.SUPPORTED.value
@@ -179,6 +192,11 @@ def confirm_candidate(
         checks["scope"],
         checks["temporal"],
         checks["contradiction_free"],
+        *(
+            [checks["no_equal_alternative"]]
+            if strict and alternative_search_status is not None
+            else []
+        ),
         *[
             checks[claim]
             for claim in ("equipment", "chamber", "operation")

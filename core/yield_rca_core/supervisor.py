@@ -7,6 +7,7 @@ from typing import Any
 
 from yield_rca_core.causal_investigation_models import (
     AlternativeSearchStatus,
+    CandidateChallenge,
     CausalLaneRecord,
     CompetitionTrace,
     InvestigationLaneStatus,
@@ -223,6 +224,85 @@ def _selected_lane(
             and str(item.get("lane_id", "")).strip() == normalized_lane_id
         ),
         None,
+    )
+
+
+def _update_competition_state(state: RCAState, finding: AgentFinding) -> RCAState:
+    """Persist Python-validated adversarial challenge state from RCA Finding."""
+
+    if finding.agent != AgentKind.RCA_REASONING.value:
+        return state
+    raw_generation = finding.details.get("adversarial_challenge_generation", {})
+    raw_challenges = finding.details.get("candidate_challenges", [])
+    if not isinstance(raw_generation, dict) or not isinstance(raw_challenges, list):
+        return state
+    if raw_generation.get("source") == "not_requested":
+        return state
+    challenges: list[CandidateChallenge] = []
+    for raw in raw_challenges:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            challenges.append(CandidateChallenge.from_dict(raw))
+        except (TypeError, ValueError, ModelValidationError):
+            # RCA-level validation already isolated malformed Qwen output; keep
+            # the persisted state safe if a legacy Finding is replayed.
+            continue
+    previous_trace = state.competition_trace
+    active_ids = tuple(
+        lane.lane_id
+        for lane in state.causal_lanes
+        if lane.lane_id
+        and lane.investigation_status
+        not in {
+            InvestigationLaneStatus.ELIMINATED.value,
+            InvestigationLaneStatus.BLOCKED.value,
+        }
+    )[:3]
+    known_ids = {lane.lane_id for lane in state.causal_lanes}
+    overflow_ids = tuple(
+        lane.lane_id
+        for lane in state.causal_lanes
+        if lane.lane_id not in set(active_ids)
+    )
+    alternative_ids = tuple(
+        challenge.strongest_alternative_lane_id
+        for challenge in challenges
+        if challenge.strongest_alternative_lane_id in known_ids
+    )
+    represented_ids = tuple(dict.fromkeys([*active_ids, *alternative_ids]))
+    resolution_ids = tuple(
+        dict.fromkeys(
+            evidence_id
+            for challenge in challenges
+            for evidence_id in (
+                *challenge.supporting_evidence_ids,
+                *challenge.contradicting_evidence_ids,
+            )
+        )
+    )
+    previous_count = previous_trace.challenge_round_count if previous_trace else 0
+    trace = CompetitionTrace(
+        active_lane_ids=active_ids,
+        overflow_lane_ids=overflow_ids,
+        represented_lane_ids=represented_ids,
+        unresolved_lane_ids=tuple(
+            lane_id for lane_id in overflow_ids if lane_id not in alternative_ids
+        ),
+        eliminated_lane_ids=(previous_trace.eliminated_lane_ids if previous_trace else ()),
+        alternative_search_status=str(
+            finding.details.get(
+                "alternative_search_status",
+                AlternativeSearchStatus.NOT_SEARCHED.value,
+            )
+        ),
+        challenge_round_count=previous_count + 1,
+        resolution_evidence_ids=resolution_ids,
+    )
+    return replace(
+        state,
+        candidate_challenges=[*state.candidate_challenges, *challenges],
+        competition_trace=trace,
     )
 
 
@@ -1665,7 +1745,8 @@ class Supervisor:
             authoritative_hypothesis_id=authoritative_hypothesis_id,
             warnings=_merge_warnings(state.warnings, finding.warnings),
         )
-        return _update_causal_lane_state(recorded_state, finding)
+        lane_state = _update_causal_lane_state(recorded_state, finding)
+        return _update_competition_state(lane_state, finding)
 
     def execute(self, job: RCAJob, task_plan: TaskPlan) -> RCAState:
         plan_agents = {task.agent for task in task_plan.tasks}

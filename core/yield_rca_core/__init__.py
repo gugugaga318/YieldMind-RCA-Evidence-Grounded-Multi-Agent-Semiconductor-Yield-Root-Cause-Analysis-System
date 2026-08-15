@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from yield_rca_core.causal_adversarial import (
+    AdversarialChallengeGeneration,
+    QwenAdversarialChallenger,
+    derive_alternative_search_status,
+)
 from yield_rca_core.causal_candidate_comparison import (
     QwenHypothesisCandidateComparator,
     compare_candidate_matrices,
@@ -11,7 +16,10 @@ from yield_rca_core.causal_confirmation import (
     confirm_candidate,
     evaluate_impact_lot_gate,
 )
-from yield_rca_core.causal_evidence_gap import build_causal_evidence_gaps
+from yield_rca_core.causal_evidence_gap import (
+    build_causal_evidence_gaps,
+    build_hypothesis_discrimination_gaps,
+)
 from yield_rca_core.causal_evidence_matrix import (
     CausalClaimResult,
     CausalEvidenceMatrix,
@@ -271,10 +279,13 @@ __all__ = [
     "ChallengeStatus",
     "CompetitionTrace",
     "AlternativeSearchStatus",
+    "AdversarialChallengeGeneration",
     "InvestigationLaneStatus",
     "ConfirmationGateResult",
     "QwenHypothesisCandidateComparator",
+    "QwenAdversarialChallenger",
     "build_causal_evidence_gaps",
+    "build_hypothesis_discrimination_gaps",
     "build_evidence_synthesis",
     "CausalHypothesis",
     "CausalScopeMode",
@@ -427,6 +438,7 @@ __all__ = [
     "build_causal_search_scope",
     "build_causal_evidence_matrix",
     "compare_candidate_matrices",
+    "derive_alternative_search_status",
     "confirm_candidate",
     "evaluate_impact_lot_gate",
     "explicit_module_limit_requested",

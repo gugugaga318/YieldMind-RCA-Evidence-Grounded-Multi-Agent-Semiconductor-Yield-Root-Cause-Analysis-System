@@ -212,10 +212,15 @@ class CandidateChallenge:
 
     candidate_id: str
     strongest_alternative_lane_id: str | None = None
+    # Public API aliases retained alongside the precise Lane-aware names.
+    # ``distinguishing_questions`` is explanatory text only; executable work
+    # must use Python-generated ``distinguishing_gap_ids``.
+    strongest_alternative: str | None = None
     supporting_evidence_ids: tuple[str, ...] = ()
     contradicting_evidence_ids: tuple[str, ...] = ()
     unexplained_precursor_evidence_ids: tuple[str, ...] = ()
     distinguishing_gap_ids: tuple[str, ...] = ()
+    distinguishing_questions: tuple[str, ...] = ()
     challenge_explanation: str = ""
     status: str = ChallengeStatus.OPEN.value
     schema_version: str = SCHEMA_VERSION
@@ -229,6 +234,20 @@ class CandidateChallenge:
                 self.strongest_alternative_lane_id,
                 "strongest_alternative_lane_id",
             ),
+        )
+        alias = _optional_string(self.strongest_alternative, "strongest_alternative")
+        if (
+            self.strongest_alternative_lane_id is not None
+            and alias is not None
+            and self.strongest_alternative_lane_id != alias
+        ):
+            raise ModelValidationError(
+                "strongest_alternative and strongest_alternative_lane_id must agree"
+            )
+        object.__setattr__(
+            self,
+            "strongest_alternative",
+            self.strongest_alternative_lane_id or alias,
         )
         for field_name in (
             "supporting_evidence_ids",
@@ -244,6 +263,11 @@ class CandidateChallenge:
         if not isinstance(self.challenge_explanation, str):
             raise ModelValidationError("challenge_explanation must be a string")
         object.__setattr__(self, "challenge_explanation", self.challenge_explanation.strip())
+        object.__setattr__(
+            self,
+            "distinguishing_questions",
+            _string_tuple(self.distinguishing_questions, "distinguishing_questions"),
+        )
         try:
             status = ChallengeStatus(self.status).value
         except ValueError as exc:
@@ -260,12 +284,14 @@ class CandidateChallenge:
         return {
             "candidate_id": self.candidate_id,
             "strongest_alternative_lane_id": self.strongest_alternative_lane_id,
+            "strongest_alternative": self.strongest_alternative,
             "supporting_evidence_ids": list(self.supporting_evidence_ids),
             "contradicting_evidence_ids": list(self.contradicting_evidence_ids),
             "unexplained_precursor_evidence_ids": list(
                 self.unexplained_precursor_evidence_ids
             ),
             "distinguishing_gap_ids": list(self.distinguishing_gap_ids),
+            "distinguishing_questions": list(self.distinguishing_questions),
             "challenge_explanation": self.challenge_explanation,
             "status": self.status,
             "schema_version": self.schema_version,
@@ -275,13 +301,18 @@ class CandidateChallenge:
     def from_dict(cls, data: dict[str, Any]) -> Self:
         return cls(
             candidate_id=data["candidate_id"],
-            strongest_alternative_lane_id=data.get("strongest_alternative_lane_id"),
+            strongest_alternative_lane_id=data.get(
+                "strongest_alternative_lane_id",
+                data.get("strongest_alternative"),
+            ),
+            strongest_alternative=data.get("strongest_alternative"),
             supporting_evidence_ids=tuple(data.get("supporting_evidence_ids", [])),
             contradicting_evidence_ids=tuple(data.get("contradicting_evidence_ids", [])),
             unexplained_precursor_evidence_ids=tuple(
                 data.get("unexplained_precursor_evidence_ids", [])
             ),
             distinguishing_gap_ids=tuple(data.get("distinguishing_gap_ids", [])),
+            distinguishing_questions=tuple(data.get("distinguishing_questions", [])),
             challenge_explanation=data.get("challenge_explanation", ""),
             status=data.get("status", ChallengeStatus.OPEN.value),
             schema_version=data.get("schema_version", SCHEMA_VERSION),

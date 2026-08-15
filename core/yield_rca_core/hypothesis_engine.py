@@ -12,12 +12,19 @@ from typing import Any
 
 from yield_rca_core.causal_candidate_comparison import compare_candidate_matrices
 from yield_rca_core.causal_confirmation import confirm_candidate
-from yield_rca_core.causal_evidence_gap import build_causal_evidence_gaps
+from yield_rca_core.causal_evidence_gap import (
+    build_causal_evidence_gaps,
+    build_hypothesis_discrimination_gaps,
+)
 from yield_rca_core.causal_evidence_matrix import (
     CausalEvidenceMatrix,
     build_causal_evidence_matrix,
 )
 from yield_rca_core.causal_hypothesis import CausalHypothesis
+from yield_rca_core.causal_investigation_models import (
+    AlternativeSearchStatus,
+    CandidateChallenge,
+)
 from yield_rca_core.evidence_synthesis import build_evidence_synthesis
 from yield_rca_core.models import (
     AgentFinding,
@@ -758,6 +765,8 @@ class HypothesisEngine:
         include_deterministic_candidates: bool = True,
         candidate_comparison: dict[str, Any] | None = None,
         strict_confirmation: bool = False,
+        alternative_search_status: str | None = None,
+        candidate_challenges: list[CandidateChallenge] | None = None,
     ) -> dict[str, Any]:
         """Return a JSON-safe deterministic hypothesis decision result."""
         by_kind = _findings_by_kind(findings)
@@ -872,10 +881,30 @@ class HypothesisEngine:
             candidate["mechanism_support_source"] = matrix.mechanism_support_source
 
         matrices = list(matrices_by_root.values())
+        competition_status = str(
+            alternative_search_status or AlternativeSearchStatus.NOT_SEARCHED.value
+        )
+        competition_status_supplied = alternative_search_status is not None
+        challenges = list(candidate_challenges or [])
         evidence_gaps = build_causal_evidence_gaps(matrices)
+        evidence_gaps.extend(
+            build_hypothesis_discrimination_gaps(
+                matrices,
+                alternative_search_status=competition_status,
+                candidate_challenges=challenges,
+            )
+        )
+        evidence_gaps.sort(
+            key=lambda item: (
+                int(item.get("priority", 3)),
+                int(item.get("candidate_index", 0)),
+                str(item.get("claim", "")),
+            )
+        )
         python_comparison = compare_candidate_matrices(
             matrices,
             evidence_gaps=evidence_gaps,
+            alternative_search_status=competition_status,
         )
         effective_comparison = dict(python_comparison)
         if candidate_comparison is not None:
@@ -908,6 +937,13 @@ class HypothesisEngine:
             if candidate["basis"] == "llm_evidence_composition":
                 if not bool(candidate.get("llm_gate_passed", False)):
                     return False
+                if (
+                    strict_confirmation
+                    and competition_status_supplied
+                    and competition_status
+                    != AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value
+                ):
+                    return False
                 if strict_confirmation:
                     matrix = matrices_by_root.get(str(candidate["root_cause"]))
                     return bool(
@@ -932,6 +968,7 @@ class HypothesisEngine:
                     -1
                     if preferred_root is not None
                     and str(item["root_cause"]) == preferred_root
+                    and passes_decision_gate(item)
                     else 0
                 ),
                 -float(item["confidence"]),
@@ -958,6 +995,9 @@ class HypothesisEngine:
                     if selected_matrix is None or matrix is not selected_matrix
                 ],
                 strict=strict_confirmation,
+                alternative_search_status=(
+                    competition_status if competition_status_supplied else None
+                ),
             )
             if selected_matrix is not None
             else None
@@ -976,6 +1016,8 @@ class HypothesisEngine:
                 else ["No ranked hypothesis passed the deterministic decision gate."]
             ),
             "conflicting_physics": conflicting_physics,
+            "alternative_search_status": competition_status,
+            "candidate_challenges": [item.to_dict() for item in challenges],
             "conclusion_status": (
                 confirmation.status
                 if confirmation is not None
@@ -1006,6 +1048,8 @@ class HypothesisEngine:
                 "external_candidate_count": len(external_candidates or []),
                 "deterministic_candidates_enabled": include_deterministic_candidates,
                 "strict_confirmation": strict_confirmation,
+                "alternative_search_status": competition_status,
+                "candidate_challenge_count": len(challenges),
             },
             "evidence_synthesis": build_evidence_synthesis(evidence_by_id.values()),
             "causal_evidence_gaps": evidence_gaps,

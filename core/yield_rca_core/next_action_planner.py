@@ -314,6 +314,15 @@ def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
                 "candidate_comparison": dict(
                     finding.details.get("candidate_comparison", {})
                 ),
+                "alternative_search_status": str(
+                    finding.details.get("alternative_search_status", "not_searched")
+                ),
+                "candidate_challenges": list(
+                    finding.details.get("candidate_challenges", [])
+                ),
+                "adversarial_challenge_generation": dict(
+                    finding.details.get("adversarial_challenge_generation", {})
+                ),
                 "confirmation_gate": dict(
                     finding.details.get("confirmation_gate", {})
                 ),
@@ -427,6 +436,8 @@ def _authoritative_causal_gaps(
         gaps.append(
             {
                 "gap_id": gap_id,
+                "gap_type": str(raw.get("gap_type", "missing_support")),
+                "priority": int(raw.get("priority", 3)),
                 "candidate_index": raw.get("candidate_index"),
                 "claim": str(raw.get("claim", "")),
                 "status": str(raw.get("status", "")),
@@ -438,9 +449,17 @@ def _authoritative_causal_gaps(
                     for item in raw.get("evidence_ids", [])
                     if isinstance(item, str) and item.strip()
                 ],
+                "challenge_selected": bool(raw.get("challenge_selected", False)),
             }
         )
-    return gaps
+    return sorted(
+        gaps,
+        key=lambda item: (
+            int(item.get("priority", 3)),
+            int(item.get("candidate_index", 0)),
+            str(item.get("gap_id", "")),
+        ),
+    )
 
 
 def _action_has_new_relevant_evidence(
@@ -753,6 +772,26 @@ class QwenNextActionPlanner:
             findings,
             authoritative_rca_finding_id,
         )
+        authoritative_finding = next(
+            (
+                item
+                for item in findings
+                if item.finding_id == authoritative_rca_finding_id
+                and item.agent == AgentKind.RCA_REASONING.value
+            ),
+            None,
+        )
+        alternative_search_status = str(
+            authoritative_finding.details.get("alternative_search_status", "not_searched")
+            if authoritative_finding is not None
+            else "not_searched"
+        )
+        candidate_challenges = list(
+            authoritative_finding.details.get("candidate_challenges", [])
+            if authoritative_finding is not None
+            and isinstance(authoritative_finding.details.get("candidate_challenges", []), list)
+            else []
+        )
         self._validate_runtime_inputs(
             goal=goal,
             questions=questions,
@@ -1060,6 +1099,8 @@ class QwenNextActionPlanner:
                         "Action must copy exactly one known lane_id into next_action.scope."
                     ),
                     "causal_evidence_gaps": causal_gaps,
+                    "alternative_search_status": alternative_search_status,
+                    "candidate_challenges": candidate_challenges,
                     "legal_causal_gap_ids_by_action": causal_gap_ids_by_action,
                     "question_action_capabilities": {
                         question.question_id: [
@@ -1163,6 +1204,8 @@ class QwenNextActionPlanner:
                         "Action must copy exactly one known lane_id into next_action.scope."
                     ),
                     "causal_evidence_gaps": causal_gaps,
+                    "alternative_search_status": alternative_search_status,
+                    "candidate_challenges": candidate_challenges,
                     "legal_causal_gap_ids_by_action": causal_gap_ids_by_action,
                     "deterministic_planner_decision": replace(
                         baseline,

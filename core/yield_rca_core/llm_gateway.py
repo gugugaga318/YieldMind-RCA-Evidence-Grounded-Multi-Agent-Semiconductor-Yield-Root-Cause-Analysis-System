@@ -427,6 +427,37 @@ class FakeLLMClient:
                     "The fake client preserves deterministic hypothesis behavior."
                 ),
             }
+        elif request.prompt_name == "causal_candidate_comparator":
+            comparison = dict(request.payload.get("python_comparison", {}))
+            data = {
+                "preferred_candidate_index": comparison.get("preferred_candidate_index"),
+                "comparison_explanation": comparison.get(
+                    "comparison_explanation",
+                    "Python comparison did not identify a unique candidate.",
+                ),
+                "selected_gap_id": comparison.get("selected_gap_id"),
+            }
+        elif request.prompt_name == "causal_adversarial_challenge":
+            data = {
+                "challenges": [
+                    {
+                        "candidate_id": str(candidate.get("candidate_id", "")),
+                        "strongest_alternative_lane_id": None,
+                        "supporting_evidence_ids": [],
+                        "contradicting_evidence_ids": [],
+                        "unexplained_precursor_evidence_ids": [],
+                        "distinguishing_gap_ids": [],
+                        "challenge_explanation": (
+                            "The fake client leaves competition unresolved so the "
+                            "strict Confirmation Gate cannot over-confirm."
+                        ),
+                        "status": "unresolved",
+                    }
+                    for candidate in request.payload.get("candidates", [])
+                    if isinstance(candidate, dict)
+                ],
+                "analysis_summary": "The fake client preserves the adversarial boundary.",
+            }
         elif request.prompt_name == "rca_reasoning":
             data = {
                 "ranked_candidates": list(request.payload["candidate_catalog"]),

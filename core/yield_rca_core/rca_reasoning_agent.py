@@ -10,13 +10,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from yield_rca_core.causal_adversarial import (
+    QwenAdversarialChallenger,
+)
 from yield_rca_core.causal_candidate_comparison import (
     QwenHypothesisCandidateComparator,
 )
 from yield_rca_core.causal_confirmation import evaluate_impact_lot_gate
-from yield_rca_core.causal_evidence_gap import build_causal_evidence_gaps
+from yield_rca_core.causal_evidence_gap import (
+    build_causal_evidence_gaps,
+    build_hypothesis_discrimination_gaps,
+)
 from yield_rca_core.causal_evidence_matrix import build_causal_evidence_matrix
 from yield_rca_core.causal_hypothesis import CausalHypothesis
+from yield_rca_core.causal_investigation_models import (
+    AlternativeSearchStatus,
+    CandidateChallenge,
+)
 from yield_rca_core.evidence_synthesis import build_evidence_synthesis
 from yield_rca_core.hypothesis_candidate_generator import (
     QwenHypothesisCandidateGenerator,
@@ -50,6 +60,37 @@ SPECIALIST_AGENTS = frozenset(
 
 def _unique(values: list[str]) -> list[str]:
     return list(dict.fromkeys(values))
+
+
+def _lane_context(findings: list[AgentFinding]) -> tuple[list[str], list[str], list[str]]:
+    """Return all, active, and Python-eliminated concrete Lane IDs."""
+
+    raw_lanes: list[dict[str, Any]] = []
+    for finding in findings:
+        if finding.agent != AgentKind.MES.value:
+            continue
+        raw = finding.details.get("lane_candidates", [])
+        if isinstance(raw, list):
+            raw_lanes.extend(item for item in raw if isinstance(item, dict))
+    ordered = sorted(
+        {
+            str(item.get("lane_id", "")).strip(): item
+            for item in raw_lanes
+            if str(item.get("lane_id", "")).strip()
+        }.values(),
+        key=lambda item: (
+            -float(item.get("priority_score", 0.0)),
+            str(item.get("lane_id", "")),
+        ),
+    )
+    all_ids = [str(item["lane_id"]) for item in ordered]
+    active_ids = [str(item["lane_id"]) for item in ordered[:3]]
+    eliminated_ids = [
+        str(item["lane_id"])
+        for item in ordered
+        if str(item.get("investigation_status", "")) in {"eliminated", "blocked"}
+    ]
+    return all_ids, active_ids, eliminated_ids
 
 
 def _merge_evidence_payload(findings: list[AgentFinding]) -> list[dict[str, Any]]:
@@ -223,6 +264,14 @@ class RCAReasoningAgent:
         external_candidates: list[dict[str, Any]] = []
         deterministic_candidates_enabled = self.agent_mode != AgentMode.LLM.value
         candidate_comparison: dict[str, Any] | None = None
+        candidate_challenges: list[CandidateChallenge] = []
+        alternative_search_status = AlternativeSearchStatus.NOT_SEARCHED.value
+        challenge_generation: dict[str, Any] = {
+            "source": "not_requested",
+            "attempt_count": 0,
+            "validation_errors": [],
+            "output_invalid": False,
+        }
         if self.agent_mode == AgentMode.LLM.value and self.llm_client is not None:
             try:
                 generated = QwenHypothesisCandidateGenerator(
@@ -255,45 +304,131 @@ class RCAReasoningAgent:
                             evidence_ids=evidence_ids,
                         )
                     )
-                if len(external_candidates) >= 2:
+                if external_candidates:
                     evidence_by_id = {
                         evidence.evidence_id: evidence
                         for finding in findings
                         for evidence in finding.evidence
                         if evidence.is_typed
                     }
-                    matrices = [
-                        build_causal_evidence_matrix(
-                            CausalHypothesis(
-                                root_cause=str(candidate["root_cause"]),
-                                causal_explanation=str(candidate["causal_explanation"]),
-                                supporting_evidence_ids=tuple(
-                                    candidate["supporting_evidence_ids"]
+                    matrices = []
+                    for candidate in external_candidates:
+                        matrices.append(
+                            build_causal_evidence_matrix(
+                                CausalHypothesis(
+                                    root_cause=str(candidate["root_cause"]),
+                                    causal_explanation=str(candidate["causal_explanation"]),
+                                    supporting_evidence_ids=tuple(
+                                        candidate["supporting_evidence_ids"]
+                                    ),
+                                    contradicting_evidence_ids=tuple(
+                                        candidate["contradicting_evidence_ids"]
+                                    ),
                                 ),
-                                contradicting_evidence_ids=tuple(
-                                    candidate["contradicting_evidence_ids"]
-                                ),
-                            ),
-                            evidence_by_id.values(),
+                                evidence_by_id.values(),
+                            )
                         )
-                        for candidate in external_candidates
-                    ]
                     gaps = build_causal_evidence_gaps(matrices)
-                    try:
-                        candidate_comparison = QwenHypothesisCandidateComparator(
+                    gaps.extend(build_hypothesis_discrimination_gaps(matrices))
+                    challenge_candidates = [
+                        {
+                            **candidate,
+                            "candidate_id": f"{request_id}:llm:{index + 1}",
+                        }
+                        for index, candidate in enumerate(external_candidates)
+                    ]
+                    if len(external_candidates) >= 2:
+                        try:
+                            candidate_comparison = QwenHypothesisCandidateComparator(
+                                self.llm_client,
+                                prompt_version=self.prompt_version,
+                            ).compare(
+                                request_id=request_id,
+                                candidates=challenge_candidates,
+                                matrices=matrices,
+                                evidence_gaps=gaps,
+                            )
+                        except (LLMCallError, LLMOutputValidationError) as exc:
+                            candidate_comparison = {
+                                "source": "python",
+                                "comparison_error": str(exc),
+                            }
+                    all_lane_ids, active_lane_ids, eliminated_lane_ids = _lane_context(
+                        findings
+                    )
+                    if not all_lane_ids:
+                        # Pre-Batch-25 snapshots may not contain concrete Lane
+                        # records. There is no alternative Lane to investigate,
+                        # so preserve the legacy contract without making an
+                        # extra model call.
+                        candidate_challenges = [
+                            CandidateChallenge(
+                                candidate_id=str(candidate["candidate_id"]),
+                                supporting_evidence_ids=tuple(
+                                    str(item)
+                                    for item in candidate.get(
+                                        "supporting_evidence_ids", []
+                                    )
+                                ),
+                                challenge_explanation=(
+                                    "Legacy evidence snapshot has no concrete Lane "
+                                    "inventory; no additional Lane can be compared."
+                                ),
+                                status="resolved",
+                            )
+                            for candidate in challenge_candidates
+                        ]
+                        alternative_search_status = (
+                            AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value
+                        )
+                        challenge_generation = {
+                            "source": "python_legacy_compatibility",
+                            "attempt_count": 0,
+                            "challenge_count": len(candidate_challenges),
+                            "validation_errors": [],
+                            "output_invalid": False,
+                            "alternative_search_status": alternative_search_status,
+                        }
+                    else:
+                        challenge_result = QwenAdversarialChallenger(
                             self.llm_client,
                             prompt_version=self.prompt_version,
-                        ).compare(
+                        ).generate(
                             request_id=request_id,
-                            candidates=external_candidates,
+                            candidates=challenge_candidates,
                             matrices=matrices,
                             evidence_gaps=gaps,
+                            evidence_ids=list(evidence_by_id),
+                            evidence_by_id=evidence_by_id,
+                            lane_ids=all_lane_ids,
+                            active_lane_ids=active_lane_ids,
+                            eliminated_lane_ids=eliminated_lane_ids,
                         )
-                    except (LLMCallError, LLMOutputValidationError) as exc:
-                        candidate_comparison = {
-                            "source": "python",
-                            "comparison_error": str(exc),
+                        candidate_challenges = list(challenge_result.challenges)
+                        alternative_search_status = (
+                            challenge_result.alternative_search_status
+                        )
+                        challenge_generation = {
+                            "source": "qwen",
+                            "attempt_count": challenge_result.attempt_count,
+                            "challenge_count": len(candidate_challenges),
+                            "validation_errors": list(
+                                challenge_result.validation_errors
+                            ),
+                            "output_invalid": challenge_result.output_invalid,
+                            "alternative_search_status": alternative_search_status,
                         }
+                    if challenge_generation.get("output_invalid"):
+                        warnings.append(
+                            Warning(
+                                warning_id="WARN_RCA_QWEN_CHALLENGE_INVALID",
+                                message=(
+                                    "Qwen adversarial challenge output was invalid; "
+                                    "the candidate remains unconfirmed."
+                                ),
+                                evidence_ids=evidence_ids,
+                            )
+                        )
             except (LLMCallError, LLMOutputValidationError) as exc:
                 candidate_generation = {
                     "source": "qwen",
@@ -352,12 +487,30 @@ class RCAReasoningAgent:
             # compatibility path, but missing Qwen temporal Evidence is a real
             # gap rather than permission to relax the gate.
             strict_confirmation=self.agent_mode == AgentMode.LLM.value,
+            alternative_search_status=alternative_search_status,
+            candidate_challenges=candidate_challenges,
         )
         decision = engine_result["decision_gate"]
         root_cause = str(decision["root_cause"])
         status = str(decision["status"])
         confidence = float(decision["confidence"])
         supported = status == HypothesisStatus.SUPPORTED.value
+        if (
+            self.agent_mode == AgentMode.LLM.value
+            and external_candidates
+            and alternative_search_status
+            != AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value
+        ):
+            warnings.append(
+                Warning(
+                    warning_id="WARN_RCA_ALTERNATIVE_SEARCH_INCOMPLETE",
+                    message=(
+                        "The Qwen candidate has not completed a Python-validated "
+                        "adversarial alternative search; confirmation is blocked."
+                    ),
+                    evidence_ids=evidence_ids,
+                )
+            )
         active_candidate = next(
             (
                 candidate
@@ -499,6 +652,16 @@ class RCAReasoningAgent:
                 "rows": [],
             }
         )
+        if not supported and isinstance(impact_lot_gate, dict):
+            # Candidate impact scope remains available for audit, but only an
+            # authoritative supported RCA may publish confirmed impact Lots.
+            impact_lot_gate = {
+                **impact_lot_gate,
+                "confirmed_impact_lots": [],
+                "confirmation_blocked_reason": (
+                    "authoritative RCA conclusion is not supported"
+                ),
+            }
         return AgentFinding(
             finding_id=f"{request_id}:rca",
             agent=AgentKind.RCA_REASONING.value,
@@ -527,6 +690,11 @@ class RCAReasoningAgent:
                 "ranked_candidates": ranked_candidates,
                 "reasoning_engine": "hypothesis_v1",
                 "hypothesis_candidate_generation": candidate_generation,
+                "adversarial_challenge_generation": challenge_generation,
+                "candidate_challenges": [
+                    challenge.to_dict() for challenge in candidate_challenges
+                ],
+                "alternative_search_status": alternative_search_status,
                 "hypothesis_engine_result": engine_result,
                 "conclusion_status": str(decision.get("conclusion_status", status)),
                 "evidence_synthesis": engine_result.get(

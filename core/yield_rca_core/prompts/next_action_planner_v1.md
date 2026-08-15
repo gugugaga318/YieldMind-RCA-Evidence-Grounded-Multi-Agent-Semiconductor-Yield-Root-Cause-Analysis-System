@@ -69,6 +69,15 @@ For an act decision:
   can fill several gaps, choose the most discriminating listed Gap by copying
   exactly one permitted `causal_gap_id` into next_action.scope. If you omit it,
   Python binds the first legal Gap deterministically. Never invent a Gap ID.
+- Gaps are ordered by Python priority: blocking data missing first,
+  `hypothesis_discrimination` second, contradiction resolution third, and ordinary
+  missing support last. When `alternative_search_status` is `not_searched`,
+  `alternative_found`, or `unresolved`, do not keep strengthening only the top
+  candidate; choose a legal Action that can distinguish the competing causal
+  Lane or candidate. One Qwen candidate is not proof that no alternative exists.
+- `candidate_challenges` and `alternative_search_status` are audit context owned
+  by Python. You may explain or select a Python-generated discrimination Gap, but
+  you cannot mark alternatives eliminated or make the final conclusion supported.
 
 For every open Question, use the supplied `question_context` as the investigation
 ledger. It contains the Question scope, compatible Actions, linked Evidence grouped

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yield_rca_core.causal_evidence_matrix import CausalEvidenceMatrix
+from yield_rca_core.causal_investigation_models import AlternativeSearchStatus
 from yield_rca_core.llm_gateway import LLMClient, LLMOutputValidationError, LLMRequest
 from yield_rca_core.models import AgentKind, ModelValidationError
 
@@ -40,6 +41,7 @@ def compare_candidate_matrices(
     matrices: Sequence[CausalEvidenceMatrix],
     *,
     evidence_gaps: Sequence[Mapping[str, Any]] = (),
+    alternative_search_status: str | None = None,
 ) -> dict[str, Any]:
     """Compare up to two candidates without making a Qwen-authored claim."""
 
@@ -50,6 +52,7 @@ def compare_candidate_matrices(
             "selected_gap_id": None,
             "scores": [],
             "unresolved": False,
+            "alternative_search_required": False,
             "source": "python",
         }
     scores = [_matrix_score(matrix) for matrix in matrices]
@@ -71,12 +74,22 @@ def compare_candidate_matrices(
             f"Candidate {preferred} has the strongest deterministic matrix score "
             f"({scores[preferred]})."
         )
+    alternative_search_required = (
+        alternative_search_status is not None
+        and alternative_search_status
+        != AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value
+    )
     return {
         "preferred_candidate_index": preferred,
         "comparison_explanation": explanation,
         "selected_gap_id": selected_gap,
         "scores": scores,
-        "unresolved": preferred is None and len(matrices) > 1,
+        "unresolved": (
+            (preferred is None and len(matrices) > 1)
+            or alternative_search_required
+        ),
+        "alternative_search_required": alternative_search_required,
+        "alternative_search_status": alternative_search_status,
         "source": "python",
     }
 
