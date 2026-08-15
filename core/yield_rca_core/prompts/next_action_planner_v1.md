@@ -64,6 +64,11 @@ For an act decision:
   listed under that same key. Static compatibility is not enough: Questions that
   are already satisfied or whose remaining Evidence Gap cannot be filled by an
   Action are deliberately absent from that Action's list.
+- `causal_evidence_gaps` contains only gaps from the current authoritative RCA
+  Finding. `legal_causal_gap_ids_by_action` is Python-derived. When one Action
+  can fill several gaps, choose the most discriminating listed Gap by copying
+  exactly one permitted `causal_gap_id` into next_action.scope. If you omit it,
+  Python binds the first legal Gap deterministically. Never invent a Gap ID.
 
 For every open Question, use the supplied `question_context` as the investigation
 ledger. It contains the Question scope, compatible Actions, linked Evidence grouped
@@ -122,11 +127,12 @@ only provides partial progress, return question_updates=[] and preserve that
   progress through Findings and Evidence. An act decision cannot update a question
   and target that same question in target_question_ids.
 
-If an attempted Action produced no applicable QuestionEvidenceLink for its target
-Question, it is a no-gain attempt. You may re-plan once after the first no-gain
-observation. After a second no-gain attempt for the same Question, Action family,
-and compatible scope, you must choose a different Action direction or stop with an
-explicit boundary; never repeat the same investigative direction indefinitely.
+If an attempted Action produced no new `supports` or `contradicts`
+QuestionEvidenceLink for its target Question, it is a no-gain attempt; `context`
+and `unavailable` links are not Evidence Gain. You may change direction after the
+first no-gain observation. Python stops the investigation after two consecutive
+no-gain Actions. Candidate generation is also capped at two rounds, and the same
+candidate + gap + scope Action is single-use.
 
 You may add a new open question only when it directly supports the same Goal.
 Never create more than five total questions. An impact Lot is a result inside the

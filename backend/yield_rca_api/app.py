@@ -7,11 +7,11 @@ import json
 import logging
 import os
 from asyncio import sleep
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
 from time import perf_counter
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import (
@@ -408,9 +408,18 @@ def select_orchestration_mode(
     if workflow.orchestration_mode == "llm_react":
         return "llm_react", None
     if workflow.orchestration_mode == "controlled_react":
+        normalized_mode: Literal["product_window", "lot"]
+        if investigation_mode == "lot":
+            normalized_mode = "lot"
+        elif investigation_mode == "product_window":
+            normalized_mode = "product_window"
+        else:
+            raise ValueError(
+                "investigation_mode must be product_window or lot"
+            )
         eligible, fallback_reason = _controlled_react_eligibility(
             CreateRCAJobRequest(
-                investigation_mode=investigation_mode,
+                investigation_mode=normalized_mode,
                 lot_id=lot_id,
                 user_query=user_query,
             )
@@ -1049,15 +1058,14 @@ def create_app(
         else:
             initial_cursor = after or 0
 
-        async def event_stream():
+        async def event_stream() -> AsyncIterator[str]:
             cursor = initial_cursor
             last_heartbeat = 0.0
             while not await request.is_disconnected():
                 pending = await run_in_threadpool(
-                    lambda event_cursor=cursor: job_store.list_events(
-                        job_id,
-                        after_sequence=event_cursor,
-                    )
+                    job_store.list_events,
+                    job_id,
+                    after_sequence=cursor,
                 )
                 for event in pending:
                     cursor = event.sequence

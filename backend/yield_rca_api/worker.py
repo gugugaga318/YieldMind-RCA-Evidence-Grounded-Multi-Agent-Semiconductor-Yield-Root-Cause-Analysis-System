@@ -285,14 +285,15 @@ class RCAQueueWorker:
             lot_id=str(lot_id) if lot_id is not None else None,
             user_query=user_query,
         )
-        with capture_workflow_events(
-            lambda event_type, payload: self.store.record_progress_event(
+        def record_progress(event_type: str, payload: dict[str, Any]) -> None:
+            self.store.record_progress_event(
                 worker_id=self.worker_id,
                 job_id=record.state.job.job_id,
                 event_type=event_type,
                 payload=payload,
             )
-        ):
+
+        with capture_workflow_events(record_progress):
             completed = self.workflow.run(
                 user_query,
                 job_id=record.state.job.job_id,

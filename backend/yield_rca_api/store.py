@@ -412,8 +412,9 @@ class InMemoryRCAJobStore:
                 if record.state.job.status
                 in {TaskStatus.QUEUED.value, TaskStatus.RETRY_WAIT.value}
                 and (
-                    record.next_attempt_at is None
-                    or self._as_datetime(record.next_attempt_at) <= claimed_at
+                    (next_attempt_at := self._as_datetime(record.next_attempt_at))
+                    is None
+                    or next_attempt_at <= claimed_at
                 )
             ]
             if not candidates:
@@ -691,8 +692,11 @@ class InMemoryRCAJobStore:
                 for job_id, record in self._records.items()
                 if record.state.job.status
                 in {TaskStatus.RUNNING.value, TaskStatus.CANCEL_REQUESTED.value}
-                and record.lease_expires_at is not None
-                and self._as_datetime(record.lease_expires_at) <= recovered_at
+                and (
+                    lease_expires_at := self._as_datetime(record.lease_expires_at)
+                )
+                is not None
+                and lease_expires_at <= recovered_at
             ]
             for job_id in stale_job_ids:
                 record = self._records[job_id]

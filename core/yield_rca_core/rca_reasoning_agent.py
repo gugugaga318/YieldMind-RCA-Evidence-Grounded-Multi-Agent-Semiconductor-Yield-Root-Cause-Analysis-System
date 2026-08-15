@@ -221,7 +221,7 @@ class RCAReasoningAgent:
             "candidate_output_invalid": False,
         }
         external_candidates: list[dict[str, Any]] = []
-        deterministic_candidates_enabled = True
+        deterministic_candidates_enabled = self.agent_mode != AgentMode.LLM.value
         candidate_comparison: dict[str, Any] | None = None
         if self.agent_mode == AgentMode.LLM.value and self.llm_client is not None:
             try:
@@ -245,7 +245,6 @@ class RCAReasoningAgent:
                 }
                 if generated.candidate_output_invalid:
                     candidate_generation["fallback_reason"] = "qwen_candidate_output_invalid"
-                    deterministic_candidates_enabled = False
                     warnings.append(
                         Warning(
                             warning_id="WARN_RCA_QWEN_CANDIDATE_INVALID",
@@ -310,9 +309,6 @@ class RCAReasoningAgent:
                     ),
                     "candidate_output_invalid": True,
                 }
-                deterministic_candidates_enabled = not isinstance(
-                    exc, LLMOutputValidationError
-                )
                 warnings.append(
                     Warning(
                         warning_id=(
@@ -351,18 +347,11 @@ class RCAReasoningAgent:
             external_candidates=external_candidates,
             include_deterministic_candidates=deterministic_candidates_enabled,
             candidate_comparison=candidate_comparison,
-            # Older typed snapshots may have no temporal fields at all.  They
-            # remain compatible; once a run provides temporal observations the
-            # active Qwen path applies the full strict temporal gate.
-            strict_confirmation=(
-                self.agent_mode == AgentMode.LLM.value
-                and any(
-                    item.timestamp
-                    for finding in findings
-                    for item in finding.evidence
-                    if item.is_typed
-                )
-            ),
+            # Every active Qwen result uses the strict Confirmation Gate.
+            # Legacy deterministic/controlled snapshots retain the non-strict
+            # compatibility path, but missing Qwen temporal Evidence is a real
+            # gap rather than permission to relax the gate.
+            strict_confirmation=self.agent_mode == AgentMode.LLM.value,
         )
         decision = engine_result["decision_gate"]
         root_cause = str(decision["root_cause"])

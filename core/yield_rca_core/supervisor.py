@@ -824,6 +824,9 @@ class Supervisor:
                     capability_notices=state.capability_notices,
                     hypotheses=state.hypotheses,
                     prior_decisions=state.planner_decisions,
+                    authoritative_rca_finding_id=(
+                        state.authoritative_rca_finding_id
+                    ),
                 )
                 decision = outcome.decision
             except (QwenNextActionPlannerError, LLMCallError) as exc:
@@ -1430,6 +1433,23 @@ class Supervisor:
             hypotheses.append(hypothesis)
             authoritative_rca_finding_id = finding.finding_id
             authoritative_hypothesis_id = hypothesis.hypothesis_id
+            if state.execution_metadata.get("orchestration_mode") == "llm_react":
+                raw_impact_gate = finding.details.get("impact_lot_gate", {})
+                confirmed = (
+                    raw_impact_gate.get("confirmed_impact_lots", [])
+                    if isinstance(raw_impact_gate, dict)
+                    else []
+                )
+                if isinstance(confirmed, list) and all(
+                    isinstance(item, str) and item.strip() for item in confirmed
+                ):
+                    impact_lots = list(
+                        dict.fromkeys(
+                            item
+                            for item in confirmed
+                            if item != state.job.source_lot_id
+                        )
+                    )
         record = ActionRecord(
             action=action,
             status="completed",

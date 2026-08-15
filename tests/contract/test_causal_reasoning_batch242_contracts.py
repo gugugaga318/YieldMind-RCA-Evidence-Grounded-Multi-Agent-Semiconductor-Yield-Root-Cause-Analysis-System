@@ -66,6 +66,7 @@ def causal_evidence() -> list[Evidence]:
                 EvidenceEntity(EntityType.EQUIPMENT.value, "EQ_01"),
                 EvidenceEntity(EntityType.CHAMBER.value, "CH_01"),
                 EvidenceEntity(EntityType.OPERATION.value, "OP_4000"),
+                EvidenceEntity(EntityType.RECIPE.value, "RCP_01"),
             ],
             source_agent="mes",
             source_type=EvidenceSourceType.ANALYTICS.value,
@@ -74,8 +75,20 @@ def causal_evidence() -> list[Evidence]:
         evidence(
             "EV_PROCESS",
             EvidenceType.PARAMETER_DEVIATION.value,
-            [lot, EvidenceEntity(EntityType.PARAMETER.value, "temperature")],
-            metadata={"direction": "high", "magnitude": 8.0},
+            [
+                lot,
+                EvidenceEntity(EntityType.EQUIPMENT.value, "EQ_01"),
+                EvidenceEntity(EntityType.CHAMBER.value, "CH_01"),
+                EvidenceEntity(EntityType.OPERATION.value, "OP_4000"),
+                EvidenceEntity(EntityType.RECIPE.value, "RCP_01"),
+                EvidenceEntity(EntityType.PARAMETER.value, "temperature"),
+            ],
+            metadata={
+                "direction": "high",
+                "magnitude": 8.0,
+                "excursion_start": "2026-01-01T00:00:00",
+                "excursion_end": "2026-01-01T01:00:00",
+            },
             observation="temperature high during OP_4000",
         ),
         evidence(
@@ -116,6 +129,17 @@ class Batch242CausalReasoningContractTest(unittest.TestCase):
         self.assertTrue(result.checks["temporal"])
         self.assertTrue(result.checks["control_informational"])
 
+    def test_confirmation_rejects_a_candidate_without_exposure_evidence(self) -> None:
+        matrix = build_causal_evidence_matrix(
+            candidate(),
+            [causal_evidence()[1], causal_evidence()[2]],
+        )
+
+        result = confirm_candidate(matrix, strict=True)
+
+        self.assertEqual(result.status, "inconclusive")
+        self.assertFalse(result.checks["exposure"])
+
     def test_matrix_gaps_map_to_registered_actions_and_skip_control(self) -> None:
         matrix = build_causal_evidence_matrix(
             candidate(),
@@ -137,6 +161,102 @@ class Batch242CausalReasoningContractTest(unittest.TestCase):
         self.assertEqual(result["confirmed_impact_lots"], ["LOT_01"])
         missing = next(item for item in result["rows"] if item["lot_id"] == "LOT_MISSING")
         self.assertIn("exposure", missing["excluded_reason"])
+
+    def test_impact_lot_gate_rejects_wrong_chamber_and_out_of_window_process(self) -> None:
+        items = causal_evidence()
+        wrong_process = Evidence.from_dict(
+            {
+                **items[1].to_dict(),
+                "timestamp": "2026-01-01T02:00:00",
+                "entities": [
+                    {
+                        **entity.to_dict(),
+                        "entity_id": (
+                            "CH_02"
+                            if entity.entity_type == EntityType.CHAMBER.value
+                            else entity.entity_id
+                        ),
+                    }
+                    for entity in items[1].entities
+                ],
+            }
+        )
+
+        result = evaluate_impact_lot_gate(
+            source_lot_id="LOT_SOURCE",
+            candidate=candidate(),
+            evidence=[items[0], wrong_process, items[2]],
+            observed_impact_lots=["LOT_01"],
+        )
+
+        row = result["rows"][0]
+        self.assertFalse(row["included"])
+        self.assertFalse(row["checks"]["chamber"])
+        self.assertFalse(row["checks"]["temporal"])
+        self.assertIn("chamber", row["excluded_reason"])
+        self.assertIn("temporal", row["excluded_reason"])
+
+    def test_impact_lot_gate_rejects_a_different_parameter_or_outcome(self) -> None:
+        items = causal_evidence()
+        wrong_parameter = Evidence.from_dict(
+            {
+                **items[1].to_dict(),
+                "entities": [
+                    {
+                        **entity.to_dict(),
+                        "entity_id": (
+                            "pressure"
+                            if entity.entity_type == EntityType.PARAMETER.value
+                            else entity.entity_id
+                        ),
+                    }
+                    for entity in items[1].entities
+                ],
+            }
+        )
+        wrong_outcome = Evidence.from_dict(
+            {
+                **items[2].to_dict(),
+                "entities": [
+                    {
+                        **entity.to_dict(),
+                        "entity_id": (
+                            "scratch"
+                            if entity.entity_type == EntityType.DEFECT.value
+                            else entity.entity_id
+                        ),
+                    }
+                    for entity in items[2].entities
+                ],
+            }
+        )
+
+        result = evaluate_impact_lot_gate(
+            source_lot_id="LOT_SOURCE",
+            candidate=candidate(),
+            evidence=[items[0], wrong_parameter, wrong_outcome],
+            observed_impact_lots=["LOT_01"],
+        )
+
+        row = result["rows"][0]
+        self.assertFalse(row["checks"]["parameter"])
+        self.assertFalse(row["checks"]["outcome"])
+
+    def test_impact_gate_accepts_full_chamber_id_as_equipment_claim(self) -> None:
+        full_chamber_candidate = CausalHypothesis(
+            root_cause="EQ_01_CH_01 OP_4000 temperature control drift",
+            causal_explanation="High temperature produces edge_void.",
+            supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_OUTCOME"),
+        )
+
+        result = evaluate_impact_lot_gate(
+            source_lot_id="LOT_SOURCE",
+            candidate=full_chamber_candidate,
+            evidence=causal_evidence(),
+            observed_impact_lots=["LOT_01"],
+        )
+
+        self.assertEqual(result["confirmed_impact_lots"], ["LOT_01"])
 
     def test_python_comparison_returns_null_for_an_equal_tie(self) -> None:
         matrix = build_causal_evidence_matrix(candidate(), causal_evidence())

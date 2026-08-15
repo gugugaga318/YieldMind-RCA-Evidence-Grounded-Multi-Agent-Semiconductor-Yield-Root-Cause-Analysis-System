@@ -64,6 +64,70 @@ _ENTITY_CLAIMS = {
     CausalClaim.OPERATION.value: EntityType.OPERATION.value,
 }
 _STRUCTURED_TOKEN = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
+_EQUIPMENT_PREFIXES = (
+    "ald_",
+    "cmp_",
+    "cvd_",
+    "diff_",
+    "etch_",
+    "eq_",
+    "implant_",
+    "litho_",
+    "pvd_",
+    "wet_",
+)
+_PARAMETER_HINTS = {
+    "bias",
+    "current",
+    "deposition",
+    "flow",
+    "force",
+    "pressure",
+    "rate",
+    "removal",
+    "resistance",
+    "rf",
+    "slurry",
+    "speed",
+    "temperature",
+    "thickness",
+    "uniformity",
+    "vacuum",
+    "voltage",
+}
+_OUTCOME_HINTS = {
+    "bridge",
+    "crack",
+    "defect",
+    "erosion",
+    "fail",
+    "failure",
+    "leakage",
+    "nonuniformity",
+    "open",
+    "scratch",
+    "short",
+    "void",
+}
+_SEMANTIC_STOP_WORDS = {
+    "abnormal",
+    "candidate",
+    "causal",
+    "cause",
+    "caused",
+    "causing",
+    "chamber",
+    "control",
+    "current",
+    "equipment",
+    "evidence",
+    "failure",
+    "lot",
+    "observed",
+    "operation",
+    "process",
+    "signal",
+}
 
 
 def _compact(value: object) -> str:
@@ -84,6 +148,83 @@ def _candidate_text(candidate: CausalHypothesis) -> str:
 
 def _candidate_structured_tokens(candidate: CausalHypothesis) -> list[str]:
     return [item.casefold() for item in _STRUCTURED_TOKEN.findall(_candidate_text(candidate))]
+
+
+def _explicit_entity_tokens(
+    candidate: CausalHypothesis,
+    entity_type: str,
+) -> set[str]:
+    """Extract only explicit claims for one entity type.
+
+    A chamber token must not make an unrelated Operation look conflicted, and
+    an Operation number is considered explicit only when it is labelled as an
+    operation in the candidate text.
+    """
+
+    text = _candidate_text(candidate).casefold()
+    structured = set(_candidate_structured_tokens(candidate))
+    if entity_type == EntityType.EQUIPMENT.value:
+        return {
+            token
+            for token in structured
+            if token.startswith(_EQUIPMENT_PREFIXES)
+        }
+    if entity_type == EntityType.CHAMBER.value:
+        explicit = {
+            token
+            for token in structured
+            if token.startswith("ch_") or re.search(r"_ch[0-9a-z]+(?:_|$)", token)
+        }
+        explicit.update(
+            match.group(1)
+            for match in re.finditer(
+                r"\bchamber\s*[:#_-]?\s*([a-z0-9_]+)", text
+            )
+        )
+        return explicit
+    if entity_type == EntityType.OPERATION.value:
+        explicit = {token for token in structured if token.startswith("op_")}
+        explicit.update(
+            match.group(1)
+            for match in re.finditer(
+                r"\b(?:operation(?:_no)?|op)\s*[:#_-]?\s*([a-z0-9_]+)",
+                text,
+            )
+        )
+        return explicit
+    return set()
+
+
+def _label_tokens(value: object) -> set[str]:
+    return {
+        token
+        for token in _tokens(value)
+        if token not in _SEMANTIC_STOP_WORDS
+        and not token.startswith(("ev", "eq", "ch", "op", "lot"))
+    }
+
+
+def _candidate_matches_label(candidate: CausalHypothesis, label: str) -> bool:
+    text = _candidate_text(candidate)
+    compact_label = _compact(label)
+    if len(compact_label) >= 6 and compact_label in _compact(text):
+        return True
+    label_tokens = _label_tokens(label)
+    candidate_tokens = _label_tokens(text)
+    overlap = candidate_tokens & label_tokens
+    return bool(overlap) and (
+        overlap == label_tokens
+        or len(overlap) >= 2
+        or any(len(token) >= 5 for token in overlap)
+    )
+
+
+def _metadata_labels(evidence: Evidence, keys: set[str]) -> set[str]:
+    return {
+        str(value)
+        for key, value in _metadata_and_entity_values(evidence)
+        if key in keys and isinstance(value, str | int | float)
+    }
 
 
 def _evidence_text(evidence: Evidence) -> str:
@@ -528,18 +669,29 @@ def _matching_entity_claim(
             (),
             "No typed Evidence supplies this entity.",
         )
-    candidate_text = _compact(candidate.root_cause)
     ids = [
         entity.entity_id
         for item in matches
         for entity in item.entities
         if entity.entity_type == entity_type
     ]
-    explicit_tokens = _candidate_structured_tokens(candidate)
+    explicit_tokens = _explicit_entity_tokens(candidate, entity_type)
     matching_ids = [
         entity_id
         for entity_id in ids
-        if _compact(entity_id) in candidate_text
+        if any(
+            _compact(token) == _compact(entity_id)
+            or (
+                entity_type == EntityType.EQUIPMENT.value
+                and _compact(token).startswith(_compact(entity_id))
+                and _compact(token)[len(_compact(entity_id)) :].startswith("ch")
+            )
+            or (
+                entity_type == EntityType.CHAMBER.value
+                and _compact(token).endswith(_compact(entity_id))
+            )
+            for token in explicit_tokens
+        )
     ]
     if matching_ids:
         return _result(
@@ -548,10 +700,7 @@ def _matching_entity_claim(
             matches,
             f"Candidate names typed {entity_type} Evidence: {sorted(set(matching_ids))}.",
         )
-    if explicit_tokens and any(
-        token.startswith(("eq_", "cmp_", "ch_", "op_", "rcp_"))
-        for token in explicit_tokens
-    ):
+    if explicit_tokens:
         return _result(
             claim,
             CausalClaimStatus.CONFLICTED,
@@ -575,30 +724,48 @@ def _parameter_claim(candidate: CausalHypothesis, evidence: list[Evidence]) -> C
             (),
             "No process Evidence is available.",
         )
-    candidate_tokens = _tokens(_candidate_text(candidate))
     parameter_items = [
         item
         for item in process
         if any(entity.entity_type == EntityType.PARAMETER.value for entity in item.entities)
         or item.source_field
     ]
-    parameter_tokens = {
-        token
+    if not parameter_items:
+        return _result(
+            CausalClaim.PARAMETER,
+            CausalClaimStatus.UNAVAILABLE,
+            process,
+            "Process Evidence exists but supplies no typed parameter or source field.",
+        )
+    labels_by_id: dict[str, set[str]] = {}
+    for item in parameter_items:
+        labels = {
+            entity.entity_id
+            for entity in item.entities
+            if entity.entity_type == EntityType.PARAMETER.value
+        }
+        if item.source_field:
+            labels.add(item.source_field)
+        labels.update(
+            _metadata_labels(
+                item,
+                {"parameter", "parameter_id", "parameter_name", "metric_name"},
+            )
+        )
+        labels_by_id[item.evidence_id] = labels
+    aligned_items = [
+        item
         for item in parameter_items
-        for token in _tokens(_evidence_text(item))
-    }
-    overlap = sorted(candidate_tokens & parameter_tokens)
+        if any(
+            _candidate_matches_label(candidate, label)
+            for label in labels_by_id[item.evidence_id]
+        )
+    ]
     candidate_directions = {
         direction
         for token in re.findall(r"[a-z]+", _candidate_text(candidate).casefold())
         if (direction := _DIRECTION_ALIASES.get(token)) is not None
     }
-    aligned_items = [
-        item
-        for item in parameter_items
-        if not overlap
-        or bool(candidate_tokens & _tokens(_evidence_text(item)))
-    ]
     evidence_directions = {
         direction for item in aligned_items for direction in _directions(item)
     }
@@ -615,12 +782,29 @@ def _parameter_claim(candidate: CausalHypothesis, evidence: list[Evidence]) -> C
                 f"evidence={sorted(evidence_directions)}."
             ),
         )
-    if overlap:
+    if aligned_items:
+        matched_labels = sorted(
+            {
+                label
+                for item in aligned_items
+                for label in labels_by_id[item.evidence_id]
+                if _candidate_matches_label(candidate, label)
+            }
+        )
         return _result(
             CausalClaim.PARAMETER,
             CausalClaimStatus.SUPPORTED,
+            aligned_items,
+            f"Candidate identifies typed process parameter facts: {matched_labels}.",
+        )
+    candidate_parameter_hints = sorted(_label_tokens(_candidate_text(candidate)) & _PARAMETER_HINTS)
+    if candidate_parameter_hints:
+        return _result(
+            CausalClaim.PARAMETER,
+            CausalClaimStatus.CONFLICTED,
             parameter_items,
-            f"Candidate parameter wording overlaps typed process facts: {overlap}.",
+            "Candidate explicitly names a parameter that does not match typed "
+            f"process facts: {candidate_parameter_hints}.",
         )
     return _result(
         CausalClaim.PARAMETER,
@@ -639,15 +823,53 @@ def _outcome_claim(candidate: CausalHypothesis, evidence: list[Evidence]) -> Cau
             (),
             "No typed product outcome Evidence is available.",
         )
-    overlap = sorted(_tokens(_candidate_text(candidate)) & {
-        token for item in outcomes for token in _tokens(_evidence_text(item))
-    })
-    if overlap:
+    labels_by_id: dict[str, set[str]] = {}
+    for item in outcomes:
+        labels = {
+            entity.entity_id
+            for entity in item.entities
+            if entity.entity_type in {EntityType.DEFECT.value, EntityType.WAT_ITEM.value}
+        }
+        if item.source_field:
+            labels.add(item.source_field)
+        labels.update(
+            _metadata_labels(
+                item,
+                {"defect", "defect_type", "fail_mode", "metric_name", "wat_item"},
+            )
+        )
+        labels_by_id[item.evidence_id] = labels
+    aligned = [
+        item
+        for item in outcomes
+        if any(
+            _candidate_matches_label(candidate, label)
+            for label in labels_by_id[item.evidence_id]
+        )
+    ]
+    if aligned:
+        matched_labels = sorted(
+            {
+                label
+                for item in aligned
+                for label in labels_by_id[item.evidence_id]
+                if _candidate_matches_label(candidate, label)
+            }
+        )
         return _result(
             CausalClaim.OUTCOME,
             CausalClaimStatus.SUPPORTED,
+            aligned,
+            f"Candidate identifies typed product outcome facts: {matched_labels}.",
+        )
+    candidate_outcome_hints = sorted(_label_tokens(_candidate_text(candidate)) & _OUTCOME_HINTS)
+    if candidate_outcome_hints and any(labels_by_id.values()):
+        return _result(
+            CausalClaim.OUTCOME,
+            CausalClaimStatus.CONFLICTED,
             outcomes,
-            f"Causal explanation overlaps observed outcome facts: {overlap}.",
+            "Candidate explicitly names an outcome that does not match typed "
+            f"outcome facts: {candidate_outcome_hints}.",
         )
     return _result(
         CausalClaim.OUTCOME,
@@ -672,19 +894,39 @@ def _mechanism_claim(
         if item.metadata.get("mechanism_rule")
         or str(item.source_tool or "").casefold().startswith("mechanism_rule")
     ]
-    if rule:
+    def relevant(items: list[Evidence]) -> list[Evidence]:
+        candidate_tokens = _label_tokens(_candidate_text(candidate))
+        return [
+            item
+            for item in items
+            if len(candidate_tokens & _label_tokens(_evidence_text(item))) >= 2
+            or any(
+                _candidate_matches_label(candidate, entity.entity_id)
+                for entity in item.entities
+                if entity.entity_type
+                in {
+                    EntityType.PARAMETER.value,
+                    EntityType.DEFECT.value,
+                    EntityType.WAT_ITEM.value,
+                }
+            )
+        ]
+
+    relevant_rules = relevant(rule)
+    relevant_knowledge = relevant(knowledge)
+    if relevant_rules:
         return _result(
             CausalClaim.MECHANISM,
             CausalClaimStatus.SUPPORTED,
-            rule,
+            relevant_rules,
             "An explicit Python-registered mechanism rule supports the relationship.",
             support_source=MechanismSupportSource.RULE,
         )
-    if knowledge:
+    if relevant_knowledge:
         return _result(
             CausalClaim.MECHANISM,
             CausalClaimStatus.SUPPORTED,
-            knowledge,
+            relevant_knowledge,
             (
                 "Approved Knowledge supports the engineering mechanism; it does not "
                 "prove current-Lot occurrence alone."
@@ -703,14 +945,15 @@ def _mechanism_claim(
             "Current-Lot process anomaly and compatible product outcome converge empirically.",
             support_source=MechanismSupportSource.EMPIRICAL_CONVERGENCE,
         )
-    if process or outcome.status != CausalClaimStatus.UNAVAILABLE.value:
+    if process or knowledge or rule or outcome.status != CausalClaimStatus.UNAVAILABLE.value:
         return _result(
             CausalClaim.MECHANISM,
             CausalClaimStatus.INCOMPLETE,
-            [*process],
+            [*process, *knowledge, *rule],
             (
-                "The causal explanation remains plausible but current Evidence does "
-                "not converge on a mechanism."
+                "The causal explanation remains plausible, but current Evidence does "
+                "not converge on the same mechanism. Approved Knowledge or rule "
+                "Evidence, when present, is not relevant to this candidate."
             ),
             support_source=MechanismSupportSource.LLM_EXPLANATION_ONLY,
         )
@@ -838,9 +1081,23 @@ def _temporal_claim(evidence: list[Evidence]) -> CausalClaimResult:
         if item.evidence_type == EvidenceType.EXCURSION_WINDOW.value
         for window in _processing_windows(item)
     ]
+    if not global_processing_windows and not any(
+        _processing_windows(item) for item in evidence if item.evidence_type in _PROCESS_TYPES
+    ):
+        return _result(
+            CausalClaim.TEMPORAL,
+            CausalClaimStatus.INCOMPLETE,
+            evidence,
+            "Cited Evidence has timestamps but no processing/excursion window to verify.",
+        )
     out_of_window: list[str] = []
+    aligned_to_window: list[str] = []
+    unverifiable: list[str] = []
     for item in evidence:
+        if item.evidence_type not in _PROCESS_TYPES:
+            continue
         if not item.timestamp:
+            unverifiable.append(item.evidence_id)
             continue
         timestamp = str(item.timestamp).replace("Z", "+00:00")
         try:
@@ -850,6 +1107,7 @@ def _temporal_claim(evidence: list[Evidence]) -> CausalClaimResult:
         except ValueError:
             # Keep legacy/non-ISO timestamps usable; a hard temporal conflict
             # requires an explicitly parseable interval.
+            unverifiable.append(item.evidence_id)
             continue
         item_windows = _processing_windows(item)
         if not item_windows and item.evidence_type in _PROCESS_TYPES:
@@ -874,6 +1132,10 @@ def _temporal_claim(evidence: list[Evidence]) -> CausalClaimResult:
             start <= observed_at <= end for start, end in parsed_windows
         ):
             out_of_window.append(item.evidence_id)
+        elif parsed_windows:
+            aligned_to_window.append(item.evidence_id)
+        else:
+            unverifiable.append(item.evidence_id)
     if out_of_window:
         return _result(
             CausalClaim.TEMPORAL,
@@ -882,11 +1144,20 @@ def _temporal_claim(evidence: list[Evidence]) -> CausalClaimResult:
             "Evidence timestamp falls outside its declared processing/excursion window: "
             f"{sorted(set(out_of_window))}.",
         )
+    if not aligned_to_window:
+        return _result(
+            CausalClaim.TEMPORAL,
+            CausalClaimStatus.INCOMPLETE,
+            evidence,
+            "No cited process Evidence timestamp can be verified against a declared window"
+            + (f": {sorted(set(unverifiable))}." if unverifiable else "."),
+        )
     return _result(
         CausalClaim.TEMPORAL,
         CausalClaimStatus.SUPPORTED,
         evidence,
-        "Cited Evidence carries timestamps consistent with its declared windows.",
+        "Cited process Evidence timestamps are consistent with declared windows: "
+        f"{sorted(set(aligned_to_window))}.",
     )
 
 

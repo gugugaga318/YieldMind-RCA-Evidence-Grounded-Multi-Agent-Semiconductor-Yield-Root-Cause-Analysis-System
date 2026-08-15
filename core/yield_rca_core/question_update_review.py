@@ -346,7 +346,9 @@ def review_question_updates(
                     if link.relation == QuestionEvidenceRelation.SUPPORTS.value
                 }
                 required_groups = set(
-                    QUESTION_CAPABILITY_REGISTRY[current.question_kind].closure_evidence_groups
+                    QUESTION_CAPABILITY_REGISTRY[
+                        str(current.question_kind)
+                    ].closure_evidence_groups
                 )
                 missing_groups = required_groups - satisfied_groups
                 if missing_groups:

@@ -25,6 +25,7 @@ from yield_rca_core.hypothesis_candidate_generator import (  # noqa: E402
 from yield_rca_core.hypothesis_engine import HypothesisEngine  # noqa: E402
 from yield_rca_core.llm_gateway import (  # noqa: E402
     FakeLLMClient,
+    LLMCallError,
     LLMRequest,
     LLMResponse,
 )
@@ -104,6 +105,13 @@ def causal_findings() -> list[AgentFinding]:
             agent=AgentKind.FDC.value,
             entity_type=EntityType.PARAMETER.value,
             entity_id="chamber_temperature_range",
+            metadata={
+                "processing_window": {
+                    "start": "2026-01-01T00:00:00",
+                    "end": "2026-01-01T01:00:00",
+                }
+            },
+            timestamp="2026-01-01T00:30:00",
         ),
         typed_evidence(
             evidence_id="EV_PRODUCT",
@@ -149,6 +157,15 @@ class CandidateClient(FakeLLMClient):
         base = super().complete_json(request)
         response = self.responses[min(len(self.requests) - 1, len(self.responses) - 1)]
         return LLMResponse(data=dict(response), usage=base.usage)
+
+
+class CandidateProviderFailureClient(FakeLLMClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        raise LLMCallError(
+            "candidate provider unavailable",
+            status_code=503,
+            failure_category="provider_http_error",
+        )
 
 
 class QwenHypothesisCandidateContractTest(unittest.TestCase):
@@ -340,6 +357,20 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
         )
         self.assertTrue(matrix.has_critical_conflict)
 
+    def test_entity_prefix_does_not_turn_eq_010_into_eq_01_support(self) -> None:
+        candidate = CausalHypothesis(
+            root_cause="EQ_010 chamber temperature control drift",
+            causal_explanation="EQ_010 temperature deviation produces edge void.",
+            supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_PRODUCT"),
+        )
+
+        matrix = build_causal_evidence_matrix(
+            candidate,
+            [item for finding in causal_findings() for item in finding.evidence],
+        )
+
+        self.assertEqual(matrix.claims["equipment"].status, "conflicted")
+
     def test_matrix_marks_mechanism_source_as_empirical_convergence(self) -> None:
         candidate = CausalHypothesis(
             root_cause="EQ_01 chamber temperature control drift",
@@ -421,7 +452,7 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
         self.assertTrue(result.candidate_output_invalid)
         self.assertTrue(any("non-supporting Evidence" in item for item in result.validation_errors))
 
-    def test_generator_retries_a_candidate_missing_shared_exposure_lane(self) -> None:
+    def test_generator_accepts_candidate_missing_shared_exposure_for_matrix_gap(self) -> None:
         client = CandidateClient(
             [
                 {
@@ -442,31 +473,15 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
             findings=causal_findings(),
         )
 
-        self.assertEqual(result.attempt_count, 2)
-        self.assertIn("shared_exposure", result.validation_errors[0])
-        retry_feedback = client.requests[1].payload[
-            "previous_validation_feedback"
-        ]
-        self.assertEqual(
-            retry_feedback["missing_causal_lanes"],
-            ["shared_exposure"],
-        )
-        self.assertEqual(
-            retry_feedback["eligible_supporting_evidence_ids_by_lane"][
-                "shared_exposure"
-            ],
-            ["EV_EXPOSURE"],
-        )
-        self.assertEqual(
-            retry_feedback["source_agent_by_evidence_id"]["EV_EXPOSURE"],
-            AgentKind.MES.value,
-        )
+        self.assertEqual(result.attempt_count, 1)
+        self.assertEqual(result.validation_errors, ())
+        self.assertEqual(len(client.requests), 1)
         self.assertEqual(
             result.candidates[0].supporting_evidence_ids,
-            ("EV_EXPOSURE", "EV_PROCESS", "EV_PRODUCT"),
+            ("EV_PROCESS", "EV_PRODUCT"),
         )
 
-    def test_generator_accepts_bounded_empty_answer_after_incomplete_candidate(
+    def test_generator_does_not_replace_an_incomplete_candidate_with_empty_answer(
         self,
     ) -> None:
         client = CandidateClient(
@@ -491,15 +506,122 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
             findings=causal_findings(),
         )
 
-        self.assertEqual(result.attempt_count, 2)
-        self.assertEqual(result.candidates, ())
-        self.assertEqual(len(result.validation_errors), 1)
-        self.assertEqual(
-            client.requests[1].payload["previous_validation_feedback"][
-                "valid_empty_output"
-            ]["candidates"],
-            [],
+        self.assertEqual(result.attempt_count, 1)
+        self.assertEqual(len(result.candidates), 1)
+        self.assertEqual(len(client.requests), 1)
+
+    def test_near_duplicate_second_candidate_is_isolated(self) -> None:
+        second = proposal()
+        second["root_cause"] = "Temperature drift failure at EQ_01 chamber"
+        client = CandidateClient(
+            [
+                {
+                    "candidates": [proposal(), second],
+                    "analysis_summary": "Two paraphrases of one mechanism.",
+                }
+            ]
         )
+
+        result = QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_NEAR_DUPLICATE",
+            findings=causal_findings(),
+        )
+
+        self.assertEqual(len(result.candidates), 1)
+        self.assertTrue(any("near-duplicate" in item for item in result.validation_errors))
+
+    def test_unstated_operation_is_incomplete_not_conflicted(self) -> None:
+        findings = causal_findings()
+        exposure = Evidence.from_dict(
+            {
+                **findings[0].evidence[0].to_dict(),
+                "entities": [
+                    EvidenceEntity(EntityType.LOT.value, "LOT_01").to_dict(),
+                    EvidenceEntity(EntityType.EQUIPMENT.value, "EQ_01").to_dict(),
+                    EvidenceEntity(EntityType.OPERATION.value, "4000").to_dict(),
+                ],
+            }
+        )
+        candidate = CausalHypothesis(
+            root_cause="EQ_01 chamber temperature control drift",
+            causal_explanation="Temperature drift produces the observed edge void.",
+            supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_PRODUCT"),
+        )
+
+        matrix = build_causal_evidence_matrix(
+            candidate,
+            [exposure, findings[1].evidence[0], findings[2].evidence[0]],
+        )
+
+        self.assertEqual(matrix.claims["operation"].status, "incomplete")
+
+    def test_equipment_tokens_do_not_create_parameter_support(self) -> None:
+        candidate = CausalHypothesis(
+            root_cause="EQ_01 chamber malfunction",
+            causal_explanation="The chamber can produce the observed edge void.",
+            supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_PRODUCT"),
+        )
+
+        matrix = build_causal_evidence_matrix(
+            candidate,
+            [item for finding in causal_findings() for item in finding.evidence],
+        )
+
+        self.assertEqual(matrix.claims["parameter"].status, "incomplete")
+
+    def test_explicit_wrong_parameter_is_conflicted(self) -> None:
+        candidate = CausalHypothesis(
+            root_cause="EQ_01 chamber pressure drift",
+            causal_explanation="High pressure produces the observed edge void.",
+            supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_PRODUCT"),
+        )
+
+        matrix = build_causal_evidence_matrix(
+            candidate,
+            [item for finding in causal_findings() for item in finding.evidence],
+        )
+
+        self.assertEqual(matrix.claims["parameter"].status, "conflicted")
+
+    def test_timestamps_without_a_window_are_temporally_incomplete(self) -> None:
+        findings = causal_findings()
+        timed = [
+            Evidence.from_dict(
+                {
+                    **item.to_dict(),
+                    "timestamp": "2026-01-01T00:30:00",
+                    "metadata": {},
+                }
+            )
+            for finding in findings
+            for item in finding.evidence
+        ]
+        matrix = build_causal_evidence_matrix(
+            CausalHypothesis.from_mapping(proposal()),
+            timed,
+        )
+
+        self.assertEqual(matrix.claims["temporal"].status, "incomplete")
+
+    def test_unrelated_approved_knowledge_does_not_support_mechanism(self) -> None:
+        unrelated = Evidence.from_dict(
+            {
+                **approved_knowledge_evidence().to_dict(),
+                "evidence_id": "EV_UNRELATED_KNOWLEDGE",
+                "summary": "Confirmed slurry flow mechanism for scratch defects.",
+                "observation": "Low slurry flow can cause wafer scratches.",
+            }
+        )
+        candidate = CausalHypothesis(
+            root_cause="EQ_01 temperature drift",
+            causal_explanation="Temperature drift may produce edge voids.",
+            supporting_evidence_ids=("EV_UNRELATED_KNOWLEDGE",),
+        )
+
+        matrix = build_causal_evidence_matrix(candidate, [unrelated])
+
+        self.assertEqual(matrix.claims["mechanism"].status, "incomplete")
+        self.assertEqual(matrix.claims["mechanism"].support_source, "llm_explanation_only")
 
     def test_python_gate_can_support_a_three_lane_llm_candidate(self) -> None:
         result = HypothesisEngine().analyze(
@@ -537,6 +659,40 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
         self.assertEqual(result["decision_gate"]["status"], "inconclusive")
         self.assertTrue(
             any("three" in reason for reason in selected["rejection_reasons"])
+        )
+
+    def test_python_gate_outranks_qwen_preference_for_a_conflicted_candidate(
+        self,
+    ) -> None:
+        supported = proposal()
+        conflicted = {
+            **proposal(),
+            "root_cause": "EQ_02 chamber temperature control drift",
+        }
+
+        result = HypothesisEngine().analyze(
+            request_id="REQ_GATE_BEFORE_QWEN_PREFERENCE",
+            findings=causal_findings(),
+            mode="active",
+            external_candidates=[supported, conflicted],
+            include_deterministic_candidates=False,
+            candidate_comparison={
+                "preferred_candidate_index": 1,
+                "comparison_summary": "Qwen preferred the conflicted candidate.",
+            },
+            strict_confirmation=True,
+        )
+
+        self.assertEqual(
+            result["candidates"][0]["root_cause"],
+            supported["root_cause"],
+        )
+        self.assertTrue(result["candidates"][0]["decision_gate_passed"])
+        self.assertFalse(result["candidates"][1]["decision_gate_passed"])
+        self.assertEqual(result["decision_gate"]["status"], "supported")
+        self.assertEqual(
+            result["decision_gate"]["root_cause"],
+            supported["root_cause"],
         )
 
     def test_unrelated_normal_parameter_is_not_a_causal_contradiction(self) -> None:
@@ -628,6 +784,56 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
             {warning.warning_id for warning in result.warnings},
         )
         self.assertEqual(result.details["hypothesis_engine_result"]["candidates"], [])
+
+    def test_valid_empty_qwen_candidates_do_not_enable_deterministic_root_cause(
+        self,
+    ) -> None:
+        client = CandidateClient(
+            [
+                {
+                    "candidates": [],
+                    "analysis_summary": "No evidence-bounded causal candidate exists.",
+                }
+            ]
+        )
+
+        result = RCAReasoningAgent(
+            llm_client=client,
+            agent_mode="llm",
+        ).analyze(
+            request_id="REQ_RCA_EMPTY",
+            findings=causal_findings(),
+        )
+
+        generation = result.details["hypothesis_candidate_generation"]
+        self.assertFalse(generation["candidate_output_invalid"])
+        self.assertEqual(generation["candidate_count"], 0)
+        self.assertEqual(result.details["status"], "inconclusive")
+        self.assertEqual(result.details["hypothesis_engine_result"]["candidates"], [])
+
+    def test_candidate_provider_failure_does_not_invent_a_deterministic_candidate(
+        self,
+    ) -> None:
+        result = RCAReasoningAgent(
+            llm_client=CandidateProviderFailureClient(),
+            agent_mode="llm",
+        ).analyze(
+            request_id="REQ_RCA_PROVIDER_FAILURE",
+            findings=causal_findings(),
+        )
+
+        generation = result.details["hypothesis_candidate_generation"]
+        self.assertEqual(
+            generation["fallback_reason"],
+            "qwen_candidate_provider_failed",
+        )
+        self.assertEqual(generation["candidate_count"], 0)
+        self.assertEqual(result.details["status"], "inconclusive")
+        self.assertEqual(result.details["hypothesis_engine_result"]["candidates"], [])
+        self.assertIn(
+            "WARN_RCA_LLM_CANDIDATE_FALLBACK",
+            {warning.warning_id for warning in result.warnings},
+        )
 
 
 if __name__ == "__main__":

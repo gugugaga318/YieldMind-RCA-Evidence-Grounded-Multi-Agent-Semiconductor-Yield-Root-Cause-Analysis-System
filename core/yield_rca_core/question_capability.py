@@ -345,7 +345,7 @@ def capability_for_question(question: InvestigationQuestion) -> QuestionCapabili
 
     if not isinstance(question, InvestigationQuestion):
         raise TypeError("question must be an InvestigationQuestion")
-    return QUESTION_CAPABILITY_REGISTRY[question.question_kind]
+    return QUESTION_CAPABILITY_REGISTRY[str(question.question_kind)]
 
 
 def capability_notice_for(

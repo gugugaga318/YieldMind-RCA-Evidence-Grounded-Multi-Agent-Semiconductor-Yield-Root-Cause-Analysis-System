@@ -459,7 +459,13 @@ class SpecialistV2WorkflowIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(trace["validation_retry_count"], 2)
         self.assertTrue(mes_finding.details["impact_lots"])
-        self.assertTrue(state.impact_lots)
+        rca_finding = state.authoritative_rca_finding
+        self.assertIsNotNone(rca_finding)
+        impact_gate = rca_finding.details["impact_lot_gate"]
+        self.assertEqual(
+            state.impact_lots,
+            impact_gate["confirmed_impact_lots"],
+        )
 
         request_prefix = f"{state.job.job_id}:{mes_record.action.action_id}"
         mes_tool_names = [

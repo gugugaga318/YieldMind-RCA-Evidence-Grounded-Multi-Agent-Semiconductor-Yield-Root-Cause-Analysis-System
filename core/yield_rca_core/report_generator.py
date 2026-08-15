@@ -766,7 +766,7 @@ def _question_semantics_section(state: RCAState) -> tuple[list[str], list[str]]:
     if state.investigation_questions:
         lines.extend(["### Question Coverage", ""])
         for question in state.investigation_questions:
-            capability = QUESTION_CAPABILITY_REGISTRY.get(question.question_kind)
+            capability = QUESTION_CAPABILITY_REGISTRY.get(str(question.question_kind))
             links = links_by_question.get(question.question_id, [])
             satisfied = sorted(
                 {

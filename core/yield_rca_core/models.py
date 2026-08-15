@@ -1275,8 +1275,8 @@ class RCAState:
                 )
 
         for review in self.question_update_reviews:
-            decision = decisions_by_id.get(review.decision_id)
-            if decision is None:
+            reviewed_decision = decisions_by_id.get(review.decision_id)
+            if reviewed_decision is None:
                 raise ModelValidationError(
                     "QuestionUpdate review references an unknown planner decision: "
                     f"{review.decision_id!r}"
@@ -1286,7 +1286,7 @@ class RCAState:
             matching_update = next(
                 (
                     update
-                    for update in decision.question_updates
+                    for update in reviewed_decision.question_updates
                     if update.question_id == review.question_id
                     and update.status == review.claimed_status
                 ),

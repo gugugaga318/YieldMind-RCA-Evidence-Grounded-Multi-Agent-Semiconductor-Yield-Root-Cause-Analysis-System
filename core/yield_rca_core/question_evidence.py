@@ -152,7 +152,7 @@ class QuestionEvidenceResolver:
         produced_ids = action_record.produced_evidence_ids
         links: list[QuestionEvidenceLink] = []
         for question in questions:
-            capability = QUESTION_CAPABILITY_REGISTRY.get(question.question_kind)
+            capability = QUESTION_CAPABILITY_REGISTRY.get(str(question.question_kind))
             if capability is None or not capability.supported:
                 continue
             if action_record.action.kind not in capability.allowed_actions:

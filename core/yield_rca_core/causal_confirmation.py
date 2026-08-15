@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from yield_rca_core.causal_evidence_matrix import CausalEvidenceMatrix
@@ -81,6 +83,22 @@ def confirm_candidate(
     reasons: list[str] = []
     gaps: list[str] = []
 
+    exposure_types = {
+        evidence_type
+        for claim in (
+            CausalClaim.EQUIPMENT.value,
+            CausalClaim.CHAMBER.value,
+            CausalClaim.OPERATION.value,
+        )
+        if claim in matrix.claims
+        for evidence_type in matrix.claims[claim].facts.get("evidence_types", [])
+        if isinstance(evidence_type, str)
+    }
+    checks["exposure"] = bool(exposure_types & _EXPOSURE_TYPES)
+    if not checks["exposure"]:
+        reasons.append("no cited typed Evidence establishes current-Lot exposure.")
+        gaps.append("exposure.unavailable")
+
     for claim in (
         CausalClaim.EQUIPMENT.value,
         CausalClaim.CHAMBER.value,
@@ -154,6 +172,7 @@ def confirm_candidate(
             checks["no_equal_alternative"] = False
 
     hard_checks = [
+        checks["exposure"],
         checks["parameter"],
         checks["outcome"],
         checks["mechanism"],
@@ -209,11 +228,32 @@ def _candidate_entity_tokens(candidate: CausalHypothesis, entity_type: str) -> s
         EntityType.RECIPE.value: ("RCP_",),
     }
     text = f"{candidate.root_cause} {candidate.causal_explanation}".upper()
-    return {
+    tokens = {
         token.rstrip(".,;:)")
         for token in text.replace("/", " ").split()
         if token.startswith(prefixes.get(entity_type, ()))
     }
+    if entity_type == EntityType.CHAMBER.value:
+        tokens.update(
+            match.group(1)
+            for match in re.finditer(
+                r"\bCHAMBER\s*[:#_-]?\s*([A-Z0-9_]+)", text
+            )
+        )
+        tokens.update(
+            token
+            for token in re.findall(r"\b[A-Z][A-Z0-9_]+\b", text)
+            if re.search(r"_CH[A-Z0-9]+(?:_|$)", token)
+        )
+    if entity_type == EntityType.OPERATION.value:
+        tokens.update(
+            match.group(1)
+            for match in re.finditer(
+                r"\b(?:OPERATION(?:_NO)?|OP)\s*[:#_-]?\s*([A-Z0-9_]+)",
+                text,
+            )
+        )
+    return tokens
 
 
 def _compatible_with_candidate(
@@ -228,9 +268,255 @@ def _compatible_with_candidate(
     ):
         expected = _candidate_entity_tokens(candidate, entity_type)
         actual = _entity_ids(item, entity_type)
-        if expected and actual and not expected & actual:
+        matches = {
+            (expected_id, actual_id)
+            for expected_id in expected
+            for actual_id in actual
+            if _compact(expected_id) == _compact(actual_id)
+            or (
+                entity_type == EntityType.EQUIPMENT.value
+                and _compact(expected_id).startswith(_compact(actual_id))
+                and _compact(expected_id)[len(_compact(actual_id)) :].startswith("ch")
+            )
+            or (
+                entity_type == EntityType.CHAMBER.value
+                and _compact(expected_id).endswith(_compact(actual_id))
+            )
+        }
+        if expected and actual and not matches:
             return False
     return True
+
+
+def _compact(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value).casefold())
+
+
+def _metadata_values(item: Evidence, keys: set[str]) -> set[str]:
+    values: set[str] = set()
+
+    def visit(value: object) -> None:
+        if isinstance(value, Mapping):
+            for key, child in value.items():
+                if str(key).casefold() in keys and isinstance(
+                    child, str | int | float
+                ):
+                    values.add(str(child))
+                visit(child)
+        elif isinstance(value, (list, tuple)):
+            for child in value:
+                visit(child)
+
+    visit(item.metadata)
+    return values
+
+
+def _typed_values(item: Evidence, entity_type: str) -> set[str]:
+    values = _entity_ids(item, entity_type)
+    metadata_keys = {
+        EntityType.EQUIPMENT.value: {"equipment", "equipment_id"},
+        EntityType.CHAMBER.value: {"chamber", "chamber_id"},
+        EntityType.OPERATION.value: {
+            "operation",
+            "operation_id",
+            "operation_no",
+            "target_operation_no",
+        },
+        EntityType.RECIPE.value: {"recipe", "recipe_id"},
+        EntityType.PARAMETER.value: {
+            "parameter",
+            "parameter_id",
+            "parameter_name",
+            "metric_name",
+        },
+    }
+    values.update(_metadata_values(item, metadata_keys.get(entity_type, set())))
+    if entity_type == EntityType.PARAMETER.value and item.source_field:
+        values.add(item.source_field)
+    return values
+
+
+def _common_lane_values(
+    exposure: Sequence[Evidence],
+    process: Sequence[Evidence],
+    entity_type: str,
+) -> set[str]:
+    exposure_values = {
+        value for item in exposure for value in _typed_values(item, entity_type)
+    }
+    process_values = {
+        value for item in process for value in _typed_values(item, entity_type)
+    }
+    if not exposure_values or not process_values:
+        return set()
+    return {
+        left
+        for left in exposure_values
+        if any(_compact(left) == _compact(right) for right in process_values)
+    }
+
+
+def _candidate_matches_values(
+    candidate: CausalHypothesis,
+    values: set[str],
+) -> bool:
+    raw_text = f"{candidate.root_cause} {candidate.causal_explanation}"
+    compact_text = _compact(raw_text)
+    candidate_tokens = set(re.findall(r"[a-z0-9]+", raw_text.casefold()))
+    return any(
+        (
+            len(_compact(value)) >= 6
+            and _compact(value) in compact_text
+        )
+        or (
+            bool(value_tokens := set(re.findall(r"[a-z0-9]+", value.casefold())))
+            and value_tokens <= candidate_tokens
+        )
+        for value in values
+    )
+
+
+def _candidate_direction(candidate: CausalHypothesis) -> str | None:
+    aliases = {
+        "above": "high",
+        "decrease": "low",
+        "decreased": "low",
+        "drop": "low",
+        "high": "high",
+        "higher": "high",
+        "increase": "high",
+        "increased": "high",
+        "low": "low",
+        "lower": "low",
+        "reduced": "low",
+    }
+    for token in re.findall(
+        r"[a-z]+",
+        f"{candidate.root_cause} {candidate.causal_explanation}".casefold(),
+    ):
+        if token in aliases:
+            return aliases[token]
+    return None
+
+
+def _evidence_directions(items: Sequence[Evidence]) -> set[str]:
+    directions: set[str] = set()
+    for item in items:
+        raw = _metadata_values(
+            item,
+            {
+                "direction",
+                "parameter_direction",
+                "same_side_direction",
+                "trend_direction",
+            },
+        )
+        for value in raw:
+            lowered = value.casefold()
+            if lowered in {"high", "higher", "above", "increase", "increased"}:
+                directions.add("high")
+            elif lowered in {"low", "lower", "below", "decrease", "decreased"}:
+                directions.add("low")
+        for key in ("delta", "delta_percent", "avg_delta_percent", "mean_z_score"):
+            for value in _metadata_values(item, {key}):
+                try:
+                    numeric = float(value)
+                except ValueError:
+                    continue
+                if numeric > 0:
+                    directions.add("high")
+                elif numeric < 0:
+                    directions.add("low")
+    return directions
+
+
+def _parse_time(value: object) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+    return parsed
+
+
+def _evidence_windows(items: Sequence[Evidence]) -> list[tuple[datetime, datetime]]:
+    windows: list[tuple[datetime, datetime]] = []
+
+    def visit(value: object) -> None:
+        if isinstance(value, Mapping):
+            normalized = {str(key).casefold(): child for key, child in value.items()}
+            starts = [
+                normalized[key]
+                for key in (
+                    "excursion_start",
+                    "processing_start",
+                    "target_window_start",
+                    "window_start",
+                    "start",
+                )
+                if key in normalized
+            ]
+            ends = [
+                normalized[key]
+                for key in (
+                    "excursion_end",
+                    "processing_end",
+                    "target_window_end",
+                    "window_end",
+                    "end",
+                )
+                if key in normalized
+            ]
+            if starts and ends:
+                start = _parse_time(starts[0])
+                end = _parse_time(ends[0])
+                if start is not None and end is not None and start <= end:
+                    windows.append((start, end))
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, (list, tuple)):
+            for child in value:
+                visit(child)
+
+    for item in items:
+        visit(item.metadata)
+        for entity in item.entities:
+            visit(entity.attributes)
+    return list(dict.fromkeys(windows))
+
+
+def _timestamp_inside_window(
+    process: Sequence[Evidence],
+    windows: Sequence[tuple[datetime, datetime]],
+) -> bool:
+    if not windows:
+        return False
+    timestamps = [
+        parsed
+        for item in process
+        if item.timestamp
+        if (parsed := _parse_time(item.timestamp)) is not None
+    ]
+    return bool(timestamps) and all(
+        any(start <= timestamp <= end for start, end in windows)
+        for timestamp in timestamps
+    )
+
+
+def _compatible_outcomes(
+    outcomes: Sequence[Evidence],
+    candidate: CausalHypothesis,
+) -> list[Evidence]:
+    compatible: list[Evidence] = []
+    for item in outcomes:
+        values = {
+            *(_typed_values(item, EntityType.DEFECT.value)),
+            *(_typed_values(item, EntityType.WAT_ITEM.value)),
+        }
+        if values and _candidate_matches_values(candidate, values):
+            compatible.append(item)
+    return compatible
 
 
 def evaluate_impact_lot_gate(
@@ -294,32 +580,74 @@ def evaluate_impact_lot_gate(
             and _compatible_with_candidate(item, normalized)
         ]
         outcomes = [item for item in lot_items if item.evidence_type in _OUTCOME_TYPES]
-        supporting = [*exposure, *process, *outcomes]
-        if exposure and process and outcomes:
+        candidate_parameters = {
+            value
+            for item in process
+            for value in _typed_values(item, EntityType.PARAMETER.value)
+            if _candidate_matches_values(normalized, {value})
+        }
+        compatible_outcomes = _compatible_outcomes(outcomes, normalized)
+        common_equipment = _common_lane_values(
+            exposure, process, EntityType.EQUIPMENT.value
+        )
+        common_chamber = _common_lane_values(
+            exposure, process, EntityType.CHAMBER.value
+        )
+        common_operation = _common_lane_values(
+            exposure, process, EntityType.OPERATION.value
+        )
+        exposure_recipes = {
+            value for item in exposure for value in _typed_values(item, EntityType.RECIPE.value)
+        }
+        process_recipes = {
+            value for item in process for value in _typed_values(item, EntityType.RECIPE.value)
+        }
+        recipe_consistent = not (exposure_recipes or process_recipes) or bool(
+            {_compact(value) for value in exposure_recipes}
+            & {_compact(value) for value in process_recipes}
+        )
+        windows = _evidence_windows([*exposure, *process])
+        time_consistent = _timestamp_inside_window(process, windows)
+        candidate_direction = _candidate_direction(normalized)
+        evidence_directions = _evidence_directions(process)
+        direction_consistent = (
+            candidate_direction is None
+            or not evidence_directions
+            or candidate_direction in evidence_directions
+        )
+        supporting = [*exposure, *process, *compatible_outcomes]
+        checks = {
+            "exposure": bool(exposure),
+            "excursion": bool(process),
+            "equipment": bool(common_equipment),
+            "chamber": bool(common_chamber),
+            "operation": bool(common_operation),
+            "recipe": recipe_consistent,
+            "parameter": bool(candidate_parameters),
+            "parameter_direction": direction_consistent,
+            "excursion_window": bool(windows),
+            "temporal": time_consistent,
+            "outcome": bool(compatible_outcomes),
+        }
+        if all(checks.values()):
             rows.append(
                 {
                     "lot_id": lot_id,
                     "included": True,
                     "included_reason": (
                         "Lot has matching candidate exposure, process excursion, "
+                        "equipment/chamber/operation, parameter, excursion window, "
                         "and compatible outcome Evidence."
                     ),
                     "excluded_reason": None,
                     "supporting_evidence_ids": list(
                         dict.fromkeys(item.evidence_id for item in supporting)
                     ),
+                    "checks": checks,
                 }
             )
         else:
-            missing = [
-                label
-                for label, values in (
-                    ("exposure", exposure),
-                    ("excursion", process),
-                    ("outcome", outcomes),
-                )
-                if not values
-            ]
+            missing = [label for label, passed in checks.items() if not passed]
             rows.append(
                 {
                     "lot_id": lot_id,
@@ -329,6 +657,7 @@ def evaluate_impact_lot_gate(
                     "supporting_evidence_ids": list(
                         dict.fromkeys(item.evidence_id for item in supporting)
                     ),
+                    "checks": checks,
                 }
             )
     return {

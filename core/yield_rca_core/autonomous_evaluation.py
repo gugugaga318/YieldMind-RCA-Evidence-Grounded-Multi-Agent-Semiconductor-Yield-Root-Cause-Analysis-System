@@ -115,7 +115,7 @@ class _ImmediateUnsupportedStopClient(_RecordingFakeClient):
         if request.prompt_name != "next_action_planner":
             return response
         goal_id = str(request.payload["goal"]["goal_id"])
-        question_updates = [
+        question_updates: list[dict[str, Any]] = [
             {
                 "question_id": str(question["question_id"]),
                 "status": EvidenceGapStatus.UNAVAILABLE.value,
@@ -157,7 +157,7 @@ class _PartialEvidenceUnsupportedStopClient(_RecordingFakeClient):
         ):
             return response
         goal_id = str(request.payload["goal"]["goal_id"])
-        question_updates = [
+        question_updates: list[dict[str, Any]] = [
             {
                 "question_id": str(question["question_id"]),
                 "status": EvidenceGapStatus.UNAVAILABLE.value,

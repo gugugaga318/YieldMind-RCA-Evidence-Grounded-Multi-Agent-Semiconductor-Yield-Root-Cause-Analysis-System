@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -192,12 +193,9 @@ def _candidate_repair_feedback(
     evidence_by_id: dict[str, Evidence],
 ) -> dict[str, Any]:
     eligible_by_lane = _eligible_evidence_ids_by_lane(evidence_by_id)
-    missing_lanes = [
-        lane for lane in eligible_by_lane if lane in validation_error
-    ]
     return {
         "message": validation_error,
-        "missing_causal_lanes": missing_lanes,
+        "missing_causal_lanes": [],
         "eligible_supporting_evidence_ids_by_lane": eligible_by_lane,
         "source_agent_by_evidence_id": {
             evidence_id: evidence.source_agent
@@ -205,20 +203,63 @@ def _candidate_repair_feedback(
             if evidence.source_agent is not None
         },
         "repair_instruction": (
-            "Repair every proposed candidate using only causally relevant IDs "
-            "from eligible_supporting_evidence_ids_by_lane and preserve at "
-            "least three independent Specialist source agents. Do not attach an "
-            "irrelevant Evidence ID merely to satisfy the schema. If no complete "
-            "three-lane causal chain is justified, return candidates=[] with a "
-            "non-empty analysis_summary; that is a valid evidence-bounded answer."
+            "Repair only the reported schema or Evidence-reference error. Use "
+            "causally relevant IDs from eligible_supporting_evidence_ids_by_lane, "
+            "but do not attach an irrelevant Evidence ID merely to make a candidate "
+            "look complete. An incomplete evidence-bounded candidate is valid: "
+            "Python records its missing lanes in CausalEvidenceMatrix and may seek "
+            "targeted Evidence later. Return candidates=[] only when no causal "
+            "candidate is justified at all."
         ),
         "valid_empty_output": {
             "candidates": [],
             "analysis_summary": (
-                "No candidate is justified by a complete three-lane causal chain."
+                "No evidence-bounded causal candidate is justified."
             ),
         },
     }
+
+
+def _candidate_similarity_tokens(value: str) -> set[str]:
+    """Return conservative content tokens for near-duplicate isolation."""
+
+    ignored = {
+        "abnormal",
+        "abnormality",
+        "cause",
+        "causing",
+        "control",
+        "degradation",
+        "drift",
+        "excursion",
+        "failure",
+        "issue",
+        "problem",
+    }
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", value.casefold())
+        if len(token) >= 2 and token not in ignored
+    }
+
+
+def _near_duplicate(
+    left: HypothesisCandidateProposal,
+    right: HypothesisCandidateProposal,
+) -> bool:
+    left_compact = re.sub(r"[^a-z0-9]+", "", left.root_cause.casefold())
+    right_compact = re.sub(r"[^a-z0-9]+", "", right.root_cause.casefold())
+    if left_compact == right_compact:
+        return True
+    left_tokens = _candidate_similarity_tokens(left.root_cause)
+    right_tokens = _candidate_similarity_tokens(right.root_cause)
+    if not left_tokens or not right_tokens:
+        return False
+    overlap = len(left_tokens & right_tokens)
+    union = len(left_tokens | right_tokens)
+    containment = overlap / min(len(left_tokens), len(right_tokens))
+    jaccard = overlap / union
+    return containment >= 0.85 or jaccard >= 0.75
 
 
 def _parse_candidate(
@@ -284,44 +325,6 @@ def _parse_candidate(
         raise LLMOutputValidationError(
             f"candidates[{index}] uses non-supporting Evidence as support: "
             f"{invalid_support}"
-        )
-    supporting_evidence = [
-        evidence_by_id[evidence_id]
-        for evidence_id in proposal.supporting_evidence_ids
-    ]
-    causal_lanes = {
-        "shared_exposure": [
-            item.evidence_id
-            for item in supporting_evidence
-            if item.evidence_type in _EXPOSURE_TYPES
-        ],
-        "process_anomaly": [
-            item.evidence_id
-            for item in supporting_evidence
-            if item.evidence_type in _PROCESS_TYPES
-        ],
-        "product_outcome": [
-            item.evidence_id
-            for item in supporting_evidence
-            if item.evidence_type in _PRODUCT_TYPES
-        ],
-    }
-    missing_lanes = [lane for lane, evidence_ids in causal_lanes.items() if not evidence_ids]
-    if missing_lanes:
-        raise LLMOutputValidationError(
-            f"candidates[{index}] is missing required causal Evidence lanes "
-            f"{missing_lanes}; cite a supporting Evidence ID for every lane"
-        )
-    source_agents = {
-        str(item.source_agent)
-        for item in supporting_evidence
-        if item.source_agent is not None and item.source_type != "knowledge"
-    }
-    if len(source_agents) < 3:
-        raise LLMOutputValidationError(
-            f"candidates[{index}] must cite supporting Evidence from at least "
-            "three independent Specialist agents; current agents are "
-            f"{sorted(source_agents)}"
         )
     return proposal
 
@@ -436,12 +439,16 @@ class QwenHypothesisCandidateGenerator:
                         validation_errors=tuple(validation_errors),
                         candidate_output_invalid=True,
                     )
-                proposals = tuple(proposals_list)
-                roots = [candidate.root_cause.casefold() for candidate in proposals]
-                if len(roots) != len(set(roots)):
-                    raise LLMOutputValidationError(
-                        "candidate root_cause values must not be duplicates"
-                    )
+                distinct: list[HypothesisCandidateProposal] = []
+                for index, proposal in enumerate(proposals_list):
+                    if any(_near_duplicate(proposal, existing) for existing in distinct):
+                        validation_errors.append(
+                            f"candidates[{index}] is a near-duplicate of an earlier "
+                            "candidate and was isolated"
+                        )
+                        continue
+                    distinct.append(proposal)
+                proposals = tuple(distinct)
                 return HypothesisCandidateGeneration(
                     candidates=proposals,
                     attempt_count=attempt,

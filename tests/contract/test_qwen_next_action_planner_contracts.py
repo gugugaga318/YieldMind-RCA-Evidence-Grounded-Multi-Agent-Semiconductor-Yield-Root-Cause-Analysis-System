@@ -211,6 +211,260 @@ class PersistentCallFailureClient(RecordingNextActionClient):
 
 
 class QwenNextActionPlannerContractTest(unittest.TestCase):
+    @staticmethod
+    def _causal_gap_runtime() -> tuple[
+        InvestigationQuestion,
+        list[AgentFinding],
+        list[ActionRecord],
+        list[QuestionEvidenceLink],
+        str,
+    ]:
+        mechanism = questions()[1]
+        gap_id = "candidate_0.mechanism.incomplete"
+        rca = AgentFinding(
+            finding_id="FINDING_RCA_AUTHORITATIVE",
+            agent=AgentKind.RCA_REASONING.value,
+            summary="The current candidate still lacks mechanism support.",
+            confidence=0.5,
+            evidence_ids=["EV_RCA_TRACE"],
+            details={
+                "causal_evidence_gaps": [
+                    {
+                        "gap_id": gap_id,
+                        "candidate_index": 0,
+                        "claim": "mechanism",
+                        "status": "incomplete",
+                        "reason": "Approved mechanism Evidence is missing.",
+                        "question_kind": "process_mechanism",
+                        "allowed_actions": [
+                            ActionKind.VALIDATE_HISTORICAL_CASE.value
+                        ],
+                        "evidence_ids": ["EV_RCA_TRACE"],
+                    }
+                ]
+            },
+        )
+        findings = [
+            finding(AgentKind.MES.value),
+            finding(AgentKind.FDC.value),
+            finding(AgentKind.DEFECT_WAT.value),
+            rca,
+        ]
+        records: list[ActionRecord] = []
+        links: list[QuestionEvidenceLink] = []
+        for index, group in enumerate(
+            (
+                "process_anomaly",
+                "product_signal",
+                "shared_exposure",
+                "shared_product_signal",
+            ),
+            start=1,
+        ):
+            action_id = f"RCA_ROUND_{min(index, 2)}"
+            evidence_id = f"EV_GAIN_{index}"
+            links.append(
+                QuestionEvidenceLink(
+                    question_id=mechanism.question_id,
+                    evidence_id=evidence_id,
+                    action_id=action_id,
+                    relation=QuestionEvidenceRelation.SUPPORTS.value,
+                    matched_evidence_group=group,
+                    reason=f"The observation fills {group}.",
+                )
+            )
+        for index in (1, 2):
+            records.append(
+                ActionRecord(
+                    action=InvestigationAction(
+                        action_id=f"RCA_ROUND_{index}",
+                        kind=ActionKind.RUN_RCA_REASONING.value,
+                        agent=AgentKind.RCA_REASONING.value,
+                        reason="Compare the current candidates.",
+                        inputs={"lot_id": "LOT_01"},
+                        scope={"lot_id": "LOT_01", "round": index},
+                    ),
+                    status="completed",
+                    produced_evidence_ids=[
+                        f"EV_GAIN_{2 * index - 1}",
+                        f"EV_GAIN_{2 * index}",
+                    ],
+                    decision_summary="Candidate comparison completed.",
+                )
+            )
+        return mechanism, findings, records, links, gap_id
+
+    def test_authoritative_gap_selects_the_only_legal_action_without_qwen(self) -> None:
+        mechanism, findings, records, links, gap_id = self._causal_gap_runtime()
+        client = RecordingNextActionClient()
+
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=[mechanism],
+            findings=findings,
+            action_records=records,
+            tool_call_count=2,
+            evidence_ids=[link.evidence_id for link in links],
+            question_evidence_links=links,
+            authoritative_rca_finding_id="FINDING_RCA_AUTHORITATIVE",
+        )
+
+        self.assertEqual(client.requests, [])
+        self.assertEqual(outcome.decision_proposed_by, "python_runtime")
+        self.assertEqual(
+            outcome.decision.next_action.kind,
+            ActionKind.VALIDATE_HISTORICAL_CASE.value,
+        )
+        self.assertEqual(
+            outcome.decision.next_action.scope["causal_gap_id"],
+            gap_id,
+        )
+
+    def test_same_candidate_gap_action_is_single_use_and_stops_without_fallback(self) -> None:
+        mechanism, findings, records, links, gap_id = self._causal_gap_runtime()
+        records.append(
+            ActionRecord(
+                action=InvestigationAction(
+                    action_id="GAP_KNOWLEDGE_1",
+                    kind=ActionKind.VALIDATE_HISTORICAL_CASE.value,
+                    agent=AgentKind.KNOWLEDGE.value,
+                    reason="Validate mechanism Knowledge.",
+                    inputs={"lot_id": "LOT_01"},
+                    scope={"lot_id": "LOT_01", "causal_gap_id": gap_id},
+                ),
+                status="completed",
+                produced_evidence_ids=["EV_KNOWLEDGE_GAIN"],
+                decision_summary="Knowledge validation completed.",
+            )
+        )
+        links.append(
+            QuestionEvidenceLink(
+                question_id=mechanism.question_id,
+                evidence_id="EV_KNOWLEDGE_GAIN",
+                action_id="GAP_KNOWLEDGE_1",
+                relation=QuestionEvidenceRelation.SUPPORTS.value,
+                matched_evidence_group="historical_context",
+                reason="Approved Knowledge was evaluated.",
+            )
+        )
+        client = RecordingNextActionClient()
+
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=[mechanism],
+            findings=findings,
+            action_records=records,
+            tool_call_count=3,
+            evidence_ids=[link.evidence_id for link in links],
+            question_evidence_links=links,
+            authoritative_rca_finding_id="FINDING_RCA_AUTHORITATIVE",
+        )
+
+        self.assertEqual(client.requests, [])
+        self.assertEqual(outcome.decision.decision_type, DecisionType.STOP.value)
+        self.assertEqual(outcome.decision.stop_reason, StopReason.NO_ALLOWED_ACTION.value)
+
+    def test_only_gap_action_after_no_gain_stops_instead_of_raising(self) -> None:
+        mechanism, findings, records, links, _ = self._causal_gap_runtime()
+        prior_action = InvestigationAction(
+            action_id="OLD_GAP_KNOWLEDGE",
+            kind=ActionKind.VALIDATE_HISTORICAL_CASE.value,
+            agent=AgentKind.KNOWLEDGE.value,
+            reason="Validate a prior candidate gap.",
+            inputs={"lot_id": "LOT_01"},
+            scope={"lot_id": "LOT_01", "causal_gap_id": "candidate_1.mechanism"},
+        )
+        records.append(
+            ActionRecord(
+                action=prior_action,
+                status="completed",
+                produced_evidence_ids=["EV_CONTEXT_ONLY"],
+                decision_summary="The search returned context only.",
+            )
+        )
+        links.append(
+            QuestionEvidenceLink(
+                question_id=mechanism.question_id,
+                evidence_id="EV_CONTEXT_ONLY",
+                action_id=prior_action.action_id,
+                relation=QuestionEvidenceRelation.CONTEXT.value,
+                matched_evidence_group="historical_context",
+                reason="The result did not support or contradict the candidate.",
+            )
+        )
+        prior_decision = PlannerDecision(
+            decision_id="OLD_GAP_DECISION",
+            goal_id=goal().goal_id,
+            decision_type=DecisionType.ACT.value,
+            reason="Search the prior gap.",
+            goal_status=GoalStatus.IN_PROGRESS.value,
+            proposed_conclusion_level=ConclusionLevel.CANDIDATE.value,
+            next_action=prior_action,
+            target_question_ids=[mechanism.question_id],
+        )
+        client = RecordingNextActionClient()
+
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=[mechanism],
+            findings=findings,
+            action_records=records,
+            tool_call_count=3,
+            evidence_ids=[link.evidence_id for link in links],
+            question_evidence_links=links,
+            prior_decisions=[prior_decision],
+            authoritative_rca_finding_id="FINDING_RCA_AUTHORITATIVE",
+        )
+
+        self.assertEqual(client.requests, [])
+        self.assertEqual(outcome.decision.decision_type, DecisionType.STOP.value)
+        self.assertIn("no new relevant Evidence", outcome.decision.reason)
+
+    def test_two_context_only_actions_force_a_python_no_gain_stop(self) -> None:
+        mechanism = questions()[1]
+        records = [
+            ActionRecord(
+                action=InvestigationAction(
+                    action_id=f"CONTEXT_{index}",
+                    kind=ActionKind.INSPECT_FDC_SPC.value,
+                    agent=AgentKind.FDC.value,
+                    reason="Inspect another signal.",
+                    inputs={"lot_id": "LOT_01"},
+                    scope={"lot_id": "LOT_01", "attempt": index},
+                ),
+                status="completed",
+                produced_evidence_ids=[f"EV_CONTEXT_{index}"],
+                decision_summary="Only contextual Evidence was found.",
+            )
+            for index in (1, 2)
+        ]
+        links = [
+            QuestionEvidenceLink(
+                question_id=mechanism.question_id,
+                evidence_id=f"EV_CONTEXT_{index}",
+                action_id=f"CONTEXT_{index}",
+                relation=QuestionEvidenceRelation.CONTEXT.value,
+                matched_evidence_group="context",
+                reason="This Evidence is contextual only.",
+            )
+            for index in (1, 2)
+        ]
+        client = RecordingNextActionClient()
+
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=[mechanism],
+            findings=[finding(AgentKind.MES.value)],
+            action_records=records,
+            tool_call_count=2,
+            evidence_ids=[link.evidence_id for link in links],
+            question_evidence_links=links,
+        )
+
+        self.assertEqual(client.requests, [])
+        self.assertEqual(outcome.decision.decision_type, DecisionType.STOP.value)
+        self.assertIn("no new supporting", outcome.decision.reason)
+
     def test_fake_client_uses_a_registered_deterministic_baseline(self) -> None:
         client = RecordingNextActionClient()
 

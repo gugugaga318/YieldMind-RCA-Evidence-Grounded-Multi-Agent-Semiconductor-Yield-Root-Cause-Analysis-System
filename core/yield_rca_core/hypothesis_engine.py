@@ -927,13 +927,13 @@ class HypothesisEngine:
         ranked = sorted(
             candidates.values(),
             key=lambda item: (
+                not passes_decision_gate(item),
                 (
                     -1
                     if preferred_root is not None
                     and str(item["root_cause"]) == preferred_root
                     else 0
                 ),
-                not passes_decision_gate(item),
                 -float(item["confidence"]),
                 str(item["root_cause"]),
             ),
