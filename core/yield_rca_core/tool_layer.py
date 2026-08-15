@@ -110,6 +110,107 @@ def _evidence_id(prefix: str, value: str) -> str:
     return f"{prefix}_{normalized or 'UNKNOWN'}"
 
 
+def _shared_exposure_lanes(
+    process_rows: list[Row],
+    lot_ids: list[str],
+    *,
+    target_operation_no: str | None = None,
+    fdc_rows: list[Row] | None = None,
+    evidence_scope: str = "scope",
+) -> list[dict[str, Any]]:
+    """Discover concrete operation/resource lanes without selecting a cause.
+
+    A lane is a factual process assignment, not a root-cause conclusion.  The
+    helper intentionally returns every observed assignment so the caller can
+    keep a bounded active set while retaining an auditable overflow inventory.
+    """
+
+    selected_lots = {str(item).strip() for item in lot_ids if str(item).strip()}
+    if not selected_lots:
+        return []
+    grouped: dict[tuple[str, str, str, str], list[Row]] = defaultdict(list)
+    for row in process_rows:
+        key = (
+            str(row.get("operation_no", "")),
+            str(row.get("equipment_id", "")),
+            str(row.get("chamber_id", "")),
+            str(row.get("recipe_id", "")),
+        )
+        if all(key) and row.get("lot_id") in selected_lots:
+            grouped[key].append(row)
+    signal_rows = fdc_rows or []
+    lanes: list[dict[str, Any]] = []
+    for key, rows in grouped.items():
+        operation_no, equipment_id, chamber_id, recipe_id = key
+        lane_lots = {str(row["lot_id"]) for row in rows}
+        lane_wafers = {str(row["wafer_id"]) for row in rows}
+        matching_signals = [
+            row
+            for row in signal_rows
+            if row.get("operation_no") == operation_no
+            and row.get("equipment_id") == equipment_id
+            and row.get("chamber_id") == chamber_id
+        ]
+        abnormal_signal_count = sum(
+            row.get("severity") != "NORMAL" or row.get("ooc_flag") == "true"
+            for row in matching_signals
+        )
+        coverage = len(lane_lots) / max(1, len(selected_lots))
+        target_bonus = 0.2 if target_operation_no and operation_no == target_operation_no else 0.0
+        signal_bonus = min(0.1, abnormal_signal_count / max(1, len(matching_signals)) * 0.1)
+        priority_score = round(min(1.0, 0.65 * coverage + target_bonus + signal_bonus), 4)
+        lane_id = ":".join(("lane", operation_no, equipment_id, chamber_id, recipe_id))
+        timestamp_rows = [
+            row
+            for row in rows
+            if row.get("started_at") and row.get("ended_at")
+        ]
+        parameter_scope = sorted(
+            {
+                str(row.get("parameter_name", ""))
+                for row in matching_signals
+                if str(row.get("parameter_name", "")).strip()
+            }
+        )
+        lanes.append(
+            {
+                "lane_id": lane_id,
+                "operation": operation_no,
+                "operation_name": str(rows[0].get("operation_name", "")),
+                "module": str(rows[0].get("module", "")),
+                "equipment": equipment_id,
+                "chamber": chamber_id,
+                "recipe": recipe_id,
+                "parameter_scope": parameter_scope,
+                "exposed_lot_ids": sorted(lane_lots),
+                "exposed_wafer_ids": sorted(lane_wafers),
+                "time_window": (
+                    [
+                        min(str(row["started_at"]) for row in timestamp_rows),
+                        max(str(row["ended_at"]) for row in timestamp_rows),
+                    ]
+                    if timestamp_rows
+                    else []
+                ),
+                "priority_score": priority_score,
+                "abnormal_signal_count": abnormal_signal_count,
+                "coverage": round(coverage, 4),
+                "evidence_scope": evidence_scope,
+            }
+        )
+    lanes.sort(
+        key=lambda item: (
+            -float(item["priority_score"]),
+            -float(item["coverage"]),
+            -len(item["exposed_lot_ids"]),
+            str(item["operation"]),
+            str(item["equipment"]),
+            str(item["chamber"]),
+        )
+    )
+    return lanes
+
+
 def _evidence_payload(evidence: list[Evidence]) -> tuple[list[str], list[dict[str, Any]]]:
     return [item.evidence_id for item in evidence], [item.to_dict() for item in evidence]
 
@@ -768,15 +869,35 @@ class FindImpactLotsTool(BaseTool):
                     ),
                     None,
                 )
+        scoped_target_rows = [
+            row
+            for row in target_rows
+            if (
+                not tool_input.parameters.get("equipment_id")
+                or row["equipment_id"] == str(tool_input.parameters["equipment_id"])
+            )
+            and (
+                not tool_input.parameters.get("chamber_id")
+                or row["chamber_id"] == str(tool_input.parameters["chamber_id"])
+            )
+            and (
+                not tool_input.parameters.get("recipe_id")
+                or row["recipe_id"] == str(tool_input.parameters["recipe_id"])
+            )
+        ]
+        if not scoped_target_rows:
+            raise ModelValidationError(
+                "requested causal Lane has no process exposure at the selected operation"
+            )
         source_exposure = next(
             (
                 row
-                for row in target_rows
+                for row in scoped_target_rows
                 if source_signal
                 and row["wafer_id"] == source_signal["wafer_id"]
                 and row["chamber_id"] == source_signal["chamber_id"]
             ),
-            target_rows[0],
+            scoped_target_rows[0],
         )
         matching_ooc_events = filter_rows(
             self.repository.rows("ooc_event"),
@@ -900,6 +1021,118 @@ class FindImpactLotsTool(BaseTool):
             "analysis_cutoff": analysis_cutoff,
         }
 
+        lane_process_rows = [
+            row
+            for row in self.repository.rows("process_history")
+            if row.get("lot_id") in set(exposed_lots)
+        ]
+        lane_fdc_rows = [
+            row
+            for row in self.repository.rows("fdc_feature")
+            if row.get("lot_id") in set(exposed_lots)
+        ]
+        lane_candidates = _shared_exposure_lanes(
+            lane_process_rows,
+            exposed_lots,
+            target_operation_no=target_operation_no,
+            fdc_rows=lane_fdc_rows,
+            evidence_scope="impact_lots",
+        )
+        source_lane = next(
+            (
+                lane
+                for lane in lane_candidates
+                if lane["operation"] == target_operation_no
+                and lane["equipment"] == source_exposure["equipment_id"]
+                and lane["chamber"] == source_exposure["chamber_id"]
+                and lane["recipe"] == source_exposure["recipe_id"]
+            ),
+            None,
+        )
+        if source_lane is None:
+            source_lane = {
+                "lane_id": ":".join(
+                    (
+                        "lane",
+                        target_operation_no,
+                        source_exposure["equipment_id"],
+                        source_exposure["chamber_id"],
+                        source_exposure["recipe_id"],
+                    )
+                ),
+                "operation": target_operation_no,
+                "operation_name": source_exposure.get("operation_name", ""),
+                "module": source_exposure.get("module", ""),
+                "equipment": source_exposure["equipment_id"],
+                "chamber": source_exposure["chamber_id"],
+                "recipe": source_exposure["recipe_id"],
+                "parameter_scope": [],
+                "exposed_lot_ids": list(exposed_lots),
+                "exposed_wafer_ids": list(affected_wafers),
+                "time_window": [excursion_start, excursion_end],
+                "priority_score": 1.0,
+                "abnormal_signal_count": len(chamber_abnormal_features),
+                "coverage": 1.0,
+                "evidence_scope": "impact_lots",
+            }
+            lane_candidates.insert(0, source_lane)
+        lane_scope_token = f"{lot_id}_{target_operation_no}_{len(exposed_lots)}"
+        lane_evidence: list[Evidence] = []
+        for lane in lane_candidates:
+            lane_evidence_id = _evidence_id(
+                "EV_MES_SHARED_LANE",
+                f"{lane_scope_token}_{lane['lane_id']}",
+            )
+            lane["evidence_ids"] = [lane_evidence_id]
+            lane_evidence.append(
+                EvidenceBuilder.from_tool(
+                    tool_input=tool_input,
+                    evidence_id=lane_evidence_id,
+                    evidence_type=EvidenceType.EQUIPMENT_EXPOSURE,
+                    source_type=EvidenceSourceType.MES,
+                    observation=(
+                        f"Lane {lane['lane_id']} covers {len(lane['exposed_lot_ids'])}/"
+                        f"{len(exposed_lots)} exposed Lots at operation {lane['operation']} "
+                        f"on {lane['equipment']}/{lane['chamber']}."
+                    ),
+                    entities=[
+                        *[
+                            EvidenceEntity(
+                                entity_type=EntityType.LOT.value,
+                                entity_id=lane_lot_id,
+                                attributes={"role": "lane_exposure"},
+                            )
+                            for lane_lot_id in lane["exposed_lot_ids"]
+                        ],
+                        EvidenceEntity(
+                            entity_type=EntityType.OPERATION.value,
+                            entity_id=lane["operation"],
+                        ),
+                        EvidenceEntity(
+                            entity_type=EntityType.EQUIPMENT.value,
+                            entity_id=lane["equipment"],
+                        ),
+                        EvidenceEntity(
+                            entity_type=EntityType.CHAMBER.value,
+                            entity_id=lane["chamber"],
+                        ),
+                        EvidenceEntity(
+                            entity_type=EntityType.RECIPE.value,
+                            entity_id=lane["recipe"],
+                        ),
+                    ],
+                    confidence=round(min(0.99, 0.5 + 0.5 * lane["coverage"]), 3),
+                    source_id=f"process_history:lane:{lane['lane_id']}",
+                    source_table="process_history",
+                    timestamp=(lane["time_window"][-1] if lane["time_window"] else None),
+                    metadata={
+                        "lane_id": lane["lane_id"],
+                        "lane": dict(lane),
+                        "source_lot_id": lot_id,
+                    },
+                )
+            )
+
         evidence: list[Evidence] = []
         if matching_ooc_events:
             evidence.append(
@@ -954,6 +1187,7 @@ class FindImpactLotsTool(BaseTool):
                         "excursion_start": excursion_start,
                         "excursion_end": excursion_end,
                         "analysis_cutoff": analysis_cutoff,
+                        "lane_id": source_lane["lane_id"],
                     },
                 )
             )
@@ -1069,9 +1303,11 @@ class FindImpactLotsTool(BaseTool):
                     "criteria": criteria,
                     "affected_wafers": affected_wafers,
                     "impact_wafers": impact_wafers,
+                    "lane_id": source_lane["lane_id"],
                 },
             )
         )
+        evidence.extend(lane_evidence)
         if warnings:
             warnings = [
                 Warning(
@@ -1097,6 +1333,7 @@ class FindImpactLotsTool(BaseTool):
                 "source_exposure": source_exposure,
                 "impact_criteria": criteria,
                 "recovery_control_lots": recovery_control_lots,
+                "lane_candidates": lane_candidates,
             },
             evidence,
             warnings,
@@ -1140,6 +1377,13 @@ class AnalyzeLotGenealogyTool(BaseTool):
         process_rows = [
             row for row in self.repository.rows("process_history") if row["lot_id"] in lot_ids
         ]
+        lane_candidates = _shared_exposure_lanes(
+            process_rows,
+            lot_ids,
+            target_operation_no=target_operation_no,
+            fdc_rows=selected_fdc,
+            evidence_scope="affected_lots",
+        )
         operation_commonality: list[dict[str, Any]] = []
         grouped: dict[str, list[Row]] = defaultdict(list)
         for row in process_rows:
@@ -1189,6 +1433,7 @@ class AnalyzeLotGenealogyTool(BaseTool):
 
         requested_equipment = str(tool_input.parameters.get("equipment_id", ""))
         requested_chamber = str(tool_input.parameters.get("chamber_id", ""))
+        requested_recipe = str(tool_input.parameters.get("recipe_id", ""))
         preferred_signal_rows = [
             row
             for row in selected_fdc
@@ -1214,7 +1459,9 @@ class AnalyzeLotGenealogyTool(BaseTool):
         preferred_groups = [
             (key, rows)
             for key, rows in target_groups.items()
-            if preferred_pair and key[:2] == preferred_pair
+            if preferred_pair
+            and key[:2] == preferred_pair
+            and (not requested_recipe or key[2] == requested_recipe)
         ]
         candidate_groups = preferred_groups or list(target_groups.items())
         target_key, selected_target_rows = max(
@@ -1232,6 +1479,99 @@ class AnalyzeLotGenealogyTool(BaseTool):
         hold_rows = [
             row for row in self.repository.rows("hold_history") if row["lot_id"] in lot_ids
         ]
+
+        target_lane = next(
+            (
+                lane
+                for lane in lane_candidates
+                if lane["operation"] == target_operation_no
+                and lane["equipment"] == target_key[0]
+                and lane["chamber"] == target_key[1]
+                and lane["recipe"] == target_key[2]
+            ),
+            None,
+        )
+        if target_lane is None:
+            target_lane = {
+                "lane_id": ":".join(
+                    ("lane", target_operation_no, target_key[0], target_key[1], target_key[2])
+                ),
+                "operation": target_operation_no,
+                "operation_name": target_rows[0]["operation_name"],
+                "module": target_rows[0]["module"],
+                "equipment": target_key[0],
+                "chamber": target_key[1],
+                "recipe": target_key[2],
+                "parameter_scope": [],
+                "exposed_lot_ids": sorted(target_lots),
+                "exposed_wafer_ids": sorted(target_wafers),
+                "time_window": [],
+                "priority_score": round(lot_coverage, 4),
+                "abnormal_signal_count": 0,
+                "coverage": round(lot_coverage, 4),
+                "evidence_scope": "affected_lots",
+            }
+            lane_candidates.insert(0, target_lane)
+        lane_scope_token = (
+            f"{lot_ids[0]}_{lot_ids[-1]}_{len(lot_ids)}"
+            if lot_ids
+            else "empty"
+        )
+        lane_evidence: list[Evidence] = []
+        for lane in lane_candidates:
+            lane_evidence_id = _evidence_id(
+                "EV_MES_SHARED_LANE",
+                f"{lane_scope_token}_{lane['lane_id']}",
+            )
+            lane["evidence_ids"] = [lane_evidence_id]
+            lane_evidence.append(
+                EvidenceBuilder.from_tool(
+                    tool_input=tool_input,
+                    evidence_id=lane_evidence_id,
+                    evidence_type=EvidenceType.EQUIPMENT_EXPOSURE,
+                    source_type=EvidenceSourceType.MES,
+                    observation=(
+                        f"Lane {lane['lane_id']} covers {len(lane['exposed_lot_ids'])}/"
+                        f"{len(lot_ids)} selected Lots at operation {lane['operation']} "
+                        f"on {lane['equipment']}/{lane['chamber']}."
+                    ),
+                    entities=[
+                        *[
+                            EvidenceEntity(
+                                entity_type=EntityType.LOT.value,
+                                entity_id=lane_lot_id,
+                                attributes={"role": "lane_exposure"},
+                            )
+                            for lane_lot_id in lane["exposed_lot_ids"]
+                        ],
+                        EvidenceEntity(
+                            entity_type=EntityType.OPERATION.value,
+                            entity_id=lane["operation"],
+                        ),
+                        EvidenceEntity(
+                            entity_type=EntityType.EQUIPMENT.value,
+                            entity_id=lane["equipment"],
+                        ),
+                        EvidenceEntity(
+                            entity_type=EntityType.CHAMBER.value,
+                            entity_id=lane["chamber"],
+                        ),
+                        EvidenceEntity(
+                            entity_type=EntityType.RECIPE.value,
+                            entity_id=lane["recipe"],
+                        ),
+                    ],
+                    confidence=round(min(0.99, 0.5 + 0.5 * lane["coverage"]), 3),
+                    source_id=f"process_history:lane:{lane['lane_id']}",
+                    source_table="process_history",
+                    timestamp=(lane["time_window"][-1] if lane["time_window"] else None),
+                    metadata={
+                        "lane_id": lane["lane_id"],
+                        "lane": dict(lane),
+                        "selected_lot_ids": list(lot_ids),
+                    },
+                )
+            )
 
         evidence = [
             EvidenceBuilder.from_tool(
@@ -1282,9 +1622,11 @@ class AnalyzeLotGenealogyTool(BaseTool):
                     "wafer_ids": sorted(target_wafers),
                     "lot_coverage": lot_coverage,
                     "wafer_coverage": wafer_coverage,
+                    "lane_id": target_lane["lane_id"],
                 },
             )
         ]
+        evidence.extend(lane_evidence)
         if hold_rows:
             hold_metadata = {
                 "hold_count": len(hold_rows),
@@ -1372,6 +1714,7 @@ class AnalyzeLotGenealogyTool(BaseTool):
                     "wafer_coverage": wafer_coverage,
                 },
                 "operation_commonality": operation_commonality,
+                "lane_candidates": lane_candidates,
                 "hold_count": len(hold_rows),
             },
             evidence,

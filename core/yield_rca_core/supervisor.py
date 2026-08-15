@@ -5,6 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
+from yield_rca_core.causal_investigation_models import (
+    AlternativeSearchStatus,
+    CausalLaneRecord,
+    CompetitionTrace,
+    InvestigationLaneStatus,
+)
 from yield_rca_core.causal_scope import explicit_module_limit_requested
 from yield_rca_core.evidence_collection import EvidenceCollection
 from yield_rca_core.improvement_agent import ImprovementAgent
@@ -85,6 +91,139 @@ SPECIALIST_TOOL_ALLOWLISTS = {
     AgentKind.DEFECT_WAT.value: ["summarize_defect_wat"],
     AgentKind.KNOWLEDGE.value: ["retrieve_similar_case"],
 }
+
+
+def _update_causal_lane_state(state: RCAState, finding: AgentFinding) -> RCAState:
+    """Persist bounded concrete Lane discovery from a MES Finding.
+
+    Lane ranking is deterministic and owned by Python.  A Finding may expose
+    factual ``lane_candidates`` produced by a Tool, but it cannot mark an
+    alternative eliminated or make a conclusion supported.
+    """
+
+    raw_candidates = finding.details.get("lane_candidates")
+    if finding.agent != AgentKind.MES.value or not isinstance(raw_candidates, list):
+        return state
+    known_evidence_ids = set(item.evidence_id for item in state.evidence)
+    records_by_id = {record.lane_id: record for record in state.causal_lanes}
+    discovered: list[CausalLaneRecord] = []
+    for raw in raw_candidates:
+        if not isinstance(raw, dict):
+            continue
+        lane_id = str(raw.get("lane_id", "")).strip()
+        if not lane_id:
+            continue
+        raw_evidence_ids = raw.get("evidence_ids", [])
+        evidence_ids = tuple(
+            str(item).strip()
+            for item in raw_evidence_ids
+            if isinstance(item, str)
+            and item.strip()
+            and item.strip() in known_evidence_ids
+        ) if isinstance(raw_evidence_ids, list | tuple) else ()
+        time_window = raw.get("time_window", [])
+        try:
+            record = CausalLaneRecord(
+                lane_id=lane_id,
+                operation=str(raw.get("operation", "")),
+                equipment=str(raw.get("equipment", "")),
+                chamber=str(raw.get("chamber", "")),
+                recipe=str(raw.get("recipe", "")),
+                parameter_scope=tuple(
+                    str(item)
+                    for item in raw.get("parameter_scope", [])
+                    if str(item).strip()
+                ),
+                exposed_lot_ids=tuple(
+                    str(item)
+                    for item in raw.get("exposed_lot_ids", [])
+                    if str(item).strip()
+                ),
+                time_window=(
+                    tuple(str(item) for item in time_window)
+                    if isinstance(time_window, list | tuple)
+                    else ()
+                ),
+                initial_evidence_ids=evidence_ids,
+                priority_score=float(raw.get("priority_score", 0.0)),
+                investigation_status=InvestigationLaneStatus.EVIDENCE_COLLECTED.value,
+            )
+        except (TypeError, ValueError, ModelValidationError):
+            # Malformed one-Lane payloads are isolated; other factual lanes
+            # remain usable and this is not a Planner/orchestration failure.
+            continue
+        previous = records_by_id.get(record.lane_id)
+        if previous is not None and previous.investigation_status in {
+            InvestigationLaneStatus.ELIMINATED.value,
+            InvestigationLaneStatus.BLOCKED.value,
+        }:
+            record = replace(
+                record,
+                investigation_status=previous.investigation_status,
+                pruned_reason=previous.pruned_reason,
+            )
+        records_by_id[record.lane_id] = record
+        discovered.append(record)
+    if not discovered:
+        return state
+
+    ordered = sorted(
+        records_by_id.values(),
+        key=lambda item: (-item.priority_score, item.lane_id),
+    )
+    active = ordered[:3]
+    overflow = ordered[3:]
+    active_ids = tuple(item.lane_id for item in active)
+    overflow_ids = tuple(item.lane_id for item in overflow)
+    terminal_eliminated = tuple(
+        item.lane_id
+        for item in ordered
+        if item.investigation_status
+        in {
+            InvestigationLaneStatus.ELIMINATED.value,
+            InvestigationLaneStatus.BLOCKED.value,
+        }
+    )
+    unresolved_ids = tuple(item.lane_id for item in overflow)
+    trace = CompetitionTrace(
+        active_lane_ids=active_ids,
+        overflow_lane_ids=overflow_ids,
+        represented_lane_ids=active_ids,
+        unresolved_lane_ids=unresolved_ids,
+        eliminated_lane_ids=terminal_eliminated,
+        alternative_search_status=AlternativeSearchStatus.NOT_SEARCHED.value,
+        challenge_round_count=(
+            state.competition_trace.challenge_round_count
+            if state.competition_trace is not None
+            else 0
+        ),
+    )
+    return replace(
+        state,
+        causal_lanes=ordered,
+        competition_trace=trace,
+    )
+
+
+def _selected_lane(
+    finding: AgentFinding,
+    lane_id: object,
+) -> dict[str, Any] | None:
+    normalized_lane_id = str(lane_id or "").strip()
+    if not normalized_lane_id:
+        return None
+    raw_lanes = finding.details.get("lane_candidates", [])
+    if not isinstance(raw_lanes, list):
+        return None
+    return next(
+        (
+            dict(item)
+            for item in raw_lanes
+            if isinstance(item, dict)
+            and str(item.get("lane_id", "")).strip() == normalized_lane_id
+        ),
+        None,
+    )
 
 
 def _llm_call_fallback_diagnostics(error: LLMCallError) -> dict[str, Any]:
@@ -1071,6 +1210,22 @@ class Supervisor:
             "source_lot_id": state.job.source_lot_id,
             "user_query": state.job.user_query,
         }
+        lane_scope = action.scope
+        if isinstance(lane_scope.get("lane_id"), str) and lane_scope["lane_id"].strip():
+            context["lane_id"] = lane_scope["lane_id"].strip()
+        for scope_key, context_key in (
+            ("operation", "operation_no"),
+            ("operation_no", "operation_no"),
+            ("equipment", "equipment_id"),
+            ("equipment_id", "equipment_id"),
+            ("chamber", "chamber_id"),
+            ("chamber_id", "chamber_id"),
+            ("recipe", "recipe_id"),
+            ("recipe_id", "recipe_id"),
+        ):
+            value = lane_scope.get(scope_key)
+            if isinstance(value, str) and value.strip():
+                context[context_key] = value.strip()
         if action.kind in {
             "inspect_defect_pattern",
             "validate_shared_defect_pattern",
@@ -1085,7 +1240,12 @@ class Supervisor:
                     AgentKind.MES.value,
                     state=state,
                 )
-                raw_lot_ids = mes.details.get("affected_lots", [])
+                selected_lane = _selected_lane(mes, context.get("lane_id"))
+                raw_lot_ids = (
+                    selected_lane.get("exposed_lot_ids", [])
+                    if selected_lane is not None
+                    else mes.details.get("affected_lots", [])
+                )
                 authorized_lot_ids = (
                     raw_lot_ids if isinstance(raw_lot_ids, list) else []
                 )
@@ -1132,8 +1292,16 @@ class Supervisor:
                     "start_date": start_date,
                     "end_date": end_date,
                     "target_operation_no": (
-                        str(facts.get("target_operation_no")).strip()
-                        if facts.get("target_operation_no")
+                        str(
+                            facts.get("target_operation_no")
+                            or lane_scope.get("operation_no")
+                            or lane_scope.get("operation")
+                        ).strip()
+                        if (
+                            facts.get("target_operation_no")
+                            or lane_scope.get("operation_no")
+                            or lane_scope.get("operation")
+                        )
                         else None
                     ),
                 }
@@ -1148,7 +1316,19 @@ class Supervisor:
             commonality = (
                 raw_commonality if isinstance(raw_commonality, dict) else {}
             )
-            raw_lot_ids = mes.details.get("affected_lots", [])
+            selected_lane = _selected_lane(mes, context.get("lane_id"))
+            if selected_lane is not None:
+                commonality = {
+                    **commonality,
+                    "equipment_id": selected_lane.get("equipment", ""),
+                    "chamber_id": selected_lane.get("chamber", ""),
+                    "recipe_id": selected_lane.get("recipe", ""),
+                }
+            raw_lot_ids = (
+                selected_lane.get("exposed_lot_ids", [])
+                if selected_lane is not None
+                else mes.details.get("affected_lots", [])
+            )
             lot_ids = (
                 [str(item) for item in raw_lot_ids if str(item).strip()]
                 if isinstance(raw_lot_ids, list)
@@ -1160,7 +1340,9 @@ class Supervisor:
                     "equipment_id": str(commonality.get("equipment_id", "")),
                     "chamber_id": str(commonality.get("chamber_id", "")),
                     "operation_no": str(
-                        mes.details.get("target_operation_no", "")
+                        selected_lane.get("operation", "")
+                        if selected_lane is not None
+                        else mes.details.get("target_operation_no", "")
                     ),
                 }
             )
@@ -1462,7 +1644,7 @@ class Supervisor:
             action_record=record,
             evidence=evidence,
         )
-        return replace(
+        recorded_state = replace(
             state,
             job=updated_job,
             evidence=evidence,
@@ -1483,6 +1665,7 @@ class Supervisor:
             authoritative_hypothesis_id=authoritative_hypothesis_id,
             warnings=_merge_warnings(state.warnings, finding.warnings),
         )
+        return _update_causal_lane_state(recorded_state, finding)
 
     def execute(self, job: RCAJob, task_plan: TaskPlan) -> RCAState:
         plan_agents = {task.agent for task in task_plan.tasks}

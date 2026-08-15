@@ -627,6 +627,14 @@ class SpecialistV2Executor:
                 )
                 if operation_no:
                     parameters["target_operation_no"] = operation_no
+                for context_key, parameter_key in (
+                    ("equipment_id", "equipment_id"),
+                    ("chamber_id", "chamber_id"),
+                    ("recipe_id", "recipe_id"),
+                ):
+                    value = _string(context.get(context_key))
+                    if value:
+                        parameters[parameter_key] = value
                 return [
                     _candidate(
                         action,
@@ -677,6 +685,14 @@ class SpecialistV2Executor:
         )
         if operation_no:
             parameters["target_operation_no"] = operation_no
+        for context_key, parameter_key in (
+            ("equipment_id", "equipment_id"),
+            ("chamber_id", "chamber_id"),
+            ("recipe_id", "recipe_id"),
+        ):
+            value = _string(context.get(context_key))
+            if value:
+                parameters[parameter_key] = value
         return [
             _candidate(
                 action,
@@ -1030,10 +1046,14 @@ class SpecialistV2Executor:
                 stage="tool_execution",
                 reason="tool_not_configured",
             )
+        parameters = dict(candidate.parameters)
+        lane_id = action.scope.get("lane_id")
+        if isinstance(lane_id, str) and lane_id.strip():
+            parameters.setdefault("lane_id", lane_id.strip())
         tool_input = ToolInput(
             tool_name=candidate.tool_name,
             request_id=f"{request_id}:specialist-step-{step_index}",
-            parameters=dict(candidate.parameters),
+            parameters=parameters,
             requested_by=action.agent,
         )
         try:
@@ -1058,7 +1078,7 @@ class SpecialistV2Executor:
             decision_id=decision.decision_id,
             candidate_id=candidate.candidate_id,
             tool_name=candidate.tool_name,
-            parameters=dict(candidate.parameters),
+            parameters=parameters,
             reason=decision.reason,
             evidence_ids=list(output.evidence_ids),
             output_summary=_tool_output_summary(output),
@@ -1229,6 +1249,15 @@ class SpecialistV2Executor:
         else:
             normalized_fail_modes = {}
         source_exposure = impact_data.get("source_exposure", {})
+        raw_lane_candidates = impact_data.get(
+            "lane_candidates",
+            genealogy_data.get("lane_candidates", []),
+        )
+        lane_candidates = [
+            dict(item)
+            for item in raw_lane_candidates
+            if isinstance(item, Mapping) and _string(item.get("lane_id"))
+        ] if isinstance(raw_lane_candidates, list) else []
         return summary, confidence, {
             "investigation_mode": "lot" if source_lot_id else "product_window",
             "source_lot_id": source_lot_id,
@@ -1260,6 +1289,7 @@ class SpecialistV2Executor:
             "target_operation_no": operation_no,
             "target_commonality": commonality,
             "operation_commonality": operation_commonality,
+            "lane_candidates": lane_candidates,
             "hold_count": int(
                 genealogy_data.get(
                     "hold_count",

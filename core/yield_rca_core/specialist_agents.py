@@ -180,6 +180,9 @@ class MESAgent:
                 "target_operation_no": resolved_operation,
                 "target_commonality": commonality,
                 "operation_commonality": list(genealogy_output.data["operation_commonality"]),
+                "lane_candidates": list(
+                    genealogy_output.data.get("lane_candidates", [])
+                ),
                 "hold_count": int(genealogy_output.data["hold_count"]),
             },
             warnings=_warnings(
@@ -294,6 +297,9 @@ class MESAgent:
                 "target_operation_no": resolved_operation,
                 "target_commonality": commonality,
                 "operation_commonality": list(genealogy_output.data["operation_commonality"]),
+                "lane_candidates": list(
+                    impact_output.data.get("lane_candidates", [])
+                ),
                 "hold_count": int(genealogy_output.data["hold_count"]),
             },
             warnings=_warnings(

@@ -319,7 +319,62 @@ def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
                 ),
             }
         )
+    if finding.agent == AgentKind.MES.value:
+        raw_lanes = finding.details.get("lane_candidates", [])
+        if isinstance(raw_lanes, list):
+            lanes = [
+                dict(item)
+                for item in raw_lanes
+                if isinstance(item, Mapping) and str(item.get("lane_id", "")).strip()
+            ]
+            lanes.sort(
+                key=lambda item: (
+                    -float(item.get("priority_score", 0.0)),
+                    str(item.get("lane_id", "")),
+                )
+            )
+            compact["causal_lanes"] = lanes[:3]
+            compact["active_lane_ids"] = [
+                str(item["lane_id"]) for item in lanes[:3]
+            ]
+            compact["overflow_lane_ids"] = [
+                str(item["lane_id"]) for item in lanes[3:]
+            ]
+            compact["overflow_lane_inventory"] = [
+                {
+                    key: item.get(key)
+                    for key in (
+                        "lane_id",
+                        "operation",
+                        "equipment",
+                        "chamber",
+                        "recipe",
+                        "priority_score",
+                        "coverage",
+                    )
+                }
+                for item in lanes[3:]
+            ]
     return compact
+
+
+def _known_causal_lane_ids(findings: list[AgentFinding]) -> tuple[str, ...]:
+    lane_ids: list[str] = []
+    for finding in findings:
+        if finding.agent != AgentKind.MES.value:
+            continue
+        raw_lanes = finding.details.get("lane_candidates", [])
+        if not isinstance(raw_lanes, list):
+            continue
+        for item in raw_lanes:
+            lane_id = (
+                str(item.get("lane_id", "")).strip()
+                if isinstance(item, Mapping)
+                else ""
+            )
+            if lane_id and lane_id not in lane_ids:
+                lane_ids.append(lane_id)
+    return tuple(lane_ids)
 
 
 def _authoritative_causal_gaps(
@@ -993,6 +1048,17 @@ class QwenNextActionPlanner:
                         _PLANNER_INPUT_ONLY_FIELDS
                     ),
                     "legal_target_question_ids_by_action": legal_action_targets,
+                    "known_causal_lane_ids": list(_known_causal_lane_ids(findings)),
+                    "lane_aware_action_kinds": [
+                        ActionKind.INSPECT_DEFECT_PATTERN.value,
+                        ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
+                        ActionKind.INSPECT_FDC_SPC.value,
+                        ActionKind.VALIDATE_HISTORICAL_CASE.value,
+                    ],
+                    "lane_selection_rule": (
+                        "When multiple causal lanes are discovered, every lane-aware "
+                        "Action must copy exactly one known lane_id into next_action.scope."
+                    ),
                     "causal_evidence_gaps": causal_gaps,
                     "legal_causal_gap_ids_by_action": causal_gap_ids_by_action,
                     "question_action_capabilities": {
@@ -1085,6 +1151,17 @@ class QwenNextActionPlanner:
                         for question in open_questions
                     },
                     "legal_target_question_ids_by_action": legal_action_targets,
+                    "known_causal_lane_ids": list(_known_causal_lane_ids(findings)),
+                    "lane_aware_action_kinds": [
+                        ActionKind.INSPECT_DEFECT_PATTERN.value,
+                        ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
+                        ActionKind.INSPECT_FDC_SPC.value,
+                        ActionKind.VALIDATE_HISTORICAL_CASE.value,
+                    ],
+                    "lane_selection_rule": (
+                        "When multiple causal lanes are discovered, every lane-aware "
+                        "Action must copy exactly one known lane_id into next_action.scope."
+                    ),
                     "causal_evidence_gaps": causal_gaps,
                     "legal_causal_gap_ids_by_action": causal_gap_ids_by_action,
                     "deterministic_planner_decision": replace(
@@ -1248,6 +1325,15 @@ class QwenNextActionPlanner:
             and open_questions
         ):
             scope = dict(action.scope or goal.known_facts or {"goal_id": goal.goal_id})
+            if action.kind in {
+                ActionKind.INSPECT_DEFECT_PATTERN.value,
+                ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
+                ActionKind.INSPECT_FDC_SPC.value,
+                ActionKind.VALIDATE_HISTORICAL_CASE.value,
+            }:
+                known_lane_ids = _known_causal_lane_ids(findings)
+                if len(known_lane_ids) > 1:
+                    scope.setdefault("lane_id", known_lane_ids[0])
             bounded_action = replace(action, scope=scope)
             missing_evidence_groups = _missing_groups_for_questions(
                 open_questions,
@@ -1688,6 +1774,25 @@ class QwenNextActionPlanner:
         action = candidate.next_action
         if action is None:
             raise InvestigationValidationError("an act decision requires next_action")
+        known_lane_ids = _known_causal_lane_ids(findings)
+        lane_aware_actions = {
+            ActionKind.INSPECT_DEFECT_PATTERN.value,
+            ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
+            ActionKind.INSPECT_FDC_SPC.value,
+            ActionKind.VALIDATE_HISTORICAL_CASE.value,
+        }
+        if len(known_lane_ids) > 1 and action.kind in lane_aware_actions:
+            selected_lane_id = str(
+                action.scope.get("lane_id") or action.inputs.get("lane_id") or ""
+            ).strip()
+            if not selected_lane_id:
+                raise InvestigationValidationError(
+                    "lane_aware_action_requires_lane_id: select a discovered causal Lane"
+                )
+            if selected_lane_id not in set(known_lane_ids):
+                raise InvestigationValidationError(
+                    "lane_aware_action_references_unknown_lane_id"
+                )
         targeted_questions = [
             resulting_questions[question_id]
             for question_id in candidate.target_question_ids

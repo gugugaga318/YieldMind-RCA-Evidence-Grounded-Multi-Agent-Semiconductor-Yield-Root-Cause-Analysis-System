@@ -42,6 +42,10 @@ class EvidenceBuilder:
     ) -> Evidence:
         if not isinstance(tool_input, ToolInput):
             raise ModelValidationError("tool_input must be a ToolInput instance")
+        resolved_metadata = dict(metadata or {})
+        lane_id = tool_input.parameters.get("lane_id")
+        if isinstance(lane_id, str) and lane_id.strip():
+            resolved_metadata.setdefault("lane_id", lane_id.strip())
         return Evidence(
             evidence_id=evidence_id,
             source_type=_enum_string(source_type),
@@ -50,7 +54,7 @@ class EvidenceBuilder:
             source_table=source_table,
             source_field=source_field,
             timestamp=timestamp,
-            metadata=dict(metadata or {}),
+            metadata=resolved_metadata,
             evidence_type=_enum_string(evidence_type),
             source_agent=tool_input.requested_by,
             source_tool=tool_input.tool_name,
