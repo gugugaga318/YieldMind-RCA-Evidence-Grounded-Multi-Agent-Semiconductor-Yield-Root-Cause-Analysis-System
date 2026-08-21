@@ -37,6 +37,27 @@ def _matrix_score(matrix: CausalEvidenceMatrix) -> int:
     return score
 
 
+def _matrix_profile(
+    matrix: CausalEvidenceMatrix,
+    *,
+    candidate_index: int,
+) -> dict[str, Any]:
+    """Return the Python-owned facts that are safe to use for ranking."""
+
+    statuses = [result.status for result in matrix.claims.values()]
+    return {
+        "candidate_index": candidate_index,
+        "matrix_score": _matrix_score(matrix),
+        "matrix_status": matrix.status,
+        "supported_claim_count": statuses.count("supported"),
+        "incomplete_claim_count": statuses.count("incomplete"),
+        "conflicted_claim_count": statuses.count("conflicted"),
+        "unavailable_claim_count": statuses.count("unavailable"),
+        "has_critical_conflict": matrix.has_critical_conflict,
+        "invalid_evidence_ids": list(matrix.invalid_evidence_ids),
+    }
+
+
 def compare_candidate_matrices(
     matrices: Sequence[CausalEvidenceMatrix],
     *,
@@ -51,11 +72,16 @@ def compare_candidate_matrices(
             "comparison_explanation": "No causal candidates are available.",
             "selected_gap_id": None,
             "scores": [],
+            "matrix_profiles": [],
             "unresolved": False,
             "alternative_search_required": False,
             "source": "python",
         }
-    scores = [_matrix_score(matrix) for matrix in matrices]
+    matrix_profiles = [
+        _matrix_profile(matrix, candidate_index=index)
+        for index, matrix in enumerate(matrices)
+    ]
+    scores = [int(item["matrix_score"]) for item in matrix_profiles]
     best = max(scores)
     winners = [index for index, score in enumerate(scores) if score == best]
     preferred = winners[0] if len(winners) == 1 else None
@@ -84,6 +110,7 @@ def compare_candidate_matrices(
         "comparison_explanation": explanation,
         "selected_gap_id": selected_gap,
         "scores": scores,
+        "matrix_profiles": matrix_profiles,
         "unresolved": (
             (preferred is None and len(matrices) > 1)
             or alternative_search_required

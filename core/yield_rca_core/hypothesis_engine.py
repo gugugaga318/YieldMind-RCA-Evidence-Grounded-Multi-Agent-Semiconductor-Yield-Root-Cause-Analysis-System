@@ -942,24 +942,32 @@ class HypothesisEngine:
             alternative_search_status=competition_status,
         )
         effective_comparison = dict(python_comparison)
+        effective_comparison["python_comparison_explanation"] = python_comparison.get(
+            "comparison_explanation"
+        )
+        comparator_preferred_index: int | None = None
         if candidate_comparison is not None:
             preferred = candidate_comparison.get("preferred_candidate_index")
             if preferred is None or (
-                isinstance(preferred, int) and 0 <= preferred < len(matrices)
+                isinstance(preferred, int)
+                and not isinstance(preferred, bool)
+                and 0 <= preferred < len(matrices)
             ):
-                effective_comparison.update(candidate_comparison)
-        preferred_root: str | None = None
-        # The deterministic comparison is diagnostic by default.  It may
-        # reorder an active Qwen two-candidate decision only after an explicit
-        # comparator result has been supplied; legacy deterministic ranking
-        # remains gate-first and unchanged.
-        preferred_index = (
-            effective_comparison.get("preferred_candidate_index")
-            if candidate_comparison is not None
-            else None
-        )
-        if isinstance(preferred_index, int) and 0 <= preferred_index < len(matrices):
-            preferred_root = matrices[preferred_index].candidate.root_cause
+                comparator_preferred_index = preferred
+                for key in (
+                    "comparison_explanation",
+                    "comparison_summary",
+                    "selected_gap_id",
+                    "source",
+                ):
+                    if key in candidate_comparison:
+                        effective_comparison[key] = candidate_comparison[key]
+                effective_comparison["comparator_comparison_explanation"] = (
+                    candidate_comparison.get(
+                        "comparison_explanation",
+                        candidate_comparison.get("comparison_summary"),
+                    )
+                )
 
         mes_strength = _mes_strength(mes)
         fdc_strength = _fdc_strength(fdc)
@@ -1019,24 +1027,181 @@ class HypothesisEngine:
                 and defect_wat_strength >= 0.6
             )
 
-        ranked = sorted(
+        matrix_index_by_root = {
+            matrix.candidate.root_cause: index
+            for index, matrix in enumerate(matrices)
+        }
+        matrix_scores = [int(score) for score in python_comparison.get("scores", [])]
+
+        def candidate_matrix(candidate: dict[str, Any]) -> CausalEvidenceMatrix | None:
+            return matrices_by_root.get(str(candidate["root_cause"]))
+
+        def candidate_matrix_score(candidate: dict[str, Any]) -> int:
+            index = matrix_index_by_root.get(str(candidate["root_cause"]))
+            if index is None or not 0 <= index < len(matrix_scores):
+                return -10_000
+            return matrix_scores[index]
+
+        def candidate_has_unknown_evidence(candidate: dict[str, Any]) -> bool:
+            return any(
+                result.get("gate") == "known_evidence"
+                and result.get("outcome") == "failed"
+                for result in candidate.get("validation_results", [])
+                if isinstance(result, dict)
+            )
+
+        def matrix_safety_rank(candidate: dict[str, Any]) -> int:
+            matrix = candidate_matrix(candidate)
+            if matrix is None or matrix.status == "unavailable":
+                return 3
+            if matrix.has_critical_conflict:
+                return 2
+            if matrix.invalid_evidence_ids or candidate_has_unknown_evidence(candidate):
+                return 1
+            return 0
+
+        legacy_ranked = sorted(
             candidates.values(),
             key=lambda item: (
                 not passes_decision_gate(item),
-                (
-                    -1
-                    if preferred_root is not None
-                    and str(item["root_cause"]) == preferred_root
-                    and passes_decision_gate(item)
-                    else 0
-                ),
                 -float(item["confidence"]),
                 str(item["root_cause"]),
             ),
-        )[:3]
+        )
+        pre_comparison_rank_by_root = {
+            str(candidate["root_cause"]): rank
+            for rank, candidate in enumerate(legacy_ranked, start=1)
+        }
+
+        preference_accepted: bool | None = None
+        preference_rejection_reason: str | None = None
+        qwen_tiebreak_root: str | None = None
+        if comparator_preferred_index is not None:
+            preferred_matrix = matrices[comparator_preferred_index]
+            preferred_root = preferred_matrix.candidate.root_cause
+            preferred_candidate = candidates[preferred_root]
+            preferred_safety_rank = matrix_safety_rank(preferred_candidate)
+            preferred_gate_status = passes_decision_gate(preferred_candidate)
+            comparable_candidates = [
+                candidate
+                for candidate in candidates.values()
+                if passes_decision_gate(candidate) == preferred_gate_status
+                and matrix_safety_rank(candidate) == 0
+            ]
+            best_comparable_score = max(
+                (candidate_matrix_score(candidate) for candidate in comparable_candidates),
+                default=-10_000,
+            )
+            if preferred_matrix.has_critical_conflict:
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_has_critical_conflict"
+            elif (
+                preferred_matrix.invalid_evidence_ids
+                or candidate_has_unknown_evidence(preferred_candidate)
+            ):
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_has_unknown_evidence"
+            elif preferred_matrix.status == "unavailable":
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_matrix_unavailable"
+            elif any(
+                passes_decision_gate(candidate)
+                for candidate in candidates.values()
+            ) and not preferred_gate_status:
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_is_below_decision_gate_tier"
+            elif candidate_matrix_score(preferred_candidate) < best_comparable_score:
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_has_lower_python_matrix_score"
+            elif preferred_safety_rank != 0:
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_is_not_safe_for_ranking"
+            else:
+                preference_accepted = True
+                qwen_tiebreak_root = preferred_root
+
+        comparison_ranking_enabled = candidate_comparison is not None
+        if comparison_ranking_enabled:
+            ranked_all = sorted(
+                candidates.values(),
+                key=lambda item: (
+                    not passes_decision_gate(item),
+                    matrix_safety_rank(item),
+                    -candidate_matrix_score(item),
+                    (
+                        0
+                        if qwen_tiebreak_root is not None
+                        and str(item["root_cause"]) == qwen_tiebreak_root
+                        else 1
+                    ),
+                    -float(item["confidence"]),
+                    str(item["root_cause"]),
+                ),
+            )
+        else:
+            # Controlled and legacy callers retain the pre-comparison order.
+            ranked_all = legacy_ranked
+
+        ranked = ranked_all[:3]
         for rank, candidate in enumerate(ranked, start=1):
             candidate["rank"] = rank
+            candidate["final_rank"] = rank
+            candidate["pre_comparison_rank"] = pre_comparison_rank_by_root[
+                str(candidate["root_cause"])
+            ]
+            candidate["python_matrix_score"] = candidate_matrix_score(candidate)
             candidate["decision_gate_passed"] = passes_decision_gate(candidate)
+
+        python_preferred_index = python_comparison.get("preferred_candidate_index")
+        final_preferred_index = (
+            matrix_index_by_root.get(str(ranked_all[0]["root_cause"]))
+            if comparison_ranking_enabled and ranked_all
+            else python_preferred_index
+        )
+        if comparison_ranking_enabled:
+            if preference_accepted and comparator_preferred_index != python_preferred_index:
+                ranking_source = "python_matrix_with_qwen_tiebreak"
+            elif preference_accepted:
+                ranking_source = "python_matrix_qwen_consistent"
+            elif comparator_preferred_index is not None:
+                ranking_source = "python_matrix_qwen_rejected"
+            else:
+                ranking_source = "python_matrix"
+        else:
+            ranking_source = "legacy_gate_confidence"
+        effective_comparison.update(
+            {
+                "preferred_candidate_index": final_preferred_index,
+                "python_preferred_candidate_index": python_preferred_index,
+                "comparator_preferred_candidate_index": comparator_preferred_index,
+                "comparator_preference_accepted": preference_accepted,
+                "comparator_preference_rejection_reason": (
+                    preference_rejection_reason
+                ),
+                "ranking_source": ranking_source,
+                "pre_comparison_ranks": [
+                    {
+                        "candidate_index": matrix_index_by_root.get(
+                            str(candidate["root_cause"])
+                        ),
+                        "root_cause": str(candidate["root_cause"]),
+                        "rank": pre_comparison_rank_by_root[str(candidate["root_cause"])],
+                    }
+                    for candidate in legacy_ranked
+                ],
+                "final_ranks": [
+                    {
+                        "candidate_index": matrix_index_by_root.get(
+                            str(candidate["root_cause"])
+                        ),
+                        "root_cause": str(candidate["root_cause"]),
+                        "rank": rank,
+                        "python_matrix_score": candidate_matrix_score(candidate),
+                    }
+                    for rank, candidate in enumerate(ranked_all, start=1)
+                ],
+            }
+        )
         selected = ranked[0] if ranked else None
         supported = (
             selected is not None

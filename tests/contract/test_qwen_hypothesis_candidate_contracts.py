@@ -204,6 +204,24 @@ def proposal(*, supporting: list[str] | None = None) -> dict[str, object]:
     }
 
 
+def comparison_proposals() -> tuple[dict[str, object], dict[str, object]]:
+    """Return equal-confidence candidates with different mechanism quality."""
+
+    weak = {
+        **proposal(),
+        "root_cause": "EQ_01 chamber_temperature_range drift correlation A",
+        "causal_explanation": (
+            "The chamber_temperature_range deviation causes the observed "
+            "edge_void outcome."
+        ),
+    }
+    strong = {
+        **proposal(),
+        "root_cause": "EQ_01 chamber_temperature_range drift mechanism B",
+    }
+    return weak, strong
+
+
 class CandidateClient(FakeLLMClient):
     def __init__(self, responses: list[dict[str, object]]) -> None:
         self.responses = responses
@@ -1178,6 +1196,10 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
             result["decision_gate"]["root_cause"],
             "EQ_01 chamber temperature control drift",
         )
+        self.assertEqual(
+            result["candidate_comparison"]["ranking_source"],
+            "legacy_gate_confidence",
+        )
 
     def test_python_gate_rejects_a_candidate_missing_product_lane(self) -> None:
         result = HypothesisEngine().analyze(
@@ -1229,6 +1251,148 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
             result["decision_gate"]["root_cause"],
             supported["root_cause"],
         )
+        self.assertFalse(
+            result["candidate_comparison"]["comparator_preference_accepted"]
+        )
+        self.assertEqual(
+            result["candidate_comparison"][
+                "comparator_preference_rejection_reason"
+            ],
+            "preferred_candidate_has_critical_conflict",
+        )
+
+    def test_python_matrix_promotes_stronger_unconfirmed_candidate(self) -> None:
+        weak, strong = comparison_proposals()
+
+        result = HypothesisEngine().analyze(
+            request_id="REQ_COMPARISON_PROPAGATION",
+            findings=causal_findings(),
+            mode="active",
+            external_candidates=[weak, strong],
+            include_deterministic_candidates=False,
+            candidate_comparison={
+                "preferred_candidate_index": 1,
+                "comparison_summary": "Qwen agrees with the stronger matrix.",
+                "source": "qwen",
+            },
+            strict_confirmation=True,
+            alternative_search_status="alternative_found",
+        )
+
+        selected = result["candidates"][0]
+        comparison = result["candidate_comparison"]
+        self.assertEqual(selected["root_cause"], strong["root_cause"])
+        self.assertEqual(selected["pre_comparison_rank"], 2)
+        self.assertEqual(selected["final_rank"], 1)
+        self.assertGreater(
+            selected["python_matrix_score"],
+            result["candidates"][1]["python_matrix_score"],
+        )
+        self.assertTrue(comparison["comparator_preference_accepted"])
+        self.assertEqual(
+            comparison["ranking_source"],
+            "python_matrix_qwen_consistent",
+        )
+        self.assertEqual(result["decision_gate"]["status"], "inconclusive")
+
+    def test_python_matrix_rejects_qwen_preference_for_weaker_candidate(self) -> None:
+        weak, strong = comparison_proposals()
+
+        result = HypothesisEngine().analyze(
+            request_id="REQ_WEAKER_QWEN_PREFERENCE",
+            findings=causal_findings(),
+            mode="active",
+            external_candidates=[weak, strong],
+            include_deterministic_candidates=False,
+            candidate_comparison={
+                "preferred_candidate_index": 0,
+                "comparison_summary": "Qwen preferred the weaker candidate.",
+                "source": "qwen",
+            },
+            strict_confirmation=True,
+            alternative_search_status="alternative_found",
+        )
+
+        comparison = result["candidate_comparison"]
+        self.assertEqual(result["candidates"][0]["root_cause"], strong["root_cause"])
+        self.assertFalse(comparison["comparator_preference_accepted"])
+        self.assertEqual(
+            comparison["comparator_preference_rejection_reason"],
+            "preferred_candidate_has_lower_python_matrix_score",
+        )
+        self.assertEqual(comparison["ranking_source"], "python_matrix_qwen_rejected")
+        self.assertEqual(result["decision_gate"]["status"], "inconclusive")
+
+    def test_equal_matrix_without_preference_keeps_stable_order(self) -> None:
+        first = proposal()
+        second = {
+            **proposal(),
+            "root_cause": "EQ_01 chamber temperature control drift Z",
+        }
+
+        result = HypothesisEngine().analyze(
+            request_id="REQ_STABLE_COMPARISON_TIE",
+            findings=causal_findings(),
+            mode="active",
+            external_candidates=[second, first],
+            include_deterministic_candidates=False,
+            candidate_comparison={
+                "preferred_candidate_index": None,
+                "comparison_summary": "The matrices cannot be separated.",
+                "source": "qwen",
+            },
+            strict_confirmation=True,
+            alternative_search_status="alternative_found",
+        )
+
+        self.assertEqual(result["candidates"][0]["root_cause"], first["root_cause"])
+        self.assertEqual(
+            result["candidate_comparison"]["ranking_source"],
+            "python_matrix",
+        )
+        self.assertIsNone(
+            result["candidate_comparison"]["comparator_preference_accepted"]
+        )
+
+    def test_unknown_evidence_candidate_cannot_be_promoted_by_qwen(self) -> None:
+        unsafe = {
+            **proposal(),
+            "root_cause": "EQ_01 chamber temperature control drift A",
+            "supporting_evidence_ids": [
+                "EV_EXPOSURE",
+                "EV_PROCESS",
+                "EV_PRODUCT",
+                "EV_UNKNOWN",
+            ],
+        }
+        safe = {
+            **proposal(),
+            "root_cause": "EQ_01 chamber temperature control drift B",
+        }
+
+        result = HypothesisEngine().analyze(
+            request_id="REQ_UNKNOWN_EVIDENCE_PREFERENCE",
+            findings=causal_findings(),
+            mode="active",
+            external_candidates=[unsafe, safe],
+            include_deterministic_candidates=False,
+            candidate_comparison={
+                "preferred_candidate_index": 0,
+                "comparison_summary": "Qwen cited an unknown Evidence ID.",
+                "source": "qwen",
+            },
+            strict_confirmation=True,
+            alternative_search_status="alternative_found",
+        )
+
+        comparison = result["candidate_comparison"]
+        self.assertEqual(result["candidates"][0]["root_cause"], safe["root_cause"])
+        self.assertFalse(comparison["comparator_preference_accepted"])
+        self.assertEqual(
+            comparison["comparator_preference_rejection_reason"],
+            "preferred_candidate_has_unknown_evidence",
+        )
+        self.assertEqual(result["decision_gate"]["status"], "inconclusive")
 
     def test_unrelated_normal_parameter_is_not_a_causal_contradiction(self) -> None:
         findings = causal_findings()
