@@ -373,9 +373,20 @@ export interface CompetitionTrace {
   represented_lane_ids: string[];
   unresolved_lane_ids: string[];
   eliminated_lane_ids: string[];
+  blocked_lane_ids: string[];
+  lane_resolutions: AlternativeLaneResolutionTrace[];
   alternative_search_status: string;
   challenge_round_count: number;
   resolution_evidence_ids: string[];
+}
+
+export interface AlternativeLaneResolutionTrace {
+  lane_id: string;
+  status: "retained" | "eliminated" | "unresolved" | "blocked" | "non_discriminative";
+  candidate_id: string | null;
+  evidence_ids: string[];
+  distinguishing_gap_ids: string[];
+  reason: string;
 }
 
 export interface RcaDiagnosisTrace {

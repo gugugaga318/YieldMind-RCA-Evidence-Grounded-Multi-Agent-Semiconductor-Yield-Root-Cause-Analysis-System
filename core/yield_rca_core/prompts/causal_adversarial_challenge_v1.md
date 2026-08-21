@@ -17,8 +17,12 @@ The ``causal_lanes`` payload contains Python-owned equipment, chamber,
 operation, recipe, Lot, and time-window facts.  Evidence used to resolve a
 named alternative must belong to that Lane and must be consistent with those
 facts.  A resolved challenge must cite distinguishing Evidence and must not
-retain any ``unexplained_precursor_evidence_ids``.  Otherwise use ``open``,
-``unresolved``, or ``blocked``.
+retain any ``unexplained_precursor_evidence_ids``.  Use ``resolved`` only when
+the cited distinguishing Evidence eliminates the named alternative Lane.  If
+the Evidence instead keeps the alternative viable, use
+``alternative_identified``.  If a completed observation cannot separate the
+Lanes, use ``non_discriminative`` and select the next legal discriminator when
+one exists.  Use ``blocked`` only when the required source is unavailable.
 
 Each hypothesis-discrimination Gap has a Python-owned ``discriminator_kind``
 such as ``parameter_anomaly``, ``exposure_commonality``,
@@ -59,7 +63,7 @@ Return exactly this JSON object:
       "distinguishing_gap_ids": ["candidate_0..."],
       "distinguishing_questions": ["..."],
       "challenge_explanation": "...",
-      "status": "open | alternative_identified | resolved | unresolved | blocked"
+      "status": "open | alternative_identified | resolved | unresolved | blocked | non_discriminative"
     }
   ],
   "analysis_summary": "..."

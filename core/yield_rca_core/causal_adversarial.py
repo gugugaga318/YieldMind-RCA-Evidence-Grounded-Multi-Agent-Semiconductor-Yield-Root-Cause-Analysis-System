@@ -15,6 +15,8 @@ from typing import Any
 
 from yield_rca_core.causal_evidence_matrix import CausalEvidenceMatrix
 from yield_rca_core.causal_investigation_models import (
+    AlternativeLaneResolution,
+    AlternativeLaneResolutionStatus,
     AlternativeSearchStatus,
     CandidateChallenge,
     ChallengeStatus,
@@ -40,6 +42,7 @@ class AdversarialChallengeGeneration:
     validation_errors: tuple[str, ...] = ()
     output_invalid: bool = False
     alternative_search_status: str = AlternativeSearchStatus.NOT_SEARCHED.value
+    lane_resolutions: tuple[AlternativeLaneResolution, ...] = ()
 
 
 def _string_list(value: object, field_name: str) -> tuple[str, ...]:
@@ -218,13 +221,44 @@ def _normalize_challenge_payload(
         raise LLMOutputValidationError(
             "resolved challenge cannot retain unexplained precursor Evidence"
         )
-    if alternative_id is not None and status != ChallengeStatus.RESOLVED.value:
-        if len(gaps) != 1:
+    if alternative_id is not None and status == ChallengeStatus.RESOLVED.value:
+        if not (supporting or contradicting):
+            raise LLMOutputValidationError(
+                "an eliminated alternative Lane requires distinguishing Evidence"
+            )
+    if alternative_id is not None and status not in {
+        ChallengeStatus.RESOLVED.value,
+        ChallengeStatus.BLOCKED.value,
+    }:
+        allow_exhausted_non_discriminative = False
+        if (
+            status == ChallengeStatus.NON_DISCRIMINATIVE.value
+            and not gaps
+            and gap_by_id is not None
+        ):
+            applicable_gaps = [
+                gap
+                for gap in gap_by_id.values()
+                if str(gap.get("gap_type", "")) == "hypothesis_discrimination"
+                and str(gap.get("candidate_id", "")).strip() in {"", candidate_id}
+                and (
+                    alternative_id
+                    in {
+                        str(item).strip()
+                        for item in gap.get("applicable_lane_ids", [])
+                        if str(item).strip()
+                    }
+                    or str(gap.get("target_scope", {}).get("lane_id", "")).strip()
+                    == alternative_id
+                )
+            ]
+            allow_exhausted_non_discriminative = not applicable_gaps
+        if len(gaps) != 1 and not allow_exhausted_non_discriminative:
             raise LLMOutputValidationError(
                 "an unresolved named alternative Lane requires exactly one "
                 "highest-information-gain Python-generated typed discriminator Gap"
             )
-        if gap_by_id is not None:
+        if gap_by_id is not None and gaps:
             selected_gap_type = str(
                 gap_by_id.get(gaps[0], {}).get("gap_type", "")
             ).strip()
@@ -299,10 +333,6 @@ def _normalize_challenge_payload(
             raise LLMOutputValidationError(
                 "challenge does not cite Entity/time-consistent Evidence for the "
                 "strongest alternative Lane"
-            )
-        if status == ChallengeStatus.RESOLVED.value and not (supporting or contradicting):
-            raise LLMOutputValidationError(
-                "resolved alternative challenge requires distinguishing Evidence"
             )
     return CandidateChallenge(
         candidate_id=candidate_id,
@@ -398,12 +428,135 @@ def _candidate_ids(candidates: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
     return tuple(result)
 
 
+def derive_alternative_lane_resolutions(
+    *,
+    challenges: Sequence[CandidateChallenge],
+    active_lane_ids: Sequence[str] = (),
+    eliminated_lane_ids: Sequence[str] = (),
+    blocked_lane_ids: Sequence[str] = (),
+) -> tuple[AlternativeLaneResolution, ...]:
+    """Derive one conservative, Python-owned result for every searched Lane."""
+
+    active = list(dict.fromkeys(str(item) for item in active_lane_ids if str(item)))
+    eliminated = set(str(item) for item in eliminated_lane_ids if str(item))
+    blocked = set(str(item) for item in blocked_lane_ids if str(item))
+    lane_ids = list(dict.fromkeys([*active, *sorted(eliminated), *sorted(blocked)]))
+    challenges_by_lane: dict[str, list[CandidateChallenge]] = {}
+    for challenge in challenges:
+        lane_id = challenge.strongest_alternative_lane_id
+        if lane_id is None:
+            continue
+        challenges_by_lane.setdefault(lane_id, []).append(challenge)
+        if lane_id not in lane_ids:
+            lane_ids.append(lane_id)
+
+    resolutions: list[AlternativeLaneResolution] = []
+    for lane_id in lane_ids:
+        lane_challenges = challenges_by_lane.get(lane_id, [])
+        evidence_ids = tuple(
+            dict.fromkeys(
+                evidence_id
+                for challenge in lane_challenges
+                for evidence_id in (
+                    *challenge.supporting_evidence_ids,
+                    *challenge.contradicting_evidence_ids,
+                )
+            )
+        )
+        gap_ids = tuple(
+            dict.fromkeys(
+                gap_id
+                for challenge in lane_challenges
+                for gap_id in challenge.distinguishing_gap_ids
+            )
+        )
+        candidate_ids = {
+            challenge.candidate_id for challenge in lane_challenges
+        }
+        candidate_id = next(iter(candidate_ids)) if len(candidate_ids) == 1 else None
+        statuses = {challenge.status for challenge in lane_challenges}
+        if lane_id in blocked or ChallengeStatus.BLOCKED.value in statuses:
+            status = AlternativeLaneResolutionStatus.BLOCKED.value
+            reason = "The required source for this alternative Lane is blocked."
+        elif lane_id in eliminated:
+            status = AlternativeLaneResolutionStatus.ELIMINATED.value
+            reason = "Python-owned State previously eliminated this alternative Lane."
+        elif ChallengeStatus.ALTERNATIVE_IDENTIFIED.value in statuses:
+            status = AlternativeLaneResolutionStatus.RETAINED.value
+            reason = "Distinguishing Evidence retains this Lane as a live alternative."
+        elif ChallengeStatus.NON_DISCRIMINATIVE.value in statuses:
+            status = AlternativeLaneResolutionStatus.NON_DISCRIMINATIVE.value
+            reason = "The latest observation did not distinguish this Lane."
+        elif statuses & {
+            ChallengeStatus.OPEN.value,
+            ChallengeStatus.UNRESOLVED.value,
+        }:
+            status = AlternativeLaneResolutionStatus.UNRESOLVED.value
+            reason = "This alternative Lane still has an unresolved discriminator."
+        elif statuses and statuses <= {ChallengeStatus.RESOLVED.value}:
+            status = AlternativeLaneResolutionStatus.ELIMINATED.value
+            reason = "Distinguishing Evidence eliminated this alternative Lane."
+        else:
+            status = AlternativeLaneResolutionStatus.UNRESOLVED.value
+            reason = "This Lane has not received a conclusive adversarial result."
+        resolutions.append(
+            AlternativeLaneResolution(
+                lane_id=lane_id,
+                status=status,
+                candidate_id=candidate_id,
+                evidence_ids=evidence_ids,
+                distinguishing_gap_ids=gap_ids,
+                reason=reason,
+            )
+        )
+
+    live = [
+        item
+        for item in resolutions
+        if item.status
+        not in {
+            AlternativeLaneResolutionStatus.ELIMINATED.value,
+            AlternativeLaneResolutionStatus.BLOCKED.value,
+        }
+    ]
+    if (
+        len(live) == 1
+        and live[0].status == AlternativeLaneResolutionStatus.UNRESOLVED.value
+        and any(
+            item.status == AlternativeLaneResolutionStatus.ELIMINATED.value
+            for item in resolutions
+        )
+    ):
+        survivor = live[0]
+        resolutions = [
+            (
+                AlternativeLaneResolution(
+                    lane_id=item.lane_id,
+                    status=AlternativeLaneResolutionStatus.RETAINED.value,
+                    candidate_id=item.candidate_id,
+                    evidence_ids=item.evidence_ids,
+                    distinguishing_gap_ids=item.distinguishing_gap_ids,
+                    reason=(
+                        "This is the sole remaining Lane after all investigated "
+                        "alternatives were eliminated."
+                    ),
+                )
+                if item.lane_id == survivor.lane_id
+                else item
+            )
+            for item in resolutions
+        ]
+    return tuple(resolutions)
+
+
 def derive_alternative_search_status(
     *,
     challenges: Sequence[CandidateChallenge],
     matrices: Sequence[CausalEvidenceMatrix],
     active_lane_ids: Sequence[str] = (),
     eliminated_lane_ids: Sequence[str] = (),
+    blocked_lane_ids: Sequence[str] = (),
+    lane_resolutions: Sequence[AlternativeLaneResolution] = (),
 ) -> str:
     """Derive competition status without trusting a Qwen conclusion field.
 
@@ -413,31 +566,64 @@ def derive_alternative_search_status(
     unresolved/blocked challenge remains a live competition.
     """
 
+    resolutions = tuple(lane_resolutions) or derive_alternative_lane_resolutions(
+        challenges=challenges,
+        active_lane_ids=active_lane_ids,
+        eliminated_lane_ids=eliminated_lane_ids,
+        blocked_lane_ids=blocked_lane_ids,
+    )
     if not challenges:
+        if any(
+            item.status
+            in {
+                AlternativeLaneResolutionStatus.UNRESOLVED.value,
+                AlternativeLaneResolutionStatus.NON_DISCRIMINATIVE.value,
+                AlternativeLaneResolutionStatus.RETAINED.value,
+            }
+            for item in resolutions
+        ):
+            return AlternativeSearchStatus.UNRESOLVED.value
         return AlternativeSearchStatus.NOT_SEARCHED.value
-    if any(challenge.status == ChallengeStatus.BLOCKED.value for challenge in challenges):
+    if any(
+        item.status == AlternativeLaneResolutionStatus.BLOCKED.value
+        for item in resolutions
+    ) or any(challenge.status == ChallengeStatus.BLOCKED.value for challenge in challenges):
         return AlternativeSearchStatus.BLOCKED_BY_MISSING_DATA.value
     if any(challenge.unexplained_precursor_evidence_ids for challenge in challenges):
         return AlternativeSearchStatus.UNRESOLVED.value
 
-    unresolved_statuses = {
-        ChallengeStatus.OPEN.value,
-        ChallengeStatus.UNRESOLVED.value,
-        ChallengeStatus.ALTERNATIVE_IDENTIFIED.value,
+    unresolved_resolution_statuses = {
+        AlternativeLaneResolutionStatus.UNRESOLVED.value,
+        AlternativeLaneResolutionStatus.NON_DISCRIMINATIVE.value,
     }
-    if any(challenge.status in unresolved_statuses for challenge in challenges):
+    if any(item.status in unresolved_resolution_statuses for item in resolutions):
         if any(challenge.strongest_alternative_lane_id for challenge in challenges):
             return AlternativeSearchStatus.ALTERNATIVE_FOUND.value
         return AlternativeSearchStatus.UNRESOLVED.value
 
-    resolved_alternative_ids = {
-        challenge.strongest_alternative_lane_id
-        for challenge in challenges
-        if challenge.status == ChallengeStatus.RESOLVED.value
-        and challenge.strongest_alternative_lane_id is not None
-    }
-    if resolved_alternative_ids:
+    retained = [
+        item
+        for item in resolutions
+        if item.status == AlternativeLaneResolutionStatus.RETAINED.value
+    ]
+    if len(retained) > 1:
+        return AlternativeSearchStatus.ALTERNATIVE_FOUND.value
+    if len(retained) == 1 and all(
+        item.status
+        in {
+            AlternativeLaneResolutionStatus.RETAINED.value,
+            AlternativeLaneResolutionStatus.ELIMINATED.value,
+        }
+        for item in resolutions
+    ):
         return AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value
+    if resolutions and all(
+        item.status == AlternativeLaneResolutionStatus.ELIMINATED.value
+        for item in resolutions
+    ):
+        # Eliminating every Lane is not confirmation of a winner.  The search
+        # remains unresolved until one evidence-grounded Lane is retained.
+        return AlternativeSearchStatus.UNRESOLVED.value
 
     # With multiple active Lanes, an empty alternative claim is not enough:
     # every other Lane must have been explicitly eliminated by Python-owned
@@ -476,6 +662,7 @@ class QwenAdversarialChallenger:
         lane_ids: Sequence[str] = (),
         active_lane_ids: Sequence[str] = (),
         eliminated_lane_ids: Sequence[str] = (),
+        blocked_lane_ids: Sequence[str] = (),
         lane_contexts: Sequence[Mapping[str, Any]] = (),
     ) -> AdversarialChallengeGeneration:
         if not candidates or len(candidates) != len(matrices):
@@ -516,6 +703,7 @@ class QwenAdversarialChallenger:
                     "causal_lane_ids": list(dict.fromkeys(lane_ids)),
                     "active_lane_ids": list(dict.fromkeys(active_lane_ids)),
                     "eliminated_lane_ids": list(dict.fromkeys(eliminated_lane_ids)),
+                    "blocked_lane_ids": list(dict.fromkeys(blocked_lane_ids)),
                     "causal_lanes": [dict(item) for item in lane_contexts],
                     "output_attempt": attempt,
                     "previous_validation_feedback": (
@@ -576,39 +764,63 @@ class QwenAdversarialChallenger:
                 ):
                     raise LLMOutputValidationError("; ".join(candidate_errors))
                 validation_errors.extend(candidate_errors)
+                lane_resolutions = derive_alternative_lane_resolutions(
+                    challenges=parsed,
+                    active_lane_ids=active_lane_ids,
+                    eliminated_lane_ids=eliminated_lane_ids,
+                    blocked_lane_ids=blocked_lane_ids,
+                )
                 status = derive_alternative_search_status(
                     challenges=parsed,
                     matrices=matrices,
                     active_lane_ids=active_lane_ids,
                     eliminated_lane_ids=eliminated_lane_ids,
+                    blocked_lane_ids=blocked_lane_ids,
+                    lane_resolutions=lane_resolutions,
                 )
                 return AdversarialChallengeGeneration(
                     challenges=tuple(parsed),
                     attempt_count=attempt,
                     validation_errors=tuple(validation_errors),
                     alternative_search_status=status,
+                    lane_resolutions=lane_resolutions,
                 )
             except LLMCallError as exc:
+                lane_resolutions = derive_alternative_lane_resolutions(
+                    challenges=(),
+                    active_lane_ids=active_lane_ids,
+                    eliminated_lane_ids=eliminated_lane_ids,
+                    blocked_lane_ids=blocked_lane_ids,
+                )
                 return AdversarialChallengeGeneration(
                     challenges=(),
                     attempt_count=attempt,
                     validation_errors=(str(exc).strip() or type(exc).__name__,),
                     alternative_search_status=AlternativeSearchStatus.UNRESOLVED.value,
+                    lane_resolutions=lane_resolutions,
                 )
             except LLMOutputValidationError as exc:
                 validation_errors.append(str(exc).strip() or type(exc).__name__)
                 continue
+        lane_resolutions = derive_alternative_lane_resolutions(
+            challenges=(),
+            active_lane_ids=active_lane_ids,
+            eliminated_lane_ids=eliminated_lane_ids,
+            blocked_lane_ids=blocked_lane_ids,
+        )
         return AdversarialChallengeGeneration(
             challenges=(),
             attempt_count=_OUTPUT_ATTEMPTS,
             validation_errors=tuple(validation_errors),
             output_invalid=True,
             alternative_search_status=AlternativeSearchStatus.UNRESOLVED.value,
+            lane_resolutions=lane_resolutions,
         )
 
 
 __all__ = [
     "AdversarialChallengeGeneration",
     "QwenAdversarialChallenger",
+    "derive_alternative_lane_resolutions",
     "derive_alternative_search_status",
 ]

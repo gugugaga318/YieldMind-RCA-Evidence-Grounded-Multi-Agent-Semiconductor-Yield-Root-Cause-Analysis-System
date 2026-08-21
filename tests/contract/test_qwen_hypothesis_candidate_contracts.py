@@ -8,6 +8,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "core"))
 
+from yield_rca_core.causal_candidate_comparison import (  # noqa: E402
+    QwenHypothesisCandidateComparator,
+)
 from yield_rca_core.causal_evidence_gap import (  # noqa: E402
     build_causal_evidence_gaps,
     build_hypothesis_discrimination_gaps,
@@ -32,6 +35,7 @@ from yield_rca_core.hypothesis_engine import HypothesisEngine  # noqa: E402
 from yield_rca_core.llm_gateway import (  # noqa: E402
     FakeLLMClient,
     LLMCallError,
+    LLMOutputValidationError,
     LLMRequest,
     LLMResponse,
 )
@@ -244,6 +248,33 @@ class CandidateProviderFailureClient(FakeLLMClient):
 
 
 class QwenHypothesisCandidateContractTest(unittest.TestCase):
+    def test_comparator_cannot_own_discriminator_gap_selection(self) -> None:
+        candidate = proposal()
+        matrix = build_causal_evidence_matrix(
+            CausalHypothesis.from_mapping(candidate),
+            [item for finding in causal_findings() for item in finding.evidence],
+        )
+        client = CandidateClient(
+            [
+                {
+                    "preferred_candidate_index": 0,
+                    "comparison_explanation": "Candidate zero is stronger.",
+                    "selected_gap_id": "GAP_1",
+                }
+            ]
+        )
+
+        with self.assertRaisesRegex(
+            LLMOutputValidationError,
+            "adversarial challenge owns discriminator Gap selection",
+        ):
+            QwenHypothesisCandidateComparator(client).compare(
+                request_id="REQ_SINGLE_GAP_OWNER",
+                candidates=[candidate],
+                matrices=[matrix],
+                evidence_gaps=[{"gap_id": "GAP_1", "candidate_index": 0}],
+            )
+
     def test_first_candidate_request_receives_traceable_lane_first_synthesis(
         self,
     ) -> None:

@@ -9,6 +9,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "core"))
 
 from yield_rca_core.causal_investigation_models import (  # noqa: E402
+    AlternativeLaneResolution,
+    AlternativeLaneResolutionStatus,
     AlternativeSearchStatus,
     CandidateChallenge,
     CausalChainCompleteness,
@@ -108,6 +110,16 @@ def test_challenge_and_competition_trace_round_trip() -> None:
         alternative_search_status=AlternativeSearchStatus.UNRESOLVED.value,
         challenge_round_count=1,
         resolution_evidence_ids=("EV_001",),
+        lane_resolutions=(
+            AlternativeLaneResolution(
+                lane_id="LANE_001",
+                status=AlternativeLaneResolutionStatus.RETAINED.value,
+                candidate_id="CANDIDATE_A",
+                evidence_ids=("EV_001",),
+                distinguishing_gap_ids=("mechanism_missing",),
+                reason="The Lane remains viable.",
+            ),
+        ),
     )
     assert CandidateChallenge.from_dict(challenge.to_dict()) == challenge
     assert CompetitionTrace.from_dict(trace.to_dict()) == trace
@@ -181,4 +193,3 @@ def test_rca_state_rejects_invalid_causal_references_and_status() -> None:
         )
     with pytest.raises(ModelValidationError, match="causal_chain_completeness"):
         make_state(causal_chain_completeness="not_a_status")
-

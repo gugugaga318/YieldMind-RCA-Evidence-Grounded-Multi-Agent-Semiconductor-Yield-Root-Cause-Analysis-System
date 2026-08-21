@@ -435,7 +435,7 @@ class FakeLLMClient:
                     "comparison_explanation",
                     "Python comparison did not identify a unique candidate.",
                 ),
-                "selected_gap_id": comparison.get("selected_gap_id"),
+                "selected_gap_id": None,
             }
         elif request.prompt_name == "causal_adversarial_challenge":
             data = {

@@ -1188,6 +1188,8 @@ class RCAState:
                 + trace.represented_lane_ids
                 + trace.unresolved_lane_ids
                 + trace.eliminated_lane_ids
+                + trace.blocked_lane_ids
+                + tuple(item.lane_id for item in trace.lane_resolutions)
             )
             unknown_lane_ids = referenced_lane_ids - known_lane_ids
             if unknown_lane_ids:
@@ -1196,7 +1198,16 @@ class RCAState:
                     f"{sorted(unknown_lane_ids)}"
                 )
             self._validate_reference_set(
-                list(trace.resolution_evidence_ids),
+                list(
+                    (
+                        *trace.resolution_evidence_ids,
+                        *[
+                            evidence_id
+                            for item in trace.lane_resolutions
+                            for evidence_id in item.evidence_ids
+                        ],
+                    )
+                ),
                 known_evidence_ids,
                 "competition trace",
             )

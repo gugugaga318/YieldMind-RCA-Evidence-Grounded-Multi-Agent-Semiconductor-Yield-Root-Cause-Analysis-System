@@ -5,6 +5,7 @@ from __future__ import annotations
 from yield_rca_core.causal_adversarial import (
     AdversarialChallengeGeneration,
     QwenAdversarialChallenger,
+    derive_alternative_lane_resolutions,
     derive_alternative_search_status,
 )
 from yield_rca_core.causal_candidate_comparison import (
@@ -41,6 +42,8 @@ from yield_rca_core.causal_hypothesis import (
     MechanismSupportSource,
 )
 from yield_rca_core.causal_investigation_models import (
+    AlternativeLaneResolution,
+    AlternativeLaneResolutionStatus,
     AlternativeSearchStatus,
     CandidateChallenge,
     CausalChainCompleteness,
@@ -291,12 +294,15 @@ __all__ = [
     "ChallengeStatus",
     "CompetitionTrace",
     "AlternativeSearchStatus",
+    "AlternativeLaneResolution",
+    "AlternativeLaneResolutionStatus",
     "AdversarialChallengeGeneration",
     "InvestigationLaneStatus",
     "ConfirmationGateResult",
     "DataMissingSource",
     "QwenHypothesisCandidateComparator",
     "QwenAdversarialChallenger",
+    "derive_alternative_lane_resolutions",
     "build_causal_evidence_gaps",
     "build_hypothesis_discrimination_gaps",
     "build_evidence_synthesis",

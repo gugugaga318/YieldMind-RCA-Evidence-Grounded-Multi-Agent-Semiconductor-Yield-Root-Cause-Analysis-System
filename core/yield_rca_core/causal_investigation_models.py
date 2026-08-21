@@ -87,6 +87,17 @@ class ChallengeStatus(StrEnum):
     RESOLVED = "resolved"
     UNRESOLVED = "unresolved"
     BLOCKED = "blocked"
+    NON_DISCRIMINATIVE = "non_discriminative"
+
+
+class AlternativeLaneResolutionStatus(StrEnum):
+    """Python-owned outcome for one concrete alternative causal Lane."""
+
+    RETAINED = "retained"
+    ELIMINATED = "eliminated"
+    UNRESOLVED = "unresolved"
+    BLOCKED = "blocked"
+    NON_DISCRIMINATIVE = "non_discriminative"
 
 
 @dataclass(frozen=True)
@@ -320,6 +331,74 @@ class CandidateChallenge:
 
 
 @dataclass(frozen=True)
+class AlternativeLaneResolution:
+    """Auditable Python interpretation of one Lane-level challenge result."""
+
+    lane_id: str
+    status: str
+    candidate_id: str | None = None
+    evidence_ids: tuple[str, ...] = ()
+    distinguishing_gap_ids: tuple[str, ...] = ()
+    reason: str = ""
+    schema_version: str = SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        _non_empty(self.lane_id, "lane_id")
+        object.__setattr__(
+            self,
+            "candidate_id",
+            _optional_string(self.candidate_id, "candidate_id"),
+        )
+        for field_name in ("evidence_ids", "distinguishing_gap_ids"):
+            object.__setattr__(
+                self,
+                field_name,
+                _string_tuple(getattr(self, field_name), field_name),
+            )
+        try:
+            status = AlternativeLaneResolutionStatus(self.status).value
+        except ValueError as exc:
+            allowed = ", ".join(item.value for item in AlternativeLaneResolutionStatus)
+            raise ModelValidationError(
+                f"alternative Lane resolution status must be one of: {allowed}"
+            ) from exc
+        object.__setattr__(self, "status", status)
+        if not isinstance(self.reason, str):
+            raise ModelValidationError("reason must be a string")
+        object.__setattr__(self, "reason", self.reason.strip())
+        if self.schema_version != SCHEMA_VERSION:
+            raise ModelValidationError(
+                f"unsupported schema_version {self.schema_version!r}; "
+                f"expected {SCHEMA_VERSION!r}"
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "lane_id": self.lane_id,
+            "status": self.status,
+            "candidate_id": self.candidate_id,
+            "evidence_ids": list(self.evidence_ids),
+            "distinguishing_gap_ids": list(self.distinguishing_gap_ids),
+            "reason": self.reason,
+            "schema_version": self.schema_version,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        return cls(
+            lane_id=data["lane_id"],
+            status=data["status"],
+            candidate_id=data.get("candidate_id"),
+            evidence_ids=tuple(data.get("evidence_ids", [])),
+            distinguishing_gap_ids=tuple(
+                data.get("distinguishing_gap_ids", [])
+            ),
+            reason=data.get("reason", ""),
+            schema_version=data.get("schema_version", SCHEMA_VERSION),
+        )
+
+
+@dataclass(frozen=True)
 class CompetitionTrace:
     """Python-owned state describing whether alternatives were searched."""
 
@@ -328,6 +407,8 @@ class CompetitionTrace:
     represented_lane_ids: tuple[str, ...] = ()
     unresolved_lane_ids: tuple[str, ...] = ()
     eliminated_lane_ids: tuple[str, ...] = ()
+    blocked_lane_ids: tuple[str, ...] = ()
+    lane_resolutions: tuple[AlternativeLaneResolution, ...] = ()
     alternative_search_status: str = AlternativeSearchStatus.NOT_SEARCHED.value
     challenge_round_count: int = 0
     resolution_evidence_ids: tuple[str, ...] = ()
@@ -340,6 +421,7 @@ class CompetitionTrace:
             "represented_lane_ids",
             "unresolved_lane_ids",
             "eliminated_lane_ids",
+            "blocked_lane_ids",
             "resolution_evidence_ids",
         ):
             object.__setattr__(
@@ -351,6 +433,22 @@ class CompetitionTrace:
             raise ModelValidationError("active and overflow Lane IDs must be disjoint")
         if set(self.unresolved_lane_ids) & set(self.eliminated_lane_ids):
             raise ModelValidationError("unresolved and eliminated Lane IDs must be disjoint")
+        if set(self.unresolved_lane_ids) & set(self.blocked_lane_ids):
+            raise ModelValidationError("unresolved and blocked Lane IDs must be disjoint")
+        if set(self.eliminated_lane_ids) & set(self.blocked_lane_ids):
+            raise ModelValidationError("eliminated and blocked Lane IDs must be disjoint")
+        if not isinstance(self.lane_resolutions, (list, tuple)) or any(
+            not isinstance(item, AlternativeLaneResolution)
+            for item in self.lane_resolutions
+        ):
+            raise ModelValidationError(
+                "lane_resolutions must contain AlternativeLaneResolution instances"
+            )
+        resolution_lane_ids = [item.lane_id for item in self.lane_resolutions]
+        if len(resolution_lane_ids) != len(set(resolution_lane_ids)):
+            raise ModelValidationError(
+                "lane_resolutions must contain at most one result per Lane"
+            )
         try:
             status = AlternativeSearchStatus(self.alternative_search_status).value
         except ValueError as exc:
@@ -374,6 +472,8 @@ class CompetitionTrace:
             "represented_lane_ids": list(self.represented_lane_ids),
             "unresolved_lane_ids": list(self.unresolved_lane_ids),
             "eliminated_lane_ids": list(self.eliminated_lane_ids),
+            "blocked_lane_ids": list(self.blocked_lane_ids),
+            "lane_resolutions": [item.to_dict() for item in self.lane_resolutions],
             "alternative_search_status": self.alternative_search_status,
             "challenge_round_count": self.challenge_round_count,
             "resolution_evidence_ids": list(self.resolution_evidence_ids),
@@ -388,6 +488,11 @@ class CompetitionTrace:
             represented_lane_ids=tuple(data.get("represented_lane_ids", [])),
             unresolved_lane_ids=tuple(data.get("unresolved_lane_ids", [])),
             eliminated_lane_ids=tuple(data.get("eliminated_lane_ids", [])),
+            blocked_lane_ids=tuple(data.get("blocked_lane_ids", [])),
+            lane_resolutions=tuple(
+                AlternativeLaneResolution.from_dict(item)
+                for item in data.get("lane_resolutions", [])
+            ),
             alternative_search_status=data.get(
                 "alternative_search_status",
                 AlternativeSearchStatus.NOT_SEARCHED.value,
@@ -399,6 +504,8 @@ class CompetitionTrace:
 
 
 __all__ = [
+    "AlternativeLaneResolution",
+    "AlternativeLaneResolutionStatus",
     "AlternativeSearchStatus",
     "CandidateChallenge",
     "CausalChainCompleteness",

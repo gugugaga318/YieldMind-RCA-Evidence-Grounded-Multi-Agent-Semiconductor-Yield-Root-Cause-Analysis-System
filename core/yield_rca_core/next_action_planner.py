@@ -329,6 +329,9 @@ def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
                 "candidate_challenges": list(
                     finding.details.get("candidate_challenges", [])
                 ),
+                "alternative_lane_resolutions": list(
+                    finding.details.get("alternative_lane_resolutions", [])
+                ),
                 "adversarial_challenge_generation": dict(
                     finding.details.get("adversarial_challenge_generation", {})
                 ),

@@ -5,8 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
+from yield_rca_core.causal_adversarial import (
+    derive_alternative_lane_resolutions,
+    derive_alternative_search_status,
+)
 from yield_rca_core.causal_chain import build_declared_unavailable_evidence
 from yield_rca_core.causal_investigation_models import (
+    AlternativeLaneResolution,
+    AlternativeLaneResolutionStatus,
     AlternativeSearchStatus,
     CandidateChallenge,
     CausalChainCompleteness,
@@ -200,18 +206,28 @@ def _update_causal_lane_state(state: RCAState, finding: AgentFinding) -> RCAStat
         records_by_id.values(),
         key=lambda item: (-item.priority_score, item.lane_id),
     )
-    active = ordered[:3]
-    overflow = ordered[3:]
+    searchable = [
+        item
+        for item in ordered
+        if item.investigation_status
+        not in {
+            InvestigationLaneStatus.ELIMINATED.value,
+            InvestigationLaneStatus.BLOCKED.value,
+        }
+    ]
+    active = searchable[:3]
+    overflow = searchable[3:]
     active_ids = tuple(item.lane_id for item in active)
     overflow_ids = tuple(item.lane_id for item in overflow)
     terminal_eliminated = tuple(
         item.lane_id
         for item in ordered
-        if item.investigation_status
-        in {
-            InvestigationLaneStatus.ELIMINATED.value,
-            InvestigationLaneStatus.BLOCKED.value,
-        }
+        if item.investigation_status == InvestigationLaneStatus.ELIMINATED.value
+    )
+    terminal_blocked = tuple(
+        item.lane_id
+        for item in ordered
+        if item.investigation_status == InvestigationLaneStatus.BLOCKED.value
     )
     unresolved_ids = tuple(item.lane_id for item in overflow)
     trace = CompetitionTrace(
@@ -220,6 +236,7 @@ def _update_causal_lane_state(state: RCAState, finding: AgentFinding) -> RCAStat
         represented_lane_ids=active_ids,
         unresolved_lane_ids=unresolved_ids,
         eliminated_lane_ids=terminal_eliminated,
+        blocked_lane_ids=terminal_blocked,
         alternative_search_status=AlternativeSearchStatus.NOT_SEARCHED.value,
         challenge_round_count=(
             state.competition_trace.challenge_round_count
@@ -303,24 +320,93 @@ def _update_competition_state(state: RCAState, finding: AgentFinding) -> RCAStat
             # the persisted state safe if a legacy Finding is replayed.
             continue
     previous_trace = state.competition_trace
-    resolved_alternative_ids = {
-        challenge.strongest_alternative_lane_id
-        for challenge in challenges
-        if challenge.status == "resolved"
-        and not challenge.unexplained_precursor_evidence_ids
-        and challenge.strongest_alternative_lane_id is not None
+    raw_resolutions = finding.details.get("alternative_lane_resolutions", [])
+    lane_resolutions: list[AlternativeLaneResolution] = []
+    if isinstance(raw_resolutions, list):
+        for raw in raw_resolutions:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                lane_resolutions.append(AlternativeLaneResolution.from_dict(raw))
+            except (TypeError, ValueError, ModelValidationError):
+                continue
+    active_before = [
+        lane.lane_id
+        for lane in state.causal_lanes
+        if lane.investigation_status
+        not in {
+            InvestigationLaneStatus.ELIMINATED.value,
+            InvestigationLaneStatus.BLOCKED.value,
+        }
+    ][:3]
+    eliminated_before = [
+        lane.lane_id
+        for lane in state.causal_lanes
+        if lane.investigation_status == InvestigationLaneStatus.ELIMINATED.value
+    ]
+    blocked_before = [
+        lane.lane_id
+        for lane in state.causal_lanes
+        if lane.investigation_status == InvestigationLaneStatus.BLOCKED.value
+    ]
+    if not lane_resolutions:
+        lane_resolutions = list(
+            derive_alternative_lane_resolutions(
+                challenges=challenges,
+                active_lane_ids=active_before,
+                eliminated_lane_ids=eliminated_before,
+                blocked_lane_ids=blocked_before,
+            )
+        )
+    previous_resolutions = {
+        item.lane_id: item
+        for item in (
+            previous_trace.lane_resolutions if previous_trace is not None else ()
+        )
     }
+    merged_resolutions: list[AlternativeLaneResolution] = []
+    current_resolution_ids = {item.lane_id for item in lane_resolutions}
+    for item in lane_resolutions:
+        previous = previous_resolutions.get(item.lane_id)
+        if previous is not None and not item.evidence_ids:
+            item = replace(
+                item,
+                candidate_id=item.candidate_id or previous.candidate_id,
+                evidence_ids=previous.evidence_ids,
+                distinguishing_gap_ids=(
+                    item.distinguishing_gap_ids
+                    or previous.distinguishing_gap_ids
+                ),
+            )
+        merged_resolutions.append(item)
+    merged_resolutions.extend(
+        item
+        for lane_id, item in previous_resolutions.items()
+        if lane_id not in current_resolution_ids
+    )
+    lane_resolutions = merged_resolutions
+    resolutions_by_lane = {item.lane_id: item for item in lane_resolutions}
     causal_lanes = [
         (
             replace(
                 lane,
-                investigation_status=InvestigationLaneStatus.ELIMINATED.value,
+                investigation_status=(
+                    InvestigationLaneStatus.BLOCKED.value
+                    if resolutions_by_lane[lane.lane_id].status
+                    == AlternativeLaneResolutionStatus.BLOCKED.value
+                    else InvestigationLaneStatus.ELIMINATED.value
+                ),
                 pruned_reason=(
-                    "Python-validated adversarial challenge resolved this "
-                    "alternative Lane."
+                    resolutions_by_lane[lane.lane_id].reason
+                    or "Python resolved this alternative Lane."
                 ),
             )
-            if lane.lane_id in resolved_alternative_ids
+            if lane.lane_id in resolutions_by_lane
+            and resolutions_by_lane[lane.lane_id].status
+            in {
+                AlternativeLaneResolutionStatus.ELIMINATED.value,
+                AlternativeLaneResolutionStatus.BLOCKED.value,
+            }
             else lane
         )
         for lane in state.causal_lanes
@@ -340,49 +426,83 @@ def _update_competition_state(state: RCAState, finding: AgentFinding) -> RCAStat
         lane.lane_id
         for lane in causal_lanes
         if lane.lane_id not in set(active_ids)
+        and lane.investigation_status
+        not in {
+            InvestigationLaneStatus.ELIMINATED.value,
+            InvestigationLaneStatus.BLOCKED.value,
+        }
     )
     alternative_ids = tuple(
         challenge.strongest_alternative_lane_id
         for challenge in challenges
         if challenge.strongest_alternative_lane_id in known_ids
     )
-    represented_ids = tuple(dict.fromkeys([*active_ids, *alternative_ids]))
+    represented_ids = tuple(
+        dict.fromkeys(
+            [
+                *active_ids,
+                *alternative_ids,
+                *[item.lane_id for item in lane_resolutions],
+            ]
+        )
+    )
     resolution_ids = tuple(
         dict.fromkeys(
             evidence_id
-            for challenge in challenges
-            for evidence_id in (
-                *challenge.supporting_evidence_ids,
-                *challenge.contradicting_evidence_ids,
-            )
+            for resolution in lane_resolutions
+            for evidence_id in resolution.evidence_ids
         )
     )
     previous_count = previous_trace.challenge_round_count if previous_trace else 0
     eliminated_ids = tuple(
         lane.lane_id
         for lane in causal_lanes
-        if lane.investigation_status
-        in {
-            InvestigationLaneStatus.ELIMINATED.value,
-            InvestigationLaneStatus.BLOCKED.value,
-        }
+        if lane.investigation_status == InvestigationLaneStatus.ELIMINATED.value
+    )
+    blocked_ids = tuple(
+        lane.lane_id
+        for lane in causal_lanes
+        if lane.investigation_status == InvestigationLaneStatus.BLOCKED.value
+    )
+    alternative_search_status = derive_alternative_search_status(
+        challenges=challenges,
+        matrices=(),
+        active_lane_ids=active_before,
+        eliminated_lane_ids=eliminated_before,
+        blocked_lane_ids=blocked_before,
+        lane_resolutions=lane_resolutions,
+    )
+    unresolved_resolution_statuses = {
+        AlternativeLaneResolutionStatus.RETAINED.value,
+        AlternativeLaneResolutionStatus.UNRESOLVED.value,
+        AlternativeLaneResolutionStatus.NON_DISCRIMINATIVE.value,
+    }
+    unresolved_ids = tuple(
+        dict.fromkeys(
+            [
+                *overflow_ids,
+                *(
+                    []
+                    if alternative_search_status
+                    == AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value
+                    else [
+                        item.lane_id
+                        for item in lane_resolutions
+                        if item.status in unresolved_resolution_statuses
+                    ]
+                ),
+            ]
+        )
     )
     trace = CompetitionTrace(
         active_lane_ids=active_ids,
         overflow_lane_ids=overflow_ids,
         represented_lane_ids=represented_ids,
-        unresolved_lane_ids=tuple(
-            lane_id
-            for lane_id in overflow_ids
-            if lane_id not in alternative_ids and lane_id not in eliminated_ids
-        ),
+        unresolved_lane_ids=unresolved_ids,
         eliminated_lane_ids=eliminated_ids,
-        alternative_search_status=str(
-            finding.details.get(
-                "alternative_search_status",
-                AlternativeSearchStatus.NOT_SEARCHED.value,
-            )
-        ),
+        blocked_lane_ids=blocked_ids,
+        lane_resolutions=tuple(lane_resolutions),
+        alternative_search_status=alternative_search_status,
         challenge_round_count=previous_count + 1,
         resolution_evidence_ids=resolution_ids,
     )

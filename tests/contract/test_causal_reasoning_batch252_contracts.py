@@ -553,7 +553,7 @@ def test_unknown_gap_is_rejected_without_orchestration_fallback() -> None:
     assert len(client.requests) == 2
 
 
-def test_resolved_challenge_with_all_lanes_eliminated_closes_competition() -> None:
+def test_eliminating_every_lane_does_not_invent_a_winner() -> None:
     challenge = CandidateChallenge(
         candidate_id="C1",
         challenge_explanation="The only alternative Lane was eliminated.",
@@ -566,5 +566,5 @@ def test_resolved_challenge_with_all_lanes_eliminated_closes_competition() -> No
             active_lane_ids=["L1"],
             eliminated_lane_ids=["L1"],
         )
-        == AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value
+        == AlternativeSearchStatus.UNRESOLVED.value
     )

@@ -266,6 +266,8 @@ class Batch242CausalReasoningContractTest(unittest.TestCase):
         result = compare_candidate_matrices([matrix, matrix])
         self.assertIsNone(result["preferred_candidate_index"])
         self.assertTrue(result["unresolved"])
+        self.assertIsNone(result["selected_gap_id"])
+        self.assertEqual(result["gap_selection_owner"], "adversarial_challenge")
 
 
 if __name__ == "__main__":

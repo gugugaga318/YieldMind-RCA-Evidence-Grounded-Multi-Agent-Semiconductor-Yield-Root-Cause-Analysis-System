@@ -190,6 +190,8 @@ function stateFixture(): RCAState {
       represented_lane_ids: ["LANE_PRESSURE"],
       unresolved_lane_ids: ["LANE_PRESSURE"],
       eliminated_lane_ids: [],
+      blocked_lane_ids: [],
+      lane_resolutions: [],
       alternative_search_status: "unresolved",
       challenge_round_count: 1,
       resolution_evidence_ids: [],

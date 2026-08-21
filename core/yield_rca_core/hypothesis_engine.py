@@ -968,6 +968,25 @@ class HypothesisEngine:
                         candidate_comparison.get("comparison_summary"),
                     )
                 )
+        challenge_selected_gap_ids = list(
+            dict.fromkeys(
+                gap_id
+                for challenge in challenges
+                for gap_id in challenge.distinguishing_gap_ids
+            )
+        )
+        effective_comparison["comparator_selected_gap_id"] = (
+            candidate_comparison.get("selected_gap_id")
+            if candidate_comparison is not None
+            else None
+        )
+        effective_comparison["selected_gap_id"] = (
+            challenge_selected_gap_ids[0]
+            if len(challenge_selected_gap_ids) == 1
+            else None
+        )
+        effective_comparison["selected_gap_ids"] = challenge_selected_gap_ids
+        effective_comparison["gap_selection_owner"] = "adversarial_challenge"
 
         mes_strength = _mes_strength(mes)
         fdc_strength = _fdc_strength(fdc)

@@ -85,14 +85,6 @@ def compare_candidate_matrices(
     best = max(scores)
     winners = [index for index, score in enumerate(scores) if score == best]
     preferred = winners[0] if len(winners) == 1 else None
-    selected_gap = next(
-        (
-            str(item.get("gap_id"))
-            for item in evidence_gaps
-            if preferred is not None and item.get("candidate_index") == preferred
-        ),
-        None,
-    )
     if preferred is None:
         explanation = "Candidates are equally strong or cannot be separated by typed Evidence."
     else:
@@ -108,7 +100,8 @@ def compare_candidate_matrices(
     return {
         "preferred_candidate_index": preferred,
         "comparison_explanation": explanation,
-        "selected_gap_id": selected_gap,
+        "selected_gap_id": None,
+        "gap_selection_owner": "adversarial_challenge",
         "scores": scores,
         "matrix_profiles": matrix_profiles,
         "unresolved": (
@@ -193,14 +186,17 @@ class QwenHypothesisCandidateComparator:
         if not isinstance(explanation, str) or not explanation.strip():
             raise LLMOutputValidationError("comparison_explanation must be non-empty")
         gap_id = data.get("selected_gap_id")
-        valid_gap_ids = {str(item.get("gap_id")) for item in evidence_gaps}
-        if gap_id is not None and str(gap_id) not in valid_gap_ids:
-            raise LLMOutputValidationError("selected_gap_id is not a Python-generated gap")
+        if gap_id is not None:
+            raise LLMOutputValidationError(
+                "selected_gap_id must be null because the adversarial challenge "
+                "owns discriminator Gap selection"
+            )
         return {
             **python_comparison,
             "preferred_candidate_index": index,
             "comparison_explanation": explanation.strip(),
-            "selected_gap_id": str(gap_id) if gap_id is not None else None,
+            "selected_gap_id": None,
+            "gap_selection_owner": "adversarial_challenge",
             "source": "qwen",
         }
 

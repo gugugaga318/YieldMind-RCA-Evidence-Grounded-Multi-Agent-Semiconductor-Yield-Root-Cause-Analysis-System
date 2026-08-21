@@ -25,6 +25,7 @@ from yield_rca_core.causal_evidence_gap import (
 from yield_rca_core.causal_evidence_matrix import build_causal_evidence_matrix
 from yield_rca_core.causal_hypothesis import CausalHypothesis
 from yield_rca_core.causal_investigation_models import (
+    AlternativeLaneResolution,
     AlternativeSearchStatus,
     CandidateChallenge,
     CausalLaneRecord,
@@ -68,7 +69,13 @@ def _unique(values: list[str]) -> list[str]:
 def _lane_context(
     findings: list[AgentFinding],
     causal_lanes: Sequence[CausalLaneRecord] = (),
-) -> tuple[list[str], list[str], list[str], list[dict[str, Any]]]:
+) -> tuple[
+    list[str],
+    list[str],
+    list[str],
+    list[str],
+    list[dict[str, Any]],
+]:
     """Return all, active, and Python-eliminated concrete Lane IDs."""
 
     raw_lanes: list[dict[str, Any]] = []
@@ -99,9 +106,14 @@ def _lane_context(
     eliminated_ids = [
         str(item["lane_id"])
         for item in ordered
-        if str(item.get("investigation_status", "")) in {"eliminated", "blocked"}
+        if str(item.get("investigation_status", "")) == "eliminated"
     ]
-    return all_ids, active_ids, eliminated_ids, ordered
+    blocked_ids = [
+        str(item["lane_id"])
+        for item in ordered
+        if str(item.get("investigation_status", "")) == "blocked"
+    ]
+    return all_ids, active_ids, eliminated_ids, blocked_ids, ordered
 
 
 def _merge_evidence_payload(
@@ -399,6 +411,7 @@ class RCAReasoningAgent:
             all_lane_ids,
             active_lane_ids,
             eliminated_lane_ids,
+            blocked_lane_ids,
             lane_contexts,
         ) = _lane_context(findings, causal_lanes)
 
@@ -426,6 +439,7 @@ class RCAReasoningAgent:
         deterministic_candidates_enabled = self.agent_mode != AgentMode.LLM.value
         candidate_comparison: dict[str, Any] | None = None
         candidate_challenges: list[CandidateChallenge] = []
+        alternative_lane_resolutions: list[AlternativeLaneResolution] = []
         consumed_discriminators: set[tuple[str, str]] = set()
         alternative_search_status = AlternativeSearchStatus.NOT_SEARCHED.value
         challenge_generation: dict[str, Any] = {
@@ -631,9 +645,13 @@ class RCAReasoningAgent:
                             lane_ids=all_lane_ids,
                             active_lane_ids=active_lane_ids,
                             eliminated_lane_ids=eliminated_lane_ids,
+                            blocked_lane_ids=blocked_lane_ids,
                             lane_contexts=lane_contexts,
                         )
                         candidate_challenges = list(challenge_result.challenges)
+                        alternative_lane_resolutions = list(
+                            challenge_result.lane_resolutions
+                        )
                         alternative_search_status = (
                             challenge_result.alternative_search_status
                         )
@@ -646,6 +664,10 @@ class RCAReasoningAgent:
                             ),
                             "output_invalid": challenge_result.output_invalid,
                             "alternative_search_status": alternative_search_status,
+                            "alternative_lane_resolutions": [
+                                item.to_dict()
+                                for item in alternative_lane_resolutions
+                            ],
                         }
                     if challenge_generation.get("output_invalid"):
                         warnings.append(
@@ -969,6 +991,9 @@ class RCAReasoningAgent:
                 "adversarial_challenge_generation": challenge_generation,
                 "candidate_challenges": [
                     challenge.to_dict() for challenge in candidate_challenges
+                ],
+                "alternative_lane_resolutions": [
+                    item.to_dict() for item in alternative_lane_resolutions
                 ],
                 "alternative_search_status": alternative_search_status,
                 "hypothesis_engine_result": engine_result,

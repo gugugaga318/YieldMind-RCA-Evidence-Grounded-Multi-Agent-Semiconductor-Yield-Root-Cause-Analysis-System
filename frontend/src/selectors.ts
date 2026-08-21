@@ -191,6 +191,30 @@ function competitionTrace(value: unknown): CompetitionTrace | null {
     represented_lane_ids: stringList(value.represented_lane_ids),
     unresolved_lane_ids: stringList(value.unresolved_lane_ids),
     eliminated_lane_ids: stringList(value.eliminated_lane_ids),
+    blocked_lane_ids: stringList(value.blocked_lane_ids),
+    lane_resolutions: Array.isArray(value.lane_resolutions)
+      ? value.lane_resolutions.flatMap((item) => {
+          if (!isRecord(item) || typeof item.lane_id !== "string") return [];
+          const allowedStatuses = new Set([
+            "retained",
+            "eliminated",
+            "unresolved",
+            "blocked",
+            "non_discriminative",
+          ]);
+          const status = typeof item.status === "string" && allowedStatuses.has(item.status)
+            ? item.status as "retained" | "eliminated" | "unresolved" | "blocked" | "non_discriminative"
+            : "unresolved";
+          return [{
+            lane_id: item.lane_id,
+            status,
+            candidate_id: typeof item.candidate_id === "string" ? item.candidate_id : null,
+            evidence_ids: stringList(item.evidence_ids),
+            distinguishing_gap_ids: stringList(item.distinguishing_gap_ids),
+            reason: typeof item.reason === "string" ? item.reason : "",
+          }];
+        })
+      : [],
     alternative_search_status:
       typeof value.alternative_search_status === "string"
         ? value.alternative_search_status
