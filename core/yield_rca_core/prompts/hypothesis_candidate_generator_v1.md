@@ -28,6 +28,11 @@ Rules:
   outcomes, controls, approved mechanism Knowledge, and other facts that Python
   could not objectively bind to one Lane. Use ``typed_evidence_register`` to
   inspect the exact fact behind every cited Evidence ID.
+- ``evidence_synthesis.mechanism_bridge_inputs`` places each Lane's observed
+  process Evidence beside Lane-bound and global outcome Evidence. Treat these as
+  the endpoints of a mechanism question, not as a Python-provided answer. The
+  approved Knowledge IDs are optional engineering support and are never required
+  when an explicit, shared-Lot empirical bridge is otherwise justified.
 - On the first reasoning round, consider materially different active Lanes as
   competing explanations. Return two candidates only when the supplied facts
   justify two distinct mechanisms; never manufacture a weak second candidate.
@@ -36,6 +41,17 @@ Rules:
   parameter or process condition, physical mechanism, and observed result.
   If one component is not evidenced, keep the candidate bounded and explain the
   missing causal link in ``causal_explanation`` instead of inventing it.
+- A physical mechanism is the intervening process that connects the observed
+  abnormal parameter to the observed product result. Merely writing
+  "parameter drift caused defect" is not a mechanism. In
+  ``causal_explanation``, distinguish all three parts in prose:
+  1. observed abnormal parameter/process condition;
+  2. proposed physical bridge such as a change in plasma, reaction, transport,
+     stress, adhesion, profile, fill, removal, or another evidence-compatible
+     engineering process;
+  3. observed defect, metrology, or electrical result.
+  This is an open-world engineering explanation, not a fixed mechanism list.
+  Do not invent a bridge when the supplied Evidence cannot support one.
 - When ``prior_authoritative_candidates`` is non-empty, this is a reasoning
   refresh after targeted Evidence collection. Re-evaluate each prior candidate
   against the complete current Evidence register. Retain or revise a prior
@@ -50,6 +66,11 @@ Rules:
   - ``targeted_investigation_results`` binds the selected discriminator Gap and
     Lane to the new Evidence collected for it;
   - ``relevant_causal_lanes`` contains immutable scope facts for those Lanes.
+  - ``prior_candidate_mechanism_feedback`` reports whether Python found an
+    explicit physical bridge and shared-Lot empirical convergence in each prior
+    candidate. When it reports ``mechanism_status=incomplete``, repair the causal
+    explanation only if current Evidence justifies a more specific bridge;
+    otherwise retain an explicitly incomplete hypothesis or return no candidate.
   When a targeted result has ``support_observed=true`` and its new Evidence
   supports a materially different failure mechanism, represent that mechanism as
   an independent competing candidate and cite the targeted Evidence. Do not merely

@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "core"))
 
 from yield_rca_core.causal_evidence_gap import (  # noqa: E402
+    build_causal_evidence_gaps,
     build_hypothesis_discrimination_gaps,
 )
 from yield_rca_core.causal_evidence_matrix import (  # noqa: E402
@@ -193,8 +194,9 @@ def proposal(*, supporting: list[str] | None = None) -> dict[str, object]:
     return {
         "root_cause": "EQ_01 chamber temperature control drift",
         "causal_explanation": (
-            "A shared EQ_01 exposure with chamber temperature deviation can "
-            "produce the observed edge void signature."
+            "The chamber temperature deviation destabilizes surface-reaction "
+            "kinetics and creates non-uniform film nucleation, producing the "
+            "observed edge void signature."
         ),
         "supporting_evidence_ids": supporting
         or ["EV_EXPOSURE", "EV_PROCESS", "EV_PRODUCT"],
@@ -292,6 +294,18 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
             synthesis["global_facts"]["outcomes"][0]["evidence_id"],
             "EV_GLOBAL_OUTCOME",
         )
+        mechanism_inputs = synthesis["mechanism_bridge_inputs"]
+        self.assertEqual(
+            mechanism_inputs["by_lane"][0][
+                "parameter_or_process_evidence_ids"
+            ],
+            ["EV_LANE_PROCESS"],
+        )
+        self.assertEqual(
+            mechanism_inputs["global_outcome_evidence_ids"],
+            ["EV_GLOBAL_OUTCOME"],
+        )
+        self.assertEqual(mechanism_inputs["approved_knowledge_evidence_ids"], [])
         register_ids = {
             item["evidence_id"] for item in payload["typed_evidence_register"]
         }
@@ -621,7 +635,11 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
     def test_matrix_marks_mechanism_source_as_empirical_convergence(self) -> None:
         candidate = CausalHypothesis(
             root_cause="EQ_01 chamber temperature control drift",
-            causal_explanation="Temperature deviation produces the observed edge void.",
+            causal_explanation=(
+                "Temperature deviation destabilizes surface-reaction kinetics "
+                "and creates non-uniform film nucleation, producing the observed "
+                "edge void."
+            ),
             supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_PRODUCT"),
         )
 
@@ -632,6 +650,70 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
 
         self.assertEqual(matrix.mechanism_status, CausalClaimStatus.SUPPORTED.value)
         self.assertEqual(matrix.mechanism_support_source, "empirical_convergence")
+        self.assertTrue(
+            matrix.claims["mechanism"].facts["proposed_physical_bridge_terms"]
+        )
+        self.assertEqual(
+            matrix.claims["mechanism"].facts["empirical_shared_lot_ids"],
+            ["LOT_01"],
+        )
+
+    def test_parameter_to_outcome_restatement_is_not_a_supported_mechanism(
+        self,
+    ) -> None:
+        candidate = CausalHypothesis(
+            root_cause="EQ_01 chamber temperature control drift",
+            causal_explanation="Temperature deviation produces the observed edge void.",
+            supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_PRODUCT"),
+        )
+
+        matrix = build_causal_evidence_matrix(
+            candidate,
+            [item for finding in causal_findings() for item in finding.evidence],
+        )
+
+        mechanism = matrix.claims["mechanism"]
+        self.assertEqual(mechanism.status, CausalClaimStatus.INCOMPLETE.value)
+        self.assertEqual(mechanism.support_source, "llm_explanation_only")
+        self.assertFalse(mechanism.facts["mechanism_expression_present"])
+        self.assertIn("intervening physical process", mechanism.reason)
+        gaps = build_causal_evidence_gaps([matrix])
+        mechanism_gap = next(item for item in gaps if item["claim"] == "mechanism")
+        self.assertEqual(mechanism_gap["question_kind"], "process_mechanism")
+        self.assertIn("validate_historical_case", mechanism_gap["allowed_actions"])
+
+    def test_empirical_mechanism_requires_shared_current_lot_scope(self) -> None:
+        findings = causal_findings()
+        product = findings[2].evidence[0]
+        mismatched_product = Evidence.from_dict(
+            {
+                **product.to_dict(),
+                "entities": [
+                    {
+                        **entity.to_dict(),
+                        "entity_id": (
+                            "LOT_02"
+                            if entity.entity_type == EntityType.LOT.value
+                            else entity.entity_id
+                        ),
+                    }
+                    for entity in product.entities
+                ],
+            }
+        )
+
+        matrix = build_causal_evidence_matrix(
+            CausalHypothesis.from_mapping(proposal()),
+            [
+                findings[0].evidence[0],
+                findings[1].evidence[0],
+                mismatched_product,
+            ],
+        )
+
+        mechanism = matrix.claims["mechanism"]
+        self.assertEqual(mechanism.status, CausalClaimStatus.INCOMPLETE.value)
+        self.assertEqual(mechanism.facts["empirical_shared_lot_ids"], [])
 
     def test_generator_retries_unknown_evidence_and_accepts_repaired_candidate(
         self,
@@ -1330,7 +1412,45 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
             second_client.requests[0].payload["targeted_investigation_results"],
             [],
         )
+        mechanism_feedback = second_client.requests[0].payload[
+            "prior_candidate_mechanism_feedback"
+        ]
+        self.assertEqual(len(mechanism_feedback), 1)
+        self.assertEqual(mechanism_feedback[0]["mechanism_status"], "supported")
+        self.assertEqual(
+            mechanism_feedback[0]["mechanism_support_source"],
+            "empirical_convergence",
+        )
+        self.assertTrue(mechanism_feedback[0]["proposed_physical_bridge_terms"])
         self.assertNotEqual(second.finding_id, first.finding_id)
+
+    def test_reasoning_refresh_exposes_incomplete_prior_mechanism_feedback(self) -> None:
+        weak_prior = {
+            **proposal(),
+            "causal_explanation": (
+                "Temperature deviation produces the observed edge void."
+            ),
+        }
+        client = CandidateClient(
+            [{"candidates": [], "analysis_summary": "No repaired mechanism."}]
+        )
+
+        QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_MECHANISM_FEEDBACK",
+            findings=causal_findings(),
+            prior_candidates=[weak_prior],
+        )
+
+        feedback = client.requests[0].payload[
+            "prior_candidate_mechanism_feedback"
+        ]
+        self.assertEqual(len(feedback), 1)
+        self.assertEqual(feedback[0]["mechanism_status"], "incomplete")
+        self.assertEqual(
+            feedback[0]["mechanism_support_source"],
+            "llm_explanation_only",
+        )
+        self.assertEqual(feedback[0]["proposed_physical_bridge_terms"], [])
 
     def test_targeted_alternative_evidence_repairs_candidate_competition(self) -> None:
         findings = causal_findings()

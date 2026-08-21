@@ -57,7 +57,10 @@ def evidence(
 def candidate() -> CausalHypothesis:
     return CausalHypothesis(
         root_cause="EQ_01 CH_01 OP_4000 pressure control drift",
-        causal_explanation="Pressure drift produces the observed center void.",
+        causal_explanation=(
+            "Pressure drift destabilizes plasma transport and creates localized "
+            "material depletion, producing the observed center void."
+        ),
         supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_OUTCOME"),
     )
 

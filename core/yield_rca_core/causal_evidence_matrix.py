@@ -123,6 +123,10 @@ _SEMANTIC_STOP_WORDS = {
     "causing",
     "chamber",
     "control",
+    "create",
+    "created",
+    "creates",
+    "creating",
     "current",
     "equipment",
     "evidence",
@@ -132,6 +136,103 @@ _SEMANTIC_STOP_WORDS = {
     "operation",
     "process",
     "signal",
+}
+_GENERIC_CAUSAL_LINK_TOKENS = {
+    "abnormal",
+    "abnormality",
+    "across",
+    "affect",
+    "affected",
+    "affecting",
+    "all",
+    "among",
+    "and",
+    "anomaly",
+    "another",
+    "are",
+    "arising",
+    "both",
+    "can",
+    "cause",
+    "caused",
+    "causes",
+    "causing",
+    "change",
+    "changed",
+    "compatible",
+    "concurrent",
+    "consistent",
+    "control",
+    "critical",
+    "data",
+    "delta",
+    "defect",
+    "defects",
+    "deviation",
+    "deviations",
+    "direct",
+    "directly",
+    "disrupt",
+    "disrupted",
+    "disrupting",
+    "disrupts",
+    "drift",
+    "due",
+    "elevated",
+    "evidence",
+    "excursion",
+    "exposure",
+    "explain",
+    "explained",
+    "explains",
+    "failure",
+    "failures",
+    "high",
+    "increase",
+    "increased",
+    "indicate",
+    "indicated",
+    "indicates",
+    "instability",
+    "into",
+    "lead",
+    "leading",
+    "leads",
+    "likely",
+    "low",
+    "lots",
+    "may",
+    "multiple",
+    "non",
+    "outcome",
+    "pattern",
+    "patterns",
+    "primary",
+    "produce",
+    "produced",
+    "produces",
+    "producing",
+    "reduced",
+    "reported",
+    "result",
+    "resulting",
+    "results",
+    "shared",
+    "signature",
+    "than",
+    "that",
+    "the",
+    "then",
+    "this",
+    "through",
+    "variation",
+    "values",
+    "wafers",
+    "when",
+    "which",
+    "while",
+    "with",
+    "would",
 }
 
 
@@ -665,9 +766,12 @@ def _result(
     reason: str,
     *,
     support_source: MechanismSupportSource | str | None = None,
+    fact_overrides: Mapping[str, Any] | None = None,
 ) -> CausalClaimResult:
     items = list(evidence)
     facts = _facts(items)
+    if fact_overrides:
+        facts.update(fact_overrides)
     if str(claim) == CausalClaim.CONTRADICTION.value:
         facts["contradictions"] = [item.evidence_id for item in items]
     return CausalClaimResult(
@@ -944,6 +1048,64 @@ def _mechanism_claim(
 
     relevant_rules = relevant(rule)
     relevant_knowledge = relevant(knowledge)
+    claim_entity_tokens = {
+        token
+        for claim_result in (parameter, outcome)
+        for values in claim_result.facts.get("entity_ids_by_type", {}).values()
+        if isinstance(values, list)
+        for value in values
+        for token in _label_tokens(value)
+    }
+    claim_entity_tokens.update(
+        token
+        for claim_result in (parameter, outcome)
+        for value in claim_result.facts.get("parameter_fields", [])
+        if isinstance(value, str)
+        for token in _label_tokens(value)
+    )
+    proposed_bridge_terms = sorted(
+        token
+        for token in _label_tokens(candidate.causal_explanation)
+        if token not in claim_entity_tokens
+        and token not in _GENERIC_CAUSAL_LINK_TOKENS
+        and not any(character.isdigit() for character in token)
+    )
+    parameter_ids = set(parameter.evidence_ids)
+    outcome_ids = set(outcome.evidence_ids)
+    parameter_items = [item for item in evidence if item.evidence_id in parameter_ids]
+    outcome_items = [item for item in evidence if item.evidence_id in outcome_ids]
+    parameter_lots = {
+        entity.entity_id
+        for item in parameter_items
+        for entity in item.entities
+        if entity.entity_type == EntityType.LOT.value
+    }
+    outcome_lots = {
+        entity.entity_id
+        for item in outcome_items
+        for entity in item.entities
+        if entity.entity_type == EntityType.LOT.value
+    }
+    shared_empirical_lots = sorted(parameter_lots & outcome_lots)
+    mechanism_facts = {
+        "proposed_physical_bridge_terms": proposed_bridge_terms,
+        "mechanism_expression_present": bool(proposed_bridge_terms),
+        "parameter_evidence_ids": sorted(parameter_ids),
+        "outcome_evidence_ids": sorted(outcome_ids),
+        "empirical_shared_lot_ids": shared_empirical_lots,
+    }
+    if not proposed_bridge_terms:
+        return _result(
+            CausalClaim.MECHANISM,
+            CausalClaimStatus.INCOMPLETE,
+            [*parameter_items, *outcome_items, *relevant_knowledge, *relevant_rules],
+            (
+                "The candidate restates an abnormal parameter and outcome but does "
+                "not identify an intervening physical process."
+            ),
+            support_source=MechanismSupportSource.LLM_EXPLANATION_ONLY,
+            fact_overrides=mechanism_facts,
+        )
     if relevant_rules:
         return _result(
             CausalClaim.MECHANISM,
@@ -951,6 +1113,7 @@ def _mechanism_claim(
             relevant_rules,
             "An explicit Python-registered mechanism rule supports the relationship.",
             support_source=MechanismSupportSource.RULE,
+            fact_overrides=mechanism_facts,
         )
     if relevant_knowledge:
         return _result(
@@ -962,18 +1125,24 @@ def _mechanism_claim(
                 "prove current-Lot occurrence alone."
             ),
             support_source=MechanismSupportSource.APPROVED_KNOWLEDGE,
+            fact_overrides=mechanism_facts,
         )
     if (
         process
         and parameter.status == CausalClaimStatus.SUPPORTED.value
         and outcome.status == CausalClaimStatus.SUPPORTED.value
+        and shared_empirical_lots
     ):
         return _result(
             CausalClaim.MECHANISM,
             CausalClaimStatus.SUPPORTED,
-            [*process],
-            "Current-Lot process anomaly and compatible product outcome converge empirically.",
+            [*parameter_items, *outcome_items],
+            (
+                "The candidate states an explicit physical bridge and the aligned "
+                "process/outcome Evidence converges on a shared current-Lot scope."
+            ),
             support_source=MechanismSupportSource.EMPIRICAL_CONVERGENCE,
+            fact_overrides=mechanism_facts,
         )
     if process or knowledge or rule or outcome.status != CausalClaimStatus.UNAVAILABLE.value:
         return _result(
@@ -986,6 +1155,7 @@ def _mechanism_claim(
                 "Evidence, when present, is not relevant to this candidate."
             ),
             support_source=MechanismSupportSource.LLM_EXPLANATION_ONLY,
+            fact_overrides=mechanism_facts,
         )
     return _result(
         CausalClaim.MECHANISM,
@@ -993,6 +1163,7 @@ def _mechanism_claim(
         (),
         "No current-Lot process or outcome Evidence can test the mechanism.",
         support_source=MechanismSupportSource.LLM_EXPLANATION_ONLY,
+        fact_overrides=mechanism_facts,
     )
 
 

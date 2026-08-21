@@ -105,7 +105,10 @@ def causal_evidence() -> list[Evidence]:
 def candidate() -> CausalHypothesis:
     return CausalHypothesis(
         root_cause="EQ_01 CH_01 OP_4000 temperature control drift",
-        causal_explanation="High temperature produces the observed edge_void outcome.",
+        causal_explanation=(
+            "High temperature disrupts surface-reaction kinetics and creates "
+            "non-uniform film nucleation, producing the observed edge_void outcome."
+        ),
         supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_OUTCOME"),
     )
 

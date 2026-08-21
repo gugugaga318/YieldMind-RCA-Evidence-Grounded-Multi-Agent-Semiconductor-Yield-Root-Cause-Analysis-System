@@ -7,6 +7,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from yield_rca_core.causal_evidence_matrix import build_causal_evidence_matrix
+from yield_rca_core.causal_hypothesis import CausalHypothesis
 from yield_rca_core.evidence_models import EntityType, Evidence, EvidenceType
 from yield_rca_core.evidence_synthesis import (
     build_lane_first_evidence_synthesis,
@@ -214,6 +216,67 @@ def _is_approved_knowledge_support(evidence: Evidence) -> bool:
         if str(key).casefold() == "validation_status"
     )
     return bool(statuses) and all(status == "CONFIRMED" for status in statuses)
+
+
+def _prior_candidate_mechanism_feedback(
+    prior_candidates: Sequence[Mapping[str, Any]],
+    *,
+    evidence_by_id: Mapping[str, Evidence],
+) -> list[dict[str, Any]]:
+    """Expose Python-owned mechanism gaps during a reasoning refresh."""
+
+    feedback: list[dict[str, Any]] = []
+    for index, candidate in enumerate(prior_candidates[:_MAX_CANDIDATES]):
+        root_cause = str(candidate.get("root_cause", "")).strip()
+        explanation = str(
+            candidate.get("causal_explanation", candidate.get("root_cause", ""))
+        ).strip()
+        supporting = tuple(
+            dict.fromkeys(
+                str(item)
+                for item in candidate.get("supporting_evidence_ids", [])
+                if str(item) in evidence_by_id
+            )
+        )
+        contradicting = tuple(
+            dict.fromkeys(
+                str(item)
+                for item in candidate.get("contradicting_evidence_ids", [])
+                if str(item) in evidence_by_id and str(item) not in supporting
+            )
+        )
+        if not root_cause or not explanation or not supporting:
+            continue
+        try:
+            matrix = build_causal_evidence_matrix(
+                CausalHypothesis(
+                    root_cause=root_cause,
+                    causal_explanation=explanation,
+                    supporting_evidence_ids=supporting,
+                    contradicting_evidence_ids=contradicting,
+                ),
+                evidence_by_id.values(),
+            )
+        except (TypeError, ValueError):
+            continue
+        mechanism = matrix.claims["mechanism"]
+        feedback.append(
+            {
+                "candidate_index": index,
+                "mechanism_status": mechanism.status,
+                "mechanism_support_source": mechanism.support_source,
+                "reason": mechanism.reason,
+                "evidence_ids": list(mechanism.evidence_ids),
+                "proposed_physical_bridge_terms": list(
+                    mechanism.facts.get("proposed_physical_bridge_terms", [])
+                ),
+                "empirical_shared_lot_ids": list(
+                    mechanism.facts.get("empirical_shared_lot_ids", [])
+                ),
+                "causal_chain_status": matrix.causal_chain_completeness,
+            }
+        )
+    return feedback
 
 
 def _candidate_repair_feedback(
@@ -987,6 +1050,10 @@ class QwenHypothesisCandidateGenerator:
             evidence_id: evidence_by_id[evidence_id]
             for evidence_id in prompt_evidence_ids
         }
+        prior_mechanism_feedback = _prior_candidate_mechanism_feedback(
+            prior_candidates,
+            evidence_by_id=evidence_by_id,
+        )
 
         validation_errors: list[str] = []
         rejected_candidates: list[dict[str, Any]] = []
@@ -1036,6 +1103,7 @@ class QwenHypothesisCandidateGenerator:
                         for candidate in prior_candidates[:_MAX_CANDIDATES]
                         if str(candidate.get("root_cause", "")).strip()
                     ],
+                    "prior_candidate_mechanism_feedback": prior_mechanism_feedback,
                     "new_evidence_ids_since_prior": competition_context[
                         "new_evidence_ids_since_prior"
                     ],

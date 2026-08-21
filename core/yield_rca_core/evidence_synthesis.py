@@ -478,6 +478,43 @@ def build_lane_first_evidence_synthesis(
                 emitted_ids.add(item.evidence_id)
 
     grouped = build_evidence_synthesis(evidence_items)
+    mechanism_bridge_inputs = {
+        "by_lane": [
+            {
+                "lane_id": str(lane["lane_id"]),
+                "parameter_or_process_evidence_ids": [
+                    str(record["evidence_id"])
+                    for record in lane["facts"]["process_excursions"]
+                ],
+                "lane_outcome_evidence_ids": [
+                    str(record["evidence_id"])
+                    for record in lane["facts"]["outcomes"]
+                ],
+            }
+            for lane in lane_summaries
+        ],
+        "global_outcome_evidence_ids": [
+            str(record["evidence_id"])
+            for record in global_facts["outcomes"]
+        ],
+        "approved_knowledge_evidence_ids": list(
+            dict.fromkeys(
+                [
+                    str(record["evidence_id"])
+                    for lane in lane_summaries
+                    for record in lane["facts"]["approved_knowledge"]
+                ]
+                + [
+                    str(record["evidence_id"])
+                    for record in global_facts["approved_knowledge"]
+                ]
+            )
+        ),
+        "note": (
+            "These are observed inputs for Qwen mechanism reasoning, not a "
+            "Python-inferred physical mechanism."
+        ),
+    }
     return {
         "schema": "lane_first_v1",
         "evidence_count": len(evidence_items),
@@ -493,6 +530,7 @@ def build_lane_first_evidence_synthesis(
             group: max(0, global_counts[group] - len(global_facts[group]))
             for group in _GLOBAL_FACT_GROUPS
         },
+        "mechanism_bridge_inputs": mechanism_bridge_inputs,
         "prompt_evidence_ids": sorted(emitted_ids),
         "prompt_evidence_count": len(emitted_ids),
         "omitted_from_prompt_count": max(0, len(evidence_items) - len(emitted_ids)),
