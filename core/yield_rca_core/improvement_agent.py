@@ -233,7 +233,7 @@ class ImprovementAgent:
             evidence_id
             for evidence_id in fdc.evidence_ids
             if evidence_id.startswith("EV_SPC_")
-            and evidence_id != "EV_SPC_BASELINE_STATUS"
+            and not evidence_id.startswith("EV_SPC_BASELINE_STATUS")
         ]
         parameter_shift_ids = [
             evidence_id

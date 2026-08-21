@@ -7,6 +7,7 @@ dependency. It is the sole production RCA decision engine after Batch 19.
 from __future__ import annotations
 
 import re
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,7 +25,9 @@ from yield_rca_core.causal_hypothesis import CausalHypothesis
 from yield_rca_core.causal_investigation_models import (
     AlternativeSearchStatus,
     CandidateChallenge,
+    CausalLaneRecord,
 )
+from yield_rca_core.evidence_models import Evidence
 from yield_rca_core.evidence_synthesis import build_evidence_synthesis
 from yield_rca_core.models import (
     AgentFinding,
@@ -767,6 +770,9 @@ class HypothesisEngine:
         strict_confirmation: bool = False,
         alternative_search_status: str | None = None,
         candidate_challenges: list[CandidateChallenge] | None = None,
+        context_evidence: Sequence[Evidence] = (),
+        causal_lanes: Sequence[CausalLaneRecord] = (),
+        consumed_discriminators: Collection[tuple[str, str]] = (),
     ) -> dict[str, Any]:
         """Return a JSON-safe deterministic hypothesis decision result."""
         by_kind = _findings_by_kind(findings)
@@ -798,6 +804,27 @@ class HypothesisEngine:
             for finding in findings
             for evidence in finding.evidence
         }
+        evidence_by_id.update(
+            {evidence.evidence_id: evidence for evidence in context_evidence}
+        )
+        source_lot_id = next(
+            (
+                str(finding.details.get("source_lot_id"))
+                for finding in findings
+                if finding.details.get("source_lot_id")
+            ),
+            None,
+        )
+        non_supporting_evidence_ids = _unique(
+            [
+                *non_supporting_evidence_ids,
+                *[
+                    evidence.evidence_id
+                    for evidence in context_evidence
+                    if evidence.evidence_type in {"data_missing", "negative_signal"}
+                ],
+            ]
+        )
         candidates: dict[str, dict[str, Any]] = {}
 
         def add(root_cause: str | None, basis: str, score: float) -> None:
@@ -881,6 +908,10 @@ class HypothesisEngine:
             candidate["mechanism_support_source"] = matrix.mechanism_support_source
 
         matrices = list(matrices_by_root.values())
+        matrix_candidate_ids = [
+            str(candidates[matrix.candidate.root_cause]["hypothesis_id"])
+            for matrix in matrices
+        ]
         competition_status = str(
             alternative_search_status or AlternativeSearchStatus.NOT_SEARCHED.value
         )
@@ -892,6 +923,10 @@ class HypothesisEngine:
                 matrices,
                 alternative_search_status=competition_status,
                 candidate_challenges=challenges,
+                causal_lanes=causal_lanes,
+                candidate_ids=matrix_candidate_ids,
+                source_lot_id=source_lot_id,
+                consumed_discriminators=consumed_discriminators,
             )
         )
         evidence_gaps.sort(
@@ -931,6 +966,17 @@ class HypothesisEngine:
         defect_wat_strength = _defect_wat_strength(defect_wat)
         conflicting_physics = _has_conflicting_physics(mes, fdc)
 
+        def candidate_challenge(candidate: dict[str, Any]) -> CandidateChallenge | None:
+            hypothesis_id = str(candidate.get("hypothesis_id", ""))
+            return next(
+                (
+                    challenge
+                    for challenge in challenges
+                    if challenge.candidate_id == hypothesis_id
+                ),
+                None,
+            )
+
         def passes_decision_gate(candidate: dict[str, Any]) -> bool:
             if candidate["status"] != "supported" or conflicting_physics:
                 return False
@@ -946,6 +992,7 @@ class HypothesisEngine:
                     return False
                 if strict_confirmation:
                     matrix = matrices_by_root.get(str(candidate["root_cause"]))
+                    challenge = candidate_challenge(candidate)
                     return bool(
                         matrix is not None
                         and confirm_candidate(
@@ -953,6 +1000,11 @@ class HypothesisEngine:
                             strict=True,
                             alternative_search_status=(
                                 competition_status if competition_status_supplied else None
+                            ),
+                            unexplained_precursor_evidence_ids=(
+                                challenge.unexplained_precursor_evidence_ids
+                                if challenge is not None
+                                else ()
                             ),
                         ).status
                         == "supported"
@@ -993,6 +1045,9 @@ class HypothesisEngine:
         selected_matrix = (
             matrices_by_root.get(str(selected["root_cause"])) if selected is not None else None
         )
+        selected_challenge = (
+            candidate_challenge(selected) if selected is not None else None
+        )
         confirmation = (
             confirm_candidate(
                 selected_matrix,
@@ -1006,6 +1061,11 @@ class HypothesisEngine:
                     competition_status if competition_status_supplied else None
                 ),
                 require_causal_chain=strict_confirmation,
+                unexplained_precursor_evidence_ids=(
+                    selected_challenge.unexplained_precursor_evidence_ids
+                    if selected_challenge is not None
+                    else ()
+                ),
             )
             if selected_matrix is not None
             else None
@@ -1036,6 +1096,16 @@ class HypothesisEngine:
                 if confirmation is not None
                 else []
             ),
+            "blocking_data_missing_evidence_ids": (
+                list(confirmation.blocking_data_missing_evidence_ids)
+                if confirmation is not None
+                else []
+            ),
+            "non_blocking_data_missing_evidence_ids": (
+                list(confirmation.non_blocking_data_missing_evidence_ids)
+                if confirmation is not None
+                else []
+            ),
             "conclusion_status": (
                 confirmation.status
                 if confirmation is not None
@@ -1060,7 +1130,14 @@ class HypothesisEngine:
             "input": {
                 "finding_kinds": [finding.finding_kind for finding in findings],
                 "typed_evidence_ids": _unique(
-                    [evidence_id for finding in findings for evidence_id in finding.evidence_ids]
+                    [
+                        *[
+                            evidence_id
+                            for finding in findings
+                            for evidence_id in finding.evidence_ids
+                        ],
+                        *[evidence.evidence_id for evidence in context_evidence],
+                    ]
                 ),
                 "knowledge_validation_present": validation is not None,
                 "external_candidate_count": len(external_candidates or []),

@@ -256,7 +256,32 @@ export interface CausalEvidenceMatrix {
   claims: Record<string, CausalMatrixClaim>;
   status: CausalClaimStatus;
   invalid_evidence_ids: string[];
+  data_missing_evidence_ids?: string[];
+  data_missing_sources?: DataMissingSourceTrace[];
+  causal_chain?: CausalChainTrace | null;
+  causal_chain_completeness?: string | null;
   mechanism_support_source: string | null;
+}
+
+export interface DataMissingSourceTrace {
+  evidence_id: string;
+  source_type: string;
+  source_id: string;
+  source_table: string | null;
+  source_field: string | null;
+  observation: string;
+  entity_ids: string[];
+  required_for_confirmation?: boolean;
+}
+
+export interface CausalChainTrace {
+  status: string;
+  stages: Record<string, CausalClaimStatus>;
+  evidence_ids: string[];
+  missing_stages: string[];
+  conflicting_stages: string[];
+  data_missing_evidence_ids: string[];
+  reason: string;
 }
 
 export interface RcaCandidateTrace {
@@ -269,6 +294,8 @@ export interface RcaCandidateTrace {
   contradicting_evidence_ids: string[];
   rejection_reasons: string[];
   causal_matrix_status: CausalClaimStatus | null;
+  causal_chain_completeness?: string | null;
+  data_missing_evidence_ids?: string[];
   mechanism_support_source: string | null;
   causal_evidence_matrix: CausalEvidenceMatrix | null;
 }
@@ -277,37 +304,115 @@ export interface CausalEvidenceGap {
   gap_id: string;
   candidate_index: number;
   claim: string;
-  status: CausalClaimStatus;
+  status: string;
   reason: string;
   question_kind: string;
   allowed_actions: string[];
   evidence_ids: string[];
+  gap_type?: string;
+  data_missing_evidence_ids?: string[];
+  unavailable_sources?: DataMissingSourceTrace[];
 }
 
 export interface ImpactLotGateRow {
   lot_id: string;
   included: boolean;
+  candidate_included?: boolean;
+  confirmed?: boolean;
   included_reason: string | null;
   excluded_reason: string | null;
   supporting_evidence_ids: string[];
+  data_missing_evidence_ids?: string[];
+  non_blocking_data_missing_evidence_ids?: string[];
+  data_available?: boolean;
+  checks?: Record<string, boolean>;
+}
+
+export interface CandidateImpactScopeTrace {
+  candidate_index: number;
+  candidate_rank?: number | null;
+  candidate_root_cause: string | null;
+  candidate_scope_status?: string;
+  publication_status?: string;
+  candidate_impact_lots: string[];
+  confirmed_impact_lots: string[];
+  data_missing_evidence_ids: string[];
+  non_blocking_data_missing_evidence_ids: string[];
+}
+
+export interface CausalLaneTrace {
+  lane_id: string;
+  operation: string;
+  equipment: string;
+  chamber: string;
+  recipe: string;
+  parameter_scope: string[];
+  exposed_lot_ids: string[];
+  time_window: string[];
+  initial_evidence_ids: string[];
+  priority_score: number;
+  investigation_status: string;
+  pruned_reason: string | null;
+}
+
+export interface CandidateChallengeTrace {
+  candidate_id: string;
+  strongest_alternative_lane_id: string | null;
+  supporting_evidence_ids: string[];
+  contradicting_evidence_ids: string[];
+  unexplained_precursor_evidence_ids: string[];
+  distinguishing_gap_ids: string[];
+  distinguishing_questions: string[];
+  challenge_explanation: string;
+  status: string;
+}
+
+export interface CompetitionTrace {
+  active_lane_ids: string[];
+  overflow_lane_ids: string[];
+  represented_lane_ids: string[];
+  unresolved_lane_ids: string[];
+  eliminated_lane_ids: string[];
+  alternative_search_status: string;
+  challenge_round_count: number;
+  resolution_evidence_ids: string[];
 }
 
 export interface RcaDiagnosisTrace {
   finding_id: string;
   conclusion_status: string;
+  causal_chain_completeness?: string | null;
+  data_missing_evidence_ids?: string[];
   root_cause: string | null;
   ranked_candidates: RcaCandidateTrace[];
   evidence_synthesis: Record<string, unknown>;
   causal_evidence_gaps: CausalEvidenceGap[];
   candidate_comparison: Record<string, unknown>;
+  causal_lanes: CausalLaneTrace[];
+  candidate_challenges: CandidateChallengeTrace[];
+  competition_trace: CompetitionTrace | null;
   confirmation_gate: {
     status?: string;
     checks?: Record<string, boolean>;
     reasons?: string[];
     unresolved_gaps?: string[];
+    causal_chain_completeness?: string | null;
+    data_missing_evidence_ids?: string[];
+    blocking_data_missing_evidence_ids?: string[];
+    non_blocking_data_missing_evidence_ids?: string[];
   };
   impact_lot_gate: {
+    scope_status?: string;
+    candidate_scope_status?: string;
+    publication_status?: string;
+    scope_basis?: string;
+    data_missing_evidence_ids?: string[];
+    non_blocking_data_missing_evidence_ids?: string[];
+    observed_impact_lots?: string[];
+    candidate_impact_lots?: string[];
     confirmed_impact_lots?: string[];
+    confirmation_blocked_reason?: string | null;
+    candidate_scopes?: CandidateImpactScopeTrace[];
     rows?: ImpactLotGateRow[];
   };
 }
@@ -416,6 +521,7 @@ export interface RCAState {
     source_lot_id: string | null;
     product_id: string | null;
     time_window: Record<string, string>;
+    declared_unavailable_sources?: string[];
     status: TaskStatus;
     created_at: string;
   };
@@ -435,6 +541,9 @@ export interface RCAState {
   evidence: Evidence[];
   findings: AgentFinding[];
   hypotheses: Hypothesis[];
+  causal_lanes?: CausalLaneTrace[];
+  candidate_challenges?: CandidateChallengeTrace[];
+  competition_trace?: CompetitionTrace | null;
   warnings: Warning[];
   report: RCAReport | null;
   llm_usage: LLMUsageEvent[];

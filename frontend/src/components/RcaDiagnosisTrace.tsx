@@ -56,6 +56,28 @@ function Matrix({ candidate }: { candidate: RcaCandidateTrace }) {
   return (
     <div className="causal-matrix" aria-label="Causal evidence matrix">
       {claims.map((claim) => <ClaimRow claim={claim} key={claim.claim} />)}
+      {matrix.causal_chain && (
+        <div className="causal-chain-summary">
+          <div className="causal-claim-heading">
+            <strong>Causal chain</strong>
+            <StatusPill status={matrix.causal_chain.status} />
+          </div>
+          <div className="causal-chain-stages">
+            {Object.entries(matrix.causal_chain.stages).map(([stage, status]) => (
+              <span key={stage}>
+                {label(stage)}: <strong>{label(status)}</strong>
+              </span>
+            ))}
+          </div>
+          {matrix.causal_chain.reason && <p>{matrix.causal_chain.reason}</p>}
+          {matrix.data_missing_evidence_ids && matrix.data_missing_evidence_ids.length > 0 && (
+            <>
+              <strong>Unavailable source Evidence</strong>
+              <EvidenceIds ids={matrix.data_missing_evidence_ids} />
+            </>
+          )}
+        </div>
+      )}
       {matrix.invalid_evidence_ids.length > 0 && (
         <div className="causal-invalid-evidence">
           <strong>Invalid Evidence references</strong>
@@ -120,8 +142,24 @@ export function RcaDiagnosisTrace({ state }: RcaDiagnosisTraceProps) {
   const comparisonUnresolved = diagnosis.candidate_comparison.unresolved === true;
   const gate = diagnosis.confirmation_gate;
   const gateChecks = gate.checks ? Object.entries(gate.checks) : [];
+  const blockingConfirmationMissing = gate.blocking_data_missing_evidence_ids ?? [];
+  const nonBlockingConfirmationMissing = gate.non_blocking_data_missing_evidence_ids ?? [];
+  const hasClassifiedConfirmationMissing = blockingConfirmationMissing.length > 0
+    || nonBlockingConfirmationMissing.length > 0;
   const gaps = diagnosis.causal_evidence_gaps;
   const impactRows = diagnosis.impact_lot_gate.rows ?? [];
+  const candidateImpactCount = diagnosis.impact_lot_gate.candidate_impact_lots?.length
+    ?? impactRows.filter((row) => row.candidate_included ?? row.included).length;
+  const confirmedImpactCount = diagnosis.impact_lot_gate.confirmed_impact_lots?.length ?? 0;
+  const candidateImpactScopes = diagnosis.impact_lot_gate.candidate_scopes ?? [];
+  const competition = diagnosis.competition_trace;
+  const showCompetition = diagnosis.causal_lanes.length > 0
+    || diagnosis.candidate_challenges.length > 0
+    || competition !== null;
+  const showImpact = impactRows.length > 0
+    || typeof diagnosis.impact_lot_gate.scope_status === "string"
+    || typeof diagnosis.impact_lot_gate.scope_basis === "string"
+    || (diagnosis.impact_lot_gate.data_missing_evidence_ids?.length ?? 0) > 0;
 
   return (
     <section className="rca-diagnosis-section" aria-labelledby="rca-diagnosis-heading">
@@ -161,6 +199,63 @@ export function RcaDiagnosisTrace({ state }: RcaDiagnosisTraceProps) {
         </div>
       )}
 
+      {showCompetition && (
+        <section className="causal-competition-panel" aria-labelledby="causal-competition-heading">
+          <div className="causal-subheading">
+            <GitCompareArrows size={16} aria-hidden="true" />
+            <h3 id="causal-competition-heading">Causal Lane Competition</h3>
+            <StatusPill status={competition?.alternative_search_status ?? "not_searched"} />
+            <span>{competition?.challenge_round_count ?? 0} challenge round(s)</span>
+          </div>
+          {diagnosis.causal_lanes.length > 0 && (
+            <div className="causal-lane-list">
+              {diagnosis.causal_lanes.map((lane) => (
+                <article key={lane.lane_id}>
+                  <div>
+                    <strong>{lane.lane_id}</strong>
+                    <StatusPill status={lane.investigation_status} />
+                  </div>
+                  <p>
+                    {[lane.operation, lane.equipment, lane.chamber, lane.recipe]
+                      .filter(Boolean)
+                      .join(" · ") || "Lane context unavailable"}
+                  </p>
+                  {lane.parameter_scope.length > 0 && (
+                    <span>Parameters: {lane.parameter_scope.join(", ")}</span>
+                  )}
+                  {lane.pruned_reason && <span>{lane.pruned_reason}</span>}
+                </article>
+              ))}
+            </div>
+          )}
+          {diagnosis.candidate_challenges.length > 0 && (
+            <div className="causal-challenge-list">
+              {diagnosis.candidate_challenges.map((challenge, index) => (
+                <article key={`${challenge.candidate_id}:${index}`}>
+                  <div>
+                    <strong>Challenge {index + 1}</strong>
+                    <StatusPill status={challenge.status} />
+                  </div>
+                  <p>{challenge.challenge_explanation}</p>
+                  {challenge.strongest_alternative_lane_id && (
+                    <span>Strongest alternative: {challenge.strongest_alternative_lane_id}</span>
+                  )}
+                  {challenge.distinguishing_questions.map((question) => (
+                    <span key={question}>Question: {question}</span>
+                  ))}
+                  {challenge.unexplained_precursor_evidence_ids.length > 0 && (
+                    <div className="causal-missing-source-note">
+                      <strong>Unexplained precursor Evidence</strong>
+                      <EvidenceIds ids={challenge.unexplained_precursor_evidence_ids} />
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       <div className="causal-diagnosis-grid">
         <section className="causal-subpanel" aria-labelledby="confirmation-gate-heading">
           <div className="causal-subheading">
@@ -177,6 +272,31 @@ export function RcaDiagnosisTrace({ state }: RcaDiagnosisTraceProps) {
                   <strong>{passed ? "pass" : "needs evidence"}</strong>
                 </div>
               ))}
+            </div>
+          )}
+          {diagnosis.causal_chain_completeness && (
+            <div className="causal-gate-summary">
+              <span>Causal chain</span>
+              <StatusPill status={diagnosis.causal_chain_completeness} />
+            </div>
+          )}
+          {blockingConfirmationMissing.length > 0 && (
+            <div className="causal-missing-source-note">
+              <strong>Confirmation-blocking source Evidence</strong>
+              <EvidenceIds ids={blockingConfirmationMissing} />
+            </div>
+          )}
+          {nonBlockingConfirmationMissing.length > 0 && (
+            <div className="causal-missing-source-note">
+              <strong>Additional source unavailable; confirmation Evidence has a substitute</strong>
+              <EvidenceIds ids={nonBlockingConfirmationMissing} />
+            </div>
+          )}
+          {!hasClassifiedConfirmationMissing
+            && (diagnosis.data_missing_evidence_ids?.length ?? 0) > 0 && (
+            <div className="causal-missing-source-note">
+              <strong>Unavailable source Evidence</strong>
+              <EvidenceIds ids={diagnosis.data_missing_evidence_ids ?? []} />
             </div>
           )}
           {(gate.reasons?.length ?? 0) > 0 && (
@@ -205,23 +325,73 @@ export function RcaDiagnosisTrace({ state }: RcaDiagnosisTraceProps) {
         </section>
       </div>
 
-      {impactRows.length > 0 && (
+      {showImpact && (
         <section className="causal-impact-panel" aria-labelledby="impact-gate-heading">
           <div className="causal-subheading">
             <GitCompareArrows size={16} aria-hidden="true" />
             <h3 id="impact-gate-heading">Impact Lot Gate</h3>
-            <span>{diagnosis.impact_lot_gate.confirmed_impact_lots?.length ?? 0} included</span>
+            <StatusPill
+              status={diagnosis.impact_lot_gate.publication_status
+                ?? diagnosis.impact_lot_gate.scope_status
+                ?? "unavailable"}
+            />
+            <span>{candidateImpactCount} candidate / {confirmedImpactCount} confirmed</span>
           </div>
+          {diagnosis.impact_lot_gate.scope_basis && (
+            <p className="causal-impact-basis">{diagnosis.impact_lot_gate.scope_basis}</p>
+          )}
+          {(diagnosis.impact_lot_gate.data_missing_evidence_ids?.length ?? 0) > 0 && (
+            <div className="causal-missing-source-note">
+              <strong>Scope data unavailable</strong>
+              <EvidenceIds ids={diagnosis.impact_lot_gate.data_missing_evidence_ids ?? []} />
+            </div>
+          )}
+          {diagnosis.impact_lot_gate.confirmation_blocked_reason && (
+            <p className="causal-impact-basis">
+              Candidate scope is retained for audit; confirmation is withheld because the RCA conclusion is not supported.
+            </p>
+          )}
+          {(diagnosis.impact_lot_gate.non_blocking_data_missing_evidence_ids?.length ?? 0) > 0 && (
+            <div className="causal-missing-source-note">
+              <strong>Additional source unavailable; substitute scope Evidence is present</strong>
+              <EvidenceIds ids={diagnosis.impact_lot_gate.non_blocking_data_missing_evidence_ids ?? []} />
+            </div>
+          )}
+          {candidateImpactScopes.length > 1 && (
+            <div className="causal-impact-list">
+              {candidateImpactScopes.map((scope) => (
+                <div className="causal-impact-excluded" key={scope.candidate_index}>
+                  <strong>Candidate {scope.candidate_index + 1}</strong>
+                  <StatusPill status={scope.publication_status ?? scope.candidate_scope_status ?? "unconfirmed"} />
+                  <span>{scope.candidate_impact_lots.length} candidate / {scope.confirmed_impact_lots.length} confirmed Lots</span>
+                  <span>{scope.candidate_root_cause}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="causal-impact-list">
-            {impactRows.map((row) => (
-              <div className={row.included ? "causal-impact-included" : "causal-impact-excluded"} key={row.lot_id}>
-                <strong>{row.lot_id}</strong>
-                <StatusPill status={row.included ? "supported" : "incomplete"} />
-                <span>{row.included ? row.included_reason : row.excluded_reason}</span>
-                <EvidenceIds ids={row.supporting_evidence_ids} />
-              </div>
-            ))}
+            {impactRows.map((row) => {
+              const candidateIncluded = row.candidate_included ?? row.included;
+              const confirmed = row.confirmed === true;
+              return (
+                <div className={candidateIncluded ? "causal-impact-included" : "causal-impact-excluded"} key={row.lot_id}>
+                  <strong>{row.lot_id}</strong>
+                  <StatusPill status={confirmed ? "supported" : candidateIncluded ? "candidate" : "incomplete"} />
+                  <span>{candidateIncluded ? row.included_reason : row.excluded_reason}</span>
+                  <EvidenceIds ids={row.supporting_evidence_ids} />
+                  {(row.data_missing_evidence_ids?.length ?? 0) > 0 && (
+                    <EvidenceIds ids={row.data_missing_evidence_ids ?? []} />
+                  )}
+                  {(row.non_blocking_data_missing_evidence_ids?.length ?? 0) > 0 && (
+                    <EvidenceIds ids={row.non_blocking_data_missing_evidence_ids ?? []} />
+                  )}
+                </div>
+              );
+            })}
           </div>
+          {impactRows.length === 0 && (
+            <p className="causal-muted">No candidate Impact Lots were evaluated.</p>
+          )}
         </section>
       )}
     </section>

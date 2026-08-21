@@ -54,6 +54,7 @@ def _job_from_goal(
     user_query: str,
     job_id: str,
     explicit_lot_id: str | None,
+    declared_unavailable_sources: tuple[str, ...] = (),
 ) -> RCAJob:
     source_lot_id = str(
         explicit_lot_id or known_facts.get("lot_id") or ""
@@ -87,6 +88,7 @@ def _job_from_goal(
         source_lot_id=source_lot_id or None,
         product_id=product_id or None,
         time_window=time_window,
+        declared_unavailable_sources=list(declared_unavailable_sources),
     )
 
 
@@ -109,6 +111,7 @@ class PurePythonRCAWorkflow:
         plan_id: str | None = None,
         lot_id: str | None = None,
         orchestration_mode_override: str | None = None,
+        declared_unavailable_sources: tuple[str, ...] = (),
     ) -> RCAState:
         active_orchestration_mode = orchestration_mode_override or self.orchestration_mode
         OrchestrationMode(active_orchestration_mode)
@@ -162,6 +165,7 @@ class PurePythonRCAWorkflow:
                         user_query=user_query,
                         job_id=job_id,
                         explicit_lot_id=lot_id,
+                        declared_unavailable_sources=declared_unavailable_sources,
                     )
                     state = self.supervisor.execute_controlled(
                         job,
@@ -206,6 +210,7 @@ class PurePythonRCAWorkflow:
                         user_query=user_query,
                         job_id=job_id,
                         explicit_lot_id=lot_id,
+                        declared_unavailable_sources=declared_unavailable_sources,
                     )
                     state = self.supervisor.execute_llm_react(
                         job,
@@ -261,6 +266,9 @@ class PurePythonRCAWorkflow:
                     source_lot_id=str(source_lot_id) if source_lot_id else None,
                     product_id=str(product_id) if product_id else None,
                     time_window=time_window,
+                    declared_unavailable_sources=list(
+                        declared_unavailable_sources
+                    ),
                 )
                 if active_orchestration_mode == OrchestrationMode.CONTROLLED_REACT.value:
                     goal = self.planner.plan_investigation_goal(user_query, lot_id=lot_id)
@@ -408,6 +416,7 @@ def build_workflow(
             llm_client=shared_llm_client,
             agent_mode=settings.agent_mode,
             direct_single_candidate=settings.agent_mode == "llm",
+            llm_analysis_enabled=settings.agent_mode != "llm",
             find_affected_lots_tool=find_affected_lots_tool,
             get_lot_context_tool=get_lot_context_tool,
             find_impact_lots_tool=find_impact_lots_tool,

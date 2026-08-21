@@ -74,7 +74,10 @@ from yield_rca_core.evidence_models import (
     EvidenceEntity,
     EvidenceType,
 )
-from yield_rca_core.evidence_synthesis import build_evidence_synthesis
+from yield_rca_core.evidence_synthesis import (
+    build_evidence_synthesis,
+    build_lane_first_evidence_synthesis,
+)
 from yield_rca_core.hybrid_retrieval import (
     BM25DocumentChunkRetriever,
     DeterministicHashEmbeddingBackend,
@@ -297,6 +300,7 @@ __all__ = [
     "build_causal_evidence_gaps",
     "build_hypothesis_discrimination_gaps",
     "build_evidence_synthesis",
+    "build_lane_first_evidence_synthesis",
     "CausalHypothesis",
     "CausalScopeMode",
     "CausalScopePolicy",

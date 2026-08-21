@@ -688,6 +688,7 @@ class RCAJob:
     source_lot_id: str | None = None
     product_id: str | None = None
     time_window: dict[str, str] = field(default_factory=dict)
+    declared_unavailable_sources: list[str] = field(default_factory=list)
     status: str = TaskStatus.PENDING.value
     created_at: str = field(default_factory=_utc_now_iso)
     schema_version: str = SCHEMA_VERSION
@@ -704,6 +705,21 @@ class RCAJob:
         if self.product_id is not None:
             _validate_non_empty(self.product_id, "product_id")
         _validate_json_object(self.time_window, "time_window")
+        _validate_string_list(
+            self.declared_unavailable_sources,
+            "declared_unavailable_sources",
+            allow_empty=True,
+        )
+        if len(self.declared_unavailable_sources) != len(
+            set(self.declared_unavailable_sources)
+        ):
+            raise ModelValidationError(
+                "declared_unavailable_sources must not contain duplicates"
+            )
+        if self.declared_unavailable_sources and self.source_lot_id is None:
+            raise ModelValidationError(
+                "declared_unavailable_sources require source_lot_id"
+            )
         _enum_value(self.status, TaskStatus, "status")
         _validate_non_empty(self.created_at, "created_at")
 
@@ -715,6 +731,9 @@ class RCAJob:
             "source_lot_id": self.source_lot_id,
             "product_id": self.product_id,
             "time_window": dict(self.time_window),
+            "declared_unavailable_sources": list(
+                self.declared_unavailable_sources
+            ),
             "status": self.status,
             "created_at": self.created_at,
             "schema_version": self.schema_version,
@@ -732,6 +751,9 @@ class RCAJob:
             source_lot_id=data.get("source_lot_id"),
             product_id=data.get("product_id"),
             time_window=dict(data.get("time_window", {})),
+            declared_unavailable_sources=list(
+                data.get("declared_unavailable_sources", [])
+            ),
             status=data.get("status", TaskStatus.PENDING.value),
             created_at=data.get("created_at", _utc_now_iso()),
             schema_version=data.get("schema_version", SCHEMA_VERSION),

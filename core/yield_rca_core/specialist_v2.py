@@ -316,6 +316,7 @@ class SpecialistV2Executor:
     tool_prompt_version: str = "v1"
     analysis_prompt_version: str = "v2"
     direct_single_candidate: bool = False
+    llm_analysis_enabled: bool = True
 
     def execute(
         self,
@@ -476,13 +477,22 @@ class SpecialistV2Executor:
             evidence_ids=list(deterministic_finding.evidence_ids),
             engineering_interpretation=deterministic_finding.summary,
         )
-        analysis, analysis_errors, analysis_fallback = self._analyze(
-            action,
-            context=context,
-            executed=executed,
-            effective=effective,
-            deterministic_analysis=deterministic_analysis,
-        )
+        if self.llm_analysis_enabled:
+            analysis, analysis_errors, analysis_fallback = self._analyze(
+                action,
+                context=context,
+                executed=executed,
+                effective=effective,
+                deterministic_analysis=deterministic_analysis,
+            )
+        else:
+            # Tool outputs already contain immutable typed Evidence and Python
+            # has assembled the only admissible Finding.  A second LLM pass can
+            # only paraphrase that result, so production llm_react skips it to
+            # avoid duplicate cost, timeout risk, and an extra failure surface.
+            analysis = deterministic_analysis
+            analysis_errors = 0
+            analysis_fallback = False
         validation_error_count += analysis_errors
         if analysis_fallback:
             fallback_reasons.append("analysis_output_invalid")
@@ -519,7 +529,13 @@ class SpecialistV2Executor:
                     ),
                     "stop_reason": stop_reason,
                     "analysis_source": (
-                        "deterministic_fallback" if analysis_fallback else "qwen"
+                        "deterministic_typed_evidence"
+                        if not self.llm_analysis_enabled
+                        else (
+                            "deterministic_fallback"
+                            if analysis_fallback
+                            else "qwen"
+                        )
                     ),
                     "fallback_reason": fallback_reason,
                     "validation_retry_count": validation_error_count,

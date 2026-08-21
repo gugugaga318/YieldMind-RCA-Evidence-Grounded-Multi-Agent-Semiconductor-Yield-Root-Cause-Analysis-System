@@ -143,6 +143,8 @@ def test_missing_required_source_blocks_confirmation_without_fallback() -> None:
     assert result.causal_chain_completeness == CausalChainCompleteness.INCOMPLETE.value
     assert result.checks["causal_chain"] is False
     assert result.data_missing_evidence_ids == ("EV_FDC_MISSING",)
+    assert result.blocking_data_missing_evidence_ids == ("EV_FDC_MISSING",)
+    assert result.non_blocking_data_missing_evidence_ids == ()
     gaps = build_causal_evidence_gaps([matrix])
     parameter_gap = next(item for item in gaps if item["claim"] == "parameter")
     assert parameter_gap["gap_type"] == "data_missing"

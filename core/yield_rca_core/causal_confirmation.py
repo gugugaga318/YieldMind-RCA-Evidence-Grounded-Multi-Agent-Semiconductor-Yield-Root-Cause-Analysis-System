@@ -12,7 +12,12 @@ from yield_rca_core.causal_chain import assess_causal_chain
 from yield_rca_core.causal_evidence_matrix import CausalEvidenceMatrix
 from yield_rca_core.causal_hypothesis import CausalClaim, CausalClaimStatus, CausalHypothesis
 from yield_rca_core.causal_investigation_models import AlternativeSearchStatus
-from yield_rca_core.evidence_models import EntityType, Evidence, EvidenceType
+from yield_rca_core.evidence_models import (
+    EntityType,
+    Evidence,
+    EvidenceSourceType,
+    EvidenceType,
+)
 
 CONCLUSION_SUPPORTED = "supported"
 CONCLUSION_INCONCLUSIVE = "inconclusive"
@@ -38,6 +43,13 @@ _EXPOSURE_TYPES = {
     EvidenceType.IMPACT_SCOPE.value,
     EvidenceType.EXCURSION_WINDOW.value,
 }
+_IMPACT_SCOPE_SOURCE_TYPES = {
+    EvidenceSourceType.MES.value,
+    EvidenceSourceType.FDC.value,
+    EvidenceSourceType.WAT.value,
+    EvidenceSourceType.DEFECT.value,
+    EvidenceSourceType.ANALYTICS.value,
+}
 
 
 @dataclass(frozen=True)
@@ -49,6 +61,8 @@ class ConfirmationGateResult:
     reasons: tuple[str, ...] = ()
     unresolved_gaps: tuple[str, ...] = ()
     data_missing_evidence_ids: tuple[str, ...] = ()
+    blocking_data_missing_evidence_ids: tuple[str, ...] = ()
+    non_blocking_data_missing_evidence_ids: tuple[str, ...] = ()
     causal_chain_completeness: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -58,6 +72,12 @@ class ConfirmationGateResult:
             "reasons": list(self.reasons),
             "unresolved_gaps": list(self.unresolved_gaps),
             "data_missing_evidence_ids": list(self.data_missing_evidence_ids),
+            "blocking_data_missing_evidence_ids": list(
+                self.blocking_data_missing_evidence_ids
+            ),
+            "non_blocking_data_missing_evidence_ids": list(
+                self.non_blocking_data_missing_evidence_ids
+            ),
             "causal_chain_completeness": self.causal_chain_completeness,
         }
 
@@ -71,6 +91,55 @@ def _status(matrix: CausalEvidenceMatrix, claim: str) -> str:
     )
 
 
+def _confirmation_missing_source_is_blocking(
+    matrix: CausalEvidenceMatrix,
+    source: Mapping[str, Any],
+) -> bool:
+    """Classify one unavailable source against still-unavailable causal facts.
+
+    An explicit ``required_for_confirmation`` declaration always wins.  Other
+    operational failures block only when the corresponding causal stage has no
+    typed substitute Evidence at all.  An incomplete competing explanation is
+    therefore not converted into ``insufficient_evidence`` merely because an
+    optional SPC baseline or other secondary analysis product is unavailable.
+    """
+
+    if source.get("required_for_confirmation") is True:
+        return True
+
+    source_type = str(source.get("source_type", "")).casefold()
+    source_field = str(source.get("source_field", "")).strip()
+    relevant_claims: set[str] = set()
+    if source_type in {
+        EvidenceSourceType.FDC.value,
+        EvidenceSourceType.ANALYTICS.value,
+    } or source_field:
+        relevant_claims.update(
+            {
+                CausalClaim.PARAMETER.value,
+                CausalClaim.TEMPORAL.value,
+            }
+        )
+    if source_type in {
+        EvidenceSourceType.DEFECT.value,
+        EvidenceSourceType.WAT.value,
+    }:
+        relevant_claims.add(CausalClaim.OUTCOME.value)
+    if source_type == EvidenceSourceType.MES.value:
+        relevant_claims.update(
+            {
+                CausalClaim.EQUIPMENT.value,
+                CausalClaim.CHAMBER.value,
+                CausalClaim.OPERATION.value,
+                CausalClaim.SCOPE.value,
+            }
+        )
+    return any(
+        _status(matrix, claim) == CausalClaimStatus.UNAVAILABLE.value
+        for claim in relevant_claims
+    )
+
+
 def confirm_candidate(
     matrix: CausalEvidenceMatrix,
     *,
@@ -78,6 +147,7 @@ def confirm_candidate(
     strict: bool = True,
     alternative_search_status: str | None = None,
     require_causal_chain: bool = True,
+    unexplained_precursor_evidence_ids: Sequence[str] = (),
 ) -> ConfirmationGateResult:
     """Apply the final Python confirmation gate.
 
@@ -99,32 +169,42 @@ def confirm_candidate(
         reasons.append(f"causal chain is {chain.status}.")
         gaps.append(f"causal_chain.{chain.status}")
     data_missing_ids = tuple(matrix.data_missing_evidence_ids)
-    required_statuses = {
-        claim: _status(matrix, claim)
-        for claim in (
-            CausalClaim.PARAMETER.value,
-            CausalClaim.OUTCOME.value,
-            CausalClaim.MECHANISM.value,
-            CausalClaim.SCOPE.value,
+    blocking_data_missing_ids = tuple(
+        dict.fromkeys(
+            str(source.get("evidence_id"))
+            for source in matrix.data_missing_sources
+            if str(source.get("evidence_id", "")).strip()
+            and _confirmation_missing_source_is_blocking(matrix, source)
         )
-    }
-    data_missing_relevant = bool(data_missing_ids) and (
-        any(
-            status
-            in {
-                CausalClaimStatus.UNAVAILABLE.value,
-                CausalClaimStatus.INCOMPLETE.value,
-            }
-            for status in required_statuses.values()
-        )
-        or not checks["causal_chain"]
     )
-    checks["data_available"] = not data_missing_relevant
-    if data_missing_relevant:
+    non_blocking_data_missing_ids = tuple(
+        evidence_id
+        for evidence_id in data_missing_ids
+        if evidence_id not in blocking_data_missing_ids
+    )
+    checks["data_available"] = not blocking_data_missing_ids
+    if blocking_data_missing_ids:
         reasons.append(
-            "One or more typed operational sources explicitly report unavailable data."
+            "One or more confirmation-blocking operational sources are unavailable."
         )
-        gaps.extend(f"data_missing.{evidence_id}" for evidence_id in data_missing_ids)
+        gaps.extend(
+            f"data_missing.{evidence_id}"
+            for evidence_id in blocking_data_missing_ids
+        )
+
+    precursor_ids = tuple(
+        dict.fromkeys(
+            str(evidence_id).strip()
+            for evidence_id in unexplained_precursor_evidence_ids
+            if str(evidence_id).strip()
+        )
+    )
+    checks["precursor_explained"] = not precursor_ids
+    if precursor_ids:
+        reasons.append(
+            "The candidate does not explain one or more earlier precursor Evidence items."
+        )
+        gaps.extend(f"precursor.unexplained.{evidence_id}" for evidence_id in precursor_ids)
 
     exposure_types = {
         evidence_type
@@ -226,6 +306,7 @@ def confirm_candidate(
             checks["no_equal_alternative"] = False
 
     hard_checks = [
+        checks["data_available"],
         checks["exposure"],
         checks["parameter"],
         checks["outcome"],
@@ -233,6 +314,7 @@ def confirm_candidate(
         checks["scope"],
         checks["temporal"],
         checks["contradiction_free"],
+        checks["precursor_explained"],
         *([checks["causal_chain"]] if require_causal_chain else []),
         *(
             [checks["no_equal_alternative"]]
@@ -245,9 +327,20 @@ def confirm_candidate(
             if checks[claim] is False
         ],
     ]
+    unresolved_candidate_competition = (
+        alternative_search_status == AlternativeSearchStatus.UNRESOLVED.value
+        and bool(alternative_matrices)
+    )
     if all(hard_checks):
         status = CONCLUSION_SUPPORTED
-    elif data_missing_relevant:
+    elif unresolved_candidate_competition:
+        # When two evidence-grounded candidates remain plausible, unavailable
+        # discriminator data explains why they cannot be separated; it does not
+        # mean that the investigation lacks a causal hypothesis altogether.
+        # Preserve the blocking-source audit fields while reporting the more
+        # precise public conclusion: unresolved competition.
+        status = CONCLUSION_INCONCLUSIVE
+    elif blocking_data_missing_ids:
         status = CONCLUSION_INSUFFICIENT_EVIDENCE
     elif any(
         _status(matrix, claim) == CausalClaimStatus.UNAVAILABLE.value
@@ -262,7 +355,11 @@ def confirm_candidate(
         reasons=tuple(dict.fromkeys(reasons)),
         unresolved_gaps=tuple(dict.fromkeys(gaps)),
         data_missing_evidence_ids=data_missing_ids,
-        causal_chain_completeness=chain.status,
+        blocking_data_missing_evidence_ids=blocking_data_missing_ids,
+        non_blocking_data_missing_evidence_ids=non_blocking_data_missing_ids,
+        causal_chain_completeness=(
+            "incomplete" if precursor_ids and chain.status == "complete" else chain.status
+        ),
     )
 
 
@@ -578,9 +675,125 @@ def _compatible_outcomes(
             *(_typed_values(item, EntityType.DEFECT.value)),
             *(_typed_values(item, EntityType.WAT_ITEM.value)),
         }
-        if values and _candidate_matches_values(candidate, values):
+        if item.evidence_type == EvidenceType.METROLOGY_DEVIATION.value:
+            values.update(_typed_values(item, EntityType.PARAMETER.value))
+        if values and (
+            _candidate_matches_values(candidate, values)
+            or _candidate_matches_outcome_phrase(candidate, values)
+        ):
             compatible.append(item)
     return compatible
+
+
+def _candidate_matches_outcome_phrase(
+    candidate: CausalHypothesis,
+    values: set[str],
+) -> bool:
+    """Match multi-word outcome metrics without treating prose as typed fact.
+
+    Metrology producers represent product outcomes such as ``center seam-void
+    density`` as parameter entities.  Candidate prose may express the same
+    outcome as ``center seam voids`` or ``insufficient copper fill``.  Exact
+    token containment cannot join those equivalent phrases, so require at
+    least two normalized informative tokens instead.  The Evidence still has
+    to be a typed outcome and carry the Lot entity before this helper is used.
+    """
+
+    candidate_tokens = _normalized_outcome_tokens(
+        f"{candidate.root_cause} {candidate.causal_explanation}"
+    )
+    return any(
+        len(value_tokens := _normalized_outcome_tokens(value)) >= 2
+        and len(candidate_tokens & value_tokens) >= 2
+        for value in values
+    )
+
+
+def _normalized_outcome_tokens(value: object) -> set[str]:
+    tokens: set[str] = set()
+    ignored = {
+        "incident",
+        "measurement",
+        "metric",
+        "monitor",
+        "observation",
+        "post",
+        "pre",
+        "result",
+    }
+    for raw_token in re.findall(r"[a-z0-9]+", str(value).casefold()):
+        token = raw_token[:-1] if raw_token.endswith("s") and len(raw_token) > 4 else raw_token
+        if len(token) >= 3 and token not in ignored:
+            tokens.add(token)
+    return tokens
+
+
+def _impact_data_missing_is_blocking(
+    item: Evidence,
+    checks: Mapping[str, bool],
+) -> bool:
+    """Return whether unavailable data prevents this Lot's scope decision.
+
+    A missing analysis product is not automatically a missing Impact-Lot fact.
+    For example, an unavailable SPC baseline must remain auditable, but it does
+    not block scope when direct Lot exposure, parameter, temporal, and outcome
+    Evidence already satisfy the gate.  Producers can explicitly mark a source
+    as required for Impact scope when no substitute Evidence is acceptable.
+    """
+
+    required = item.metadata.get("required_for_impact_scope")
+    if required is True:
+        return True
+    if required is False:
+        return False
+
+    entity_types = {entity.entity_type for entity in item.entities}
+    if EntityType.PARAMETER.value in entity_types:
+        return not (
+            checks.get("excursion", False)
+            and checks.get("parameter", False)
+            and checks.get("parameter_direction", False)
+        )
+    lane_checks = {
+        EntityType.EQUIPMENT.value: "equipment",
+        EntityType.CHAMBER.value: "chamber",
+        EntityType.OPERATION.value: "operation",
+        EntityType.RECIPE.value: "recipe",
+    }
+    referenced_lane_checks = [
+        check for entity_type, check in lane_checks.items() if entity_type in entity_types
+    ]
+    if referenced_lane_checks:
+        return any(not checks.get(check, False) for check in referenced_lane_checks)
+    if entity_types & {EntityType.DEFECT.value, EntityType.WAT_ITEM.value}:
+        return not checks.get("outcome", False)
+
+    source_tool = str(item.source_tool or "").casefold()
+    if item.source_type in {
+        EvidenceSourceType.FDC.value,
+        EvidenceSourceType.ANALYTICS.value,
+    } and any(token in source_tool for token in ("fdc", "spc", "process")):
+        return not (
+            checks.get("excursion", False)
+            and checks.get("parameter", False)
+            and checks.get("temporal", False)
+        )
+    if item.source_type in {
+        EvidenceSourceType.DEFECT.value,
+        EvidenceSourceType.WAT.value,
+    }:
+        return not checks.get("outcome", False)
+    if item.source_type == EvidenceSourceType.MES.value:
+        return not (
+            checks.get("exposure", False)
+            and checks.get("equipment", False)
+            and checks.get("chamber", False)
+            and checks.get("operation", False)
+        )
+
+    # An unclassified unavailable source blocks only while at least one scope
+    # fact is genuinely absent.  Complete substitute Evidence takes precedence.
+    return not all(checks.values())
 
 
 def evaluate_impact_lot_gate(
@@ -589,6 +802,7 @@ def evaluate_impact_lot_gate(
     candidate: CausalHypothesis | Mapping[str, Any],
     evidence: Iterable[Evidence],
     observed_impact_lots: Sequence[str],
+    authoritative_conclusion_status: str = CONCLUSION_SUPPORTED,
 ) -> dict[str, Any]:
     """Evaluate each observed Lot using exposure, excursion, and outcome facts.
 
@@ -615,7 +829,20 @@ def evaluate_impact_lot_gate(
             ),
         )
     )
-    items = [item for item in evidence if item.is_typed]
+    items = list(
+        {
+            item.evidence_id: item
+            for item in evidence
+            if item.is_typed
+        }.values()
+    )
+    all_scope_missing = [
+        item
+        for item in items
+        if item.evidence_type == EvidenceType.DATA_MISSING.value
+        and item.source_type in _IMPACT_SCOPE_SOURCE_TYPES
+        and _compatible_with_candidate(item, normalized)
+    ]
     rows: list[dict[str, Any]] = []
     for raw_lot in observed_impact_lots:
         lot_id = str(raw_lot)
@@ -627,10 +854,17 @@ def evaluate_impact_lot_gate(
                     "included_reason": None,
                     "excluded_reason": "source_lot_is_not_an_impact_lot",
                     "supporting_evidence_ids": [],
+                    "data_missing_evidence_ids": [],
+                    "checks": {"source_lot": False},
                 }
             )
             continue
         lot_items = [item for item in items if lot_id in _lot_ids(item)]
+        scoped_data_missing = [
+            item
+            for item in all_scope_missing
+            if not _lot_ids(item) or lot_id in _lot_ids(item)
+        ]
         exposure = [
             item
             for item in lot_items
@@ -680,7 +914,7 @@ def evaluate_impact_lot_gate(
             or candidate_direction in evidence_directions
         )
         supporting = [*exposure, *process, *compatible_outcomes]
-        checks = {
+        scope_checks = {
             "exposure": bool(exposure),
             "excursion": bool(process),
             "equipment": bool(common_equipment),
@@ -692,6 +926,20 @@ def evaluate_impact_lot_gate(
             "excursion_window": bool(windows),
             "temporal": time_consistent,
             "outcome": bool(compatible_outcomes),
+        }
+        blocking_data_missing = [
+            item
+            for item in scoped_data_missing
+            if _impact_data_missing_is_blocking(item, scope_checks)
+        ]
+        non_blocking_data_missing = [
+            item
+            for item in scoped_data_missing
+            if item not in blocking_data_missing
+        ]
+        checks = {
+            "data_available": not blocking_data_missing,
+            **scope_checks,
         }
         if all(checks.values()):
             rows.append(
@@ -707,27 +955,107 @@ def evaluate_impact_lot_gate(
                     "supporting_evidence_ids": list(
                         dict.fromkeys(item.evidence_id for item in supporting)
                     ),
+                    "data_missing_evidence_ids": [],
+                    "non_blocking_data_missing_evidence_ids": [
+                        item.evidence_id for item in non_blocking_data_missing
+                    ],
                     "checks": checks,
                 }
             )
         else:
             missing = [label for label, passed in checks.items() if not passed]
+            if blocking_data_missing:
+                missing_reason = (
+                    "required source unavailable: "
+                    + ", ".join(
+                        item.evidence_id for item in blocking_data_missing
+                    )
+                )
+            else:
+                missing_reason = "missing " + ", ".join(missing) + " Evidence"
             rows.append(
                 {
                     "lot_id": lot_id,
                     "included": False,
                     "included_reason": None,
-                    "excluded_reason": "missing " + ", ".join(missing) + " Evidence",
+                    "excluded_reason": missing_reason,
                     "supporting_evidence_ids": list(
                         dict.fromkeys(item.evidence_id for item in supporting)
                     ),
+                    "data_missing_evidence_ids": [
+                        item.evidence_id for item in blocking_data_missing
+                    ],
+                    "non_blocking_data_missing_evidence_ids": [
+                        item.evidence_id for item in non_blocking_data_missing
+                    ],
                     "checks": checks,
                 }
             )
+    candidate_matches = [row for row in rows if row["included"]]
+    if not rows:
+        scope_status = "not_evaluated"
+    elif len(candidate_matches) == len(rows):
+        scope_status = "confirmed"
+    elif candidate_matches:
+        scope_status = "partial"
+    elif any(row.get("data_missing_evidence_ids") for row in rows):
+        scope_status = "unavailable"
+    else:
+        scope_status = "unconfirmed"
+    publication_allowed = (
+        authoritative_conclusion_status == CONCLUSION_SUPPORTED
+    )
+    confirmed = candidate_matches if publication_allowed else []
+    if confirmed:
+        publication_status = "confirmed"
+    elif candidate_matches and not publication_allowed:
+        publication_status = "withheld"
+    elif not rows:
+        publication_status = "not_evaluated"
+    else:
+        publication_status = "unconfirmed"
+    for row in rows:
+        row["candidate_included"] = bool(row["included"])
+        row["confirmed"] = bool(row["included"] and publication_allowed)
+    blocking_missing_ids = list(
+        dict.fromkeys(
+            evidence_id
+            for row in rows
+            for evidence_id in row.get("data_missing_evidence_ids", [])
+        )
+    )
+    non_blocking_missing_ids = list(
+        dict.fromkeys(
+            evidence_id
+            for row in rows
+            for evidence_id in row.get(
+                "non_blocking_data_missing_evidence_ids", []
+            )
+        )
+    )
     return {
         "source_lot_id": source_lot_id,
         "candidate_root_cause": normalized.root_cause,
-        "confirmed_impact_lots": [row["lot_id"] for row in rows if row["included"]],
+        "authoritative_conclusion_status": authoritative_conclusion_status,
+        "scope_status": scope_status,
+        "candidate_scope_status": scope_status,
+        "publication_status": publication_status,
+        "scope_basis": (
+            "candidate exposure ∩ process excursion window ∩ matching operation/recipe "
+            "∩ compatible outcome"
+        ),
+        "observed_impact_lots": list(
+            dict.fromkeys(str(item) for item in observed_impact_lots)
+        ),
+        "candidate_impact_lots": [row["lot_id"] for row in candidate_matches],
+        "data_missing_evidence_ids": blocking_missing_ids,
+        "non_blocking_data_missing_evidence_ids": non_blocking_missing_ids,
+        "confirmed_impact_lots": [row["lot_id"] for row in confirmed],
+        "confirmation_blocked_reason": (
+            None
+            if publication_allowed
+            else "authoritative RCA conclusion is not supported"
+        ),
         "rows": rows,
     }
 

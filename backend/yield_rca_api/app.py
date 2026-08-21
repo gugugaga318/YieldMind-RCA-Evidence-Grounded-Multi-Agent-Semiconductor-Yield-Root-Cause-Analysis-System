@@ -184,6 +184,16 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
                 or details.get("status")
                 or "inconclusive"
             ),
+            "causal_chain_completeness": (
+                str(details["causal_chain_completeness"])
+                if details.get("causal_chain_completeness") is not None
+                else None
+            ),
+            "data_missing_evidence_ids": [
+                str(item)
+                for item in details.get("data_missing_evidence_ids", [])
+                if isinstance(item, str)
+            ],
             "root_cause": (
                 str(details["root_cause"])
                 if details.get("root_cause") is not None
@@ -208,6 +218,15 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
                 dict(details.get("candidate_comparison", {}))
                 if isinstance(details.get("candidate_comparison"), dict)
                 else {}
+            ),
+            "causal_lanes": [item.to_dict() for item in state.causal_lanes],
+            "candidate_challenges": [
+                item.to_dict() for item in state.candidate_challenges
+            ],
+            "competition_trace": (
+                state.competition_trace.to_dict()
+                if state.competition_trace is not None
+                else None
             ),
             "confirmation_gate": (
                 dict(details.get("confirmation_gate", {}))

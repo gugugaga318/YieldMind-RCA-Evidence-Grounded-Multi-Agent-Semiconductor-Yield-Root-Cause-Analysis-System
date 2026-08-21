@@ -15,7 +15,15 @@ from typing import Any
 
 from yield_rca_core.causal_hypothesis import CausalClaimStatus
 from yield_rca_core.causal_investigation_models import CausalChainCompleteness
-from yield_rca_core.evidence_models import EntityType, Evidence, EvidenceType
+from yield_rca_core.evidence_models import (
+    EVIDENCE_SCHEMA_VERSION,
+    AgentKind,
+    EntityType,
+    Evidence,
+    EvidenceEntity,
+    EvidenceSourceType,
+    EvidenceType,
+)
 
 _SUPPORTED = CausalClaimStatus.SUPPORTED.value
 _INCOMPLETE = CausalClaimStatus.INCOMPLETE.value
@@ -34,6 +42,7 @@ class DataMissingSource:
     source_field: str | None
     observation: str
     entity_ids: tuple[str, ...] = ()
+    required_for_confirmation: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -44,6 +53,7 @@ class DataMissingSource:
             "source_field": self.source_field,
             "observation": self.observation,
             "entity_ids": list(self.entity_ids),
+            "required_for_confirmation": self.required_for_confirmation,
         }
 
 
@@ -117,9 +127,56 @@ def collect_data_missing_sources(evidence: Iterable[Evidence]) -> tuple[DataMiss
                 source_field=item.source_field,
                 observation=item.observation or item.summary,
                 entity_ids=entity_ids,
+                required_for_confirmation=(
+                    item.metadata.get("required_for_confirmation") is True
+                ),
             )
         )
     return tuple(sources)
+
+
+def build_declared_unavailable_evidence(
+    declared_sources: Iterable[str],
+    *,
+    source_lot_id: str,
+) -> tuple[Evidence, ...]:
+    """Convert trusted workflow context into typed DATA_MISSING Evidence.
+
+    Public evaluation context may declare a data source unavailable, but it
+    may not provide operational facts.  The resulting Evidence therefore
+    carries only the source declaration and source-Lot scope.  Each declared
+    source is confirmation-blocking until the deployment supplies that data.
+    """
+
+    lot_id = str(source_lot_id).strip()
+    if not lot_id:
+        raise ValueError("declared unavailable sources require source_lot_id")
+    normalized = tuple(dict.fromkeys(str(item).strip() for item in declared_sources))
+    if any(not item for item in normalized):
+        raise ValueError("declared unavailable sources must be non-empty strings")
+    return tuple(
+        Evidence(
+            evidence_id=f"EV_CONTEXT_DATA_MISSING_{index:02d}",
+            source_type=EvidenceSourceType.SYSTEM.value,
+            source_id="formal_case_context",
+            summary=f"Declared source unavailable: {source}.",
+            source_table="formal_case_context",
+            source_field=source,
+            metadata={
+                "context_source": "formal_case_context",
+                "declared_source": source,
+                "required_for_confirmation": True,
+            },
+            evidence_type=EvidenceType.DATA_MISSING.value,
+            source_agent=AgentKind.PLANNER.value,
+            source_tool="formal_case_context",
+            observation=f"{source} data is unavailable for this RCA case.",
+            entities=(EvidenceEntity(EntityType.LOT.value, lot_id),),
+            confidence=1.0,
+            evidence_schema_version=EVIDENCE_SCHEMA_VERSION,
+        )
+        for index, source in enumerate(normalized, start=1)
+    )
 
 
 def _claim_status(claims: Mapping[str, Any], claim: str) -> str:
@@ -228,6 +285,7 @@ __all__ = [
     "DataMissingSource",
     "assess_causal_chain",
     "build_causal_chain_assessment",
+    "build_declared_unavailable_evidence",
     "collect_data_missing_sources",
     "extract_data_missing_sources",
 ]

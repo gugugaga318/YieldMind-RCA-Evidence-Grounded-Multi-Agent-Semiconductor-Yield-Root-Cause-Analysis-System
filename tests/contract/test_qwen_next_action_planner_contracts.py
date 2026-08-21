@@ -26,6 +26,14 @@ from yield_rca_core import (  # noqa: E402
     QwenNextActionPlanner,
     QwenNextActionPlannerError,
 )
+from yield_rca_core.evidence_models import (  # noqa: E402
+    EVIDENCE_SCHEMA_VERSION,
+    EntityType,
+    Evidence,
+    EvidenceEntity,
+    EvidenceSourceType,
+    EvidenceType,
+)
 from yield_rca_core.investigation_models import (  # noqa: E402
     ActionKind,
     ActionRecord,
@@ -318,6 +326,365 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
         self.assertEqual(
             outcome.decision.next_action.scope["causal_gap_id"],
             gap_id,
+        )
+
+    def test_typed_product_discriminator_observes_lane_then_refreshes_reasoning(self) -> None:
+        mechanism = questions()[1]
+        gap_id = "candidate_0.hypothesis_discrimination.product_outcome.lane_runtime"
+        target_scope = {
+            "lane_id": "LANE_RUNTIME",
+            "operation": "OP_RUNTIME",
+            "equipment": "TOOL_RUNTIME",
+            "chamber": "CH_RUNTIME",
+            "recipe": "RCP_RUNTIME",
+            "discriminator_kind": "product_outcome",
+        }
+        mes = finding(AgentKind.MES.value)
+        mes.details["lane_candidates"] = [
+            {
+                **target_scope,
+                "parameter_scope": [],
+                "exposed_lot_ids": ["LOT_01"],
+            }
+        ]
+        rca = AgentFinding(
+            finding_id="FINDING_TYPED_RCA",
+            agent=AgentKind.RCA_REASONING.value,
+            summary="The competing Lane requires product-outcome discrimination.",
+            confidence=0.5,
+            evidence_ids=["EV_RCA_TRACE"],
+            details={
+                "causal_evidence_gaps": [
+                    {
+                        "gap_id": gap_id,
+                        "gap_type": "hypothesis_discrimination",
+                        "discriminator_kind": "product_outcome",
+                        "candidate_index": 0,
+                        "candidate_id": "C_RUNTIME",
+                        "claim": "hypothesis_discrimination",
+                        "status": "unresolved",
+                        "reason": "Compare the product outcome on the alternative Lane.",
+                        "question_kind": "process_mechanism",
+                        "allowed_actions": [
+                            ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
+                            ActionKind.RUN_RCA_REASONING.value,
+                        ],
+                        "preferred_action": (
+                            ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value
+                        ),
+                        "refresh_action": ActionKind.RUN_RCA_REASONING.value,
+                        "required_evidence_groups": ["shared_product_signal"],
+                        "target_scope": target_scope,
+                        "challenge_selected": True,
+                    }
+                ]
+            },
+        )
+        findings = [
+            mes,
+            finding(AgentKind.FDC.value),
+            finding(AgentKind.DEFECT_WAT.value),
+            rca,
+        ]
+        planner = QwenNextActionPlanner(RecordingNextActionClient())
+
+        observation = planner.decide_with_review(
+            goal=goal(),
+            questions=[mechanism],
+            findings=findings,
+            action_records=[],
+            tool_call_count=0,
+            evidence_ids=["EV_RCA_TRACE"],
+            question_evidence_links=[],
+            authoritative_rca_finding_id="FINDING_TYPED_RCA",
+        )
+
+        self.assertEqual(
+            observation.decision.next_action.kind,
+            ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
+        )
+        self.assertEqual(
+            observation.decision.next_action.scope["causal_gap_id"],
+            gap_id,
+        )
+        for key, value in target_scope.items():
+            self.assertEqual(observation.decision.next_action.scope[key], value)
+
+        records = [
+            ActionRecord(
+                action=InvestigationAction(
+                    action_id="FIRST_RCA_REASONING",
+                    kind=ActionKind.RUN_RCA_REASONING.value,
+                    agent=AgentKind.RCA_REASONING.value,
+                    reason="Create the first evidence-bounded candidate.",
+                    inputs={"lot_id": "LOT_01"},
+                    scope={"lot_id": "LOT_01"},
+                ),
+                status="completed",
+                produced_evidence_ids=["EV_RCA_TRACE"],
+                decision_summary="The first RCA candidate was generated.",
+            ),
+            ActionRecord(
+                action=observation.decision.next_action,
+                status="completed",
+                produced_evidence_ids=["EV_PRODUCT_GAIN"],
+                decision_summary="The Lane-scoped product outcome was observed.",
+            )
+        ]
+        prior_decisions = [
+            PlannerDecision(
+                decision_id="FIRST_RCA_DECISION",
+                goal_id=goal().goal_id,
+                decision_type=DecisionType.ACT.value,
+                reason="Generate the first candidate.",
+                goal_status=GoalStatus.IN_PROGRESS.value,
+                proposed_conclusion_level=ConclusionLevel.CANDIDATE.value,
+                next_action=records[0].action,
+                target_question_ids=[mechanism.question_id],
+            ),
+            observation.decision,
+        ]
+        gain_link = QuestionEvidenceLink(
+            question_id=mechanism.question_id,
+            evidence_id="EV_PRODUCT_GAIN",
+            action_id=observation.decision.next_action.action_id,
+            relation=QuestionEvidenceRelation.SUPPORTS.value,
+            matched_evidence_group="shared_product_signal",
+            reason="The scoped observation adds product Evidence for the challenge.",
+        )
+        refreshed = planner.decide_with_review(
+            goal=goal(),
+            questions=[mechanism],
+            findings=findings,
+            action_records=records,
+            tool_call_count=1,
+            evidence_ids=["EV_RCA_TRACE", "EV_PRODUCT_GAIN"],
+            question_evidence_links=[gain_link],
+            prior_decisions=prior_decisions,
+            authoritative_rca_finding_id="FINDING_TYPED_RCA",
+        )
+
+        self.assertEqual(
+            refreshed.decision.next_action.kind,
+            ActionKind.RUN_RCA_REASONING.value,
+        )
+        self.assertEqual(refreshed.decision.next_action.scope["causal_gap_id"], gap_id)
+
+        consumed_records = [
+            *records,
+            ActionRecord(
+                action=refreshed.decision.next_action,
+                status="completed",
+                produced_evidence_ids=["EV_RCA_TRACE", "EV_PRODUCT_GAIN"],
+                decision_summary="The new Evidence was compared in the second round.",
+            ),
+        ]
+        consumed = planner.decide_with_review(
+            goal=goal(),
+            questions=[mechanism],
+            findings=findings,
+            action_records=consumed_records,
+            tool_call_count=3,
+            evidence_ids=["EV_RCA_TRACE", "EV_PRODUCT_GAIN"],
+            question_evidence_links=[gain_link],
+            prior_decisions=[*prior_decisions, refreshed.decision],
+            authoritative_rca_finding_id="FINDING_TYPED_RCA",
+        )
+
+        self.assertEqual(consumed.decision.decision_type, DecisionType.STOP.value)
+        self.assertEqual(consumed.decision.stop_reason, StopReason.NO_ALLOWED_ACTION.value)
+
+    def test_required_missing_waits_for_executable_discrimination_gap(self) -> None:
+        mechanism = questions()[1]
+        gap_id = "candidate_0.hypothesis_discrimination.parameter_anomaly"
+        target_scope = {
+            "lane_id": "lane:1000:EQ_ALT:EQ_ALT_CH01:RCP_ALT",
+            "operation": "1000",
+            "equipment": "EQ_ALT",
+            "chamber": "EQ_ALT_CH01",
+            "recipe": "RCP_ALT",
+            "discriminator_kind": "parameter_anomaly",
+        }
+        mes = finding(AgentKind.MES.value)
+        mes.details["lane_candidates"] = [
+            {
+                **target_scope,
+                "parameter_scope": ["pressure_cv"],
+                "exposed_lot_ids": ["LOT_01"],
+            },
+            {
+                "lane_id": "lane:2000:EQ_PRIMARY:EQ_PRIMARY_CH01:RCP_PRIMARY",
+                "operation": "2000",
+                "equipment": "EQ_PRIMARY",
+                "chamber": "EQ_PRIMARY_CH01",
+                "recipe": "RCP_PRIMARY",
+                "parameter_scope": ["temperature_delta"],
+                "exposed_lot_ids": ["LOT_01"],
+            },
+        ]
+        rca = AgentFinding(
+            finding_id="FINDING_REQUIRED_MISSING_WITH_DISCRIMINATOR",
+            agent=AgentKind.RCA_REASONING.value,
+            summary="A required source is unavailable, but an alternative is testable.",
+            confidence=0.5,
+            evidence_ids=["EV_RCA_TRACE", "EV_REQUIRED_MISSING"],
+            details={
+                "conclusion_status": "insufficient_evidence",
+                "causal_evidence_gaps": [
+                    {
+                        "gap_id": gap_id,
+                        "gap_type": "hypothesis_discrimination",
+                        "discriminator_kind": "parameter_anomaly",
+                        "candidate_index": 0,
+                        "candidate_id": "C_PRIMARY",
+                        "claim": "hypothesis_discrimination",
+                        "status": "unresolved",
+                        "reason": "Measure the alternative Lane parameter excursion.",
+                        "question_kind": "process_mechanism",
+                        "allowed_actions": [
+                            ActionKind.INSPECT_FDC_SPC.value,
+                            ActionKind.RUN_RCA_REASONING.value,
+                        ],
+                        "preferred_action": ActionKind.INSPECT_FDC_SPC.value,
+                        "refresh_action": ActionKind.RUN_RCA_REASONING.value,
+                        "required_evidence_groups": ["process_anomaly"],
+                        "target_scope": target_scope,
+                        "challenge_selected": True,
+                    }
+                ],
+            },
+        )
+        first_reasoning = action_record(
+            kind=ActionKind.RUN_RCA_REASONING.value,
+            agent=AgentKind.RCA_REASONING.value,
+            scope={"lot_id": "LOT_01"},
+        )
+        required_missing = Evidence(
+            evidence_id="EV_REQUIRED_MISSING",
+            source_type=EvidenceSourceType.ANALYTICS.value,
+            source_id="FORMAL_CASE_CONTEXT",
+            summary="A confirmation source is unavailable.",
+            source_field="downstream_confirmation_metric",
+            evidence_type=EvidenceType.DATA_MISSING.value,
+            source_agent=AgentKind.PLANNER.value,
+            source_tool="formal_case_context",
+            observation="The confirmation source is unavailable.",
+            entities=[EvidenceEntity(EntityType.LOT.value, "LOT_01")],
+            confidence=1.0,
+            metadata={"required_for_confirmation": True},
+            evidence_schema_version=EVIDENCE_SCHEMA_VERSION,
+        )
+        client = RecordingNextActionClient()
+
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=[mechanism],
+            findings=[
+                mes,
+                finding(AgentKind.FDC.value),
+                finding(AgentKind.DEFECT_WAT.value),
+                rca,
+            ],
+            action_records=[first_reasoning],
+            tool_call_count=1,
+            evidence=[required_missing],
+            evidence_ids=["EV_RCA_TRACE", required_missing.evidence_id],
+            question_evidence_links=[],
+            authoritative_rca_finding_id=rca.finding_id,
+        )
+
+        self.assertEqual(client.requests, [])
+        self.assertEqual(outcome.decision.decision_type, DecisionType.ACT.value)
+        self.assertEqual(
+            outcome.decision.next_action.kind,
+            ActionKind.INSPECT_FDC_SPC.value,
+        )
+        self.assertEqual(outcome.decision.next_action.scope["causal_gap_id"], gap_id)
+        self.assertEqual(
+            outcome.decision.next_action.scope["lane_id"],
+            target_scope["lane_id"],
+        )
+
+    def test_goal_satisfied_is_repaired_while_causal_gap_action_remains(self) -> None:
+        mechanism, findings, records, links, first_gap_id = (
+            self._causal_gap_runtime()
+        )
+        second_gap_id = "candidate_1.parameter.incomplete"
+        authoritative = next(
+            item for item in findings if item.finding_id == "FINDING_RCA_AUTHORITATIVE"
+        )
+        authoritative.details["causal_evidence_gaps"].append(
+            {
+                "gap_id": second_gap_id,
+                "candidate_index": 1,
+                "claim": "parameter",
+                "status": "incomplete",
+                "reason": "The competing candidate needs parameter Evidence.",
+                "question_kind": "process_mechanism",
+                "allowed_actions": [ActionKind.INSPECT_FDC_SPC.value],
+                "evidence_ids": ["EV_RCA_TRACE"],
+            }
+        )
+
+        def stop_then_repair(
+            payload: dict[str, Any],
+            request: LLMRequest,
+        ) -> None:
+            if request.payload["output_attempt"] == 1:
+                payload.clear()
+                payload.update(
+                    {
+                        "decision_id": "PREMATURE_STOP",
+                        "goal_id": request.payload["goal"]["goal_id"],
+                        "decision_type": DecisionType.STOP.value,
+                        "reason": "All Questions appear closed.",
+                        "goal_status": GoalStatus.SATISFIED.value,
+                        "proposed_conclusion_level": ConclusionLevel.SUPPORTED.value,
+                        "next_action": None,
+                        "target_question_ids": [],
+                        "new_questions": [],
+                        "stop_reason": StopReason.GOAL_SATISFIED.value,
+                        "question_updates": [],
+                    }
+                )
+                return
+            payload.clear()
+            payload.update(
+                model_act_payload(
+                    request,
+                    kind=ActionKind.INSPECT_FDC_SPC.value,
+                    agent=AgentKind.FDC.value,
+                )
+            )
+
+        client = RecordingNextActionClient(stop_then_repair)
+        outcome = QwenNextActionPlanner(client).decide_with_review(
+            goal=goal(),
+            questions=[mechanism],
+            findings=findings,
+            action_records=records,
+            tool_call_count=2,
+            evidence_ids=[link.evidence_id for link in links],
+            question_evidence_links=links,
+            authoritative_rca_finding_id="FINDING_RCA_AUTHORITATIVE",
+        )
+
+        self.assertEqual(len(client.requests), 2)
+        contract = client.requests[0].payload["goal_satisfied_stop_contract"]
+        self.assertFalse(contract["python_terminal_transition_available"])
+        self.assertEqual(
+            contract["executable_causal_gap_ids"],
+            [first_gap_id, second_gap_id],
+        )
+        feedback = client.requests[1].payload["previous_validation_feedback"]
+        self.assertIn("cannot bypass executable causal Evidence Gaps", feedback["message"])
+        self.assertEqual(
+            outcome.decision.next_action.kind,
+            ActionKind.INSPECT_FDC_SPC.value,
+        )
+        self.assertEqual(
+            outcome.decision.next_action.scope["causal_gap_id"],
+            second_gap_id,
         )
 
     def test_same_candidate_gap_action_is_single_use_and_stops_without_fallback(self) -> None:
@@ -1822,6 +2189,7 @@ class QwenNextActionPlannerContractTest(unittest.TestCase):
 
         prompt = load_prompt("next_action_planner", "v1").lower()
         self.assertIn("choose exactly one entry from allowed_actions", prompt)
+        self.assertIn("executable_causal_gap_ids is empty", prompt)
         self.assertIn("impact lot is a result", prompt)
         self.assertIn("does not answer this specific question", prompt)
         source = inspect.getsource(next_action_planner).lower()

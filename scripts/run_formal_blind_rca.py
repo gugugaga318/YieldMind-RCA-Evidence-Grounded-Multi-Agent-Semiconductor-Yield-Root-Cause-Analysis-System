@@ -29,7 +29,10 @@ from validate_sealed_blind_packet import (  # noqa: E402
     FORMAL_V2_ROLE,
     validate_sealed_public_packet,
 )
-from yield_rca_core.investigation_models import OrchestrationMode  # noqa: E402
+from yield_rca_core.investigation_models import (  # noqa: E402
+    OrchestrationMode,
+    StopReason,
+)
 from yield_rca_core.llm_gateway import (  # noqa: E402
     LLMCallError,
     LLMClient,
@@ -102,16 +105,29 @@ class PublicCase:
     case_id: str
     source_lot_id: str
     query: str
+    declared_unavailable_sources: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> PublicCase:
         unknown = set(payload) - SUPPORTED_CASE_KEYS
         if unknown:
             raise ValueError(f"public case contains unsupported keys: {sorted(unknown)}")
+        raw_unavailable = payload.get("declared_unavailable_sources", [])
+        if not isinstance(raw_unavailable, list) or any(
+            not isinstance(item, str) or not item.strip()
+            for item in raw_unavailable
+        ):
+            raise ValueError(
+                "declared_unavailable_sources must be an array of non-empty strings"
+            )
+        unavailable = tuple(item.strip() for item in raw_unavailable)
+        if len(unavailable) != len(set(unavailable)):
+            raise ValueError("declared_unavailable_sources must not contain duplicates")
         case = cls(
             case_id=str(payload["case_id"]).strip(),
             source_lot_id=str(payload["source_lot_id"]).strip(),
             query=str(payload["query"]).strip(),
+            declared_unavailable_sources=unavailable,
         )
         if not case.case_id or not case.source_lot_id or not case.query:
             raise ValueError("public case_id, source_lot_id, and query are required")
@@ -229,7 +245,7 @@ def _strict_qwen_acceptance_reasons(
     requested_mode: str,
     agent_mode: str,
 ) -> list[str]:
-    """Separate process completion from a clean, real-Qwen execution path."""
+    """Separate process completion from a clean, governed real-Qwen path."""
 
     if requested_mode != OrchestrationMode.LLM_REACT.value or agent_mode != "llm":
         return []
@@ -248,8 +264,24 @@ def _strict_qwen_acceptance_reasons(
         reasons.append("provider_failure")
     if result.get("llm_call_cap_exceeded"):
         reasons.append("llm_call_cap_exceeded")
-    if result.get("planner_stop_proposed_by") != "qwen":
-        reasons.append("planner_stop_not_qwen")
+    stop_proposer = result.get("planner_stop_proposed_by")
+    if stop_proposer == "python_runtime":
+        governed_stop_reasons = {
+            StopReason.NO_ALLOWED_ACTION.value,
+            StopReason.BUDGET_EXHAUSTED.value,
+        }
+        governed_data_unavailable = (
+            result.get("planner_stop_reason") == StopReason.DATA_UNAVAILABLE.value
+            and result.get("conclusion_status") == "insufficient_evidence"
+            and bool(result.get("required_unavailable_evidence_ids"))
+        )
+        if (
+            result.get("planner_stop_reason") not in governed_stop_reasons
+            and not governed_data_unavailable
+        ):
+            reasons.append("python_runtime_stop_not_governed")
+    elif stop_proposer != "qwen":
+        reasons.append("planner_stop_source_invalid")
     if result.get("terminal_question_updates_source") != "python_evidence_gate":
         reasons.append("terminal_updates_not_python_evidence_gate")
     return reasons
@@ -272,6 +304,23 @@ def _execution_layer(results: list[dict[str, Any]]) -> dict[str, Any]:
         item.get("hypothesis_candidate_source") == "qwen" for item in results
     )
     qwen_stop = sum(item.get("planner_stop_proposed_by") == "qwen" for item in results)
+    governed_python_stop = sum(
+        item.get("planner_stop_proposed_by") == "python_runtime"
+        and (
+            item.get("planner_stop_reason")
+            in {
+                StopReason.NO_ALLOWED_ACTION.value,
+                StopReason.BUDGET_EXHAUSTED.value,
+            }
+            or (
+                item.get("planner_stop_reason")
+                == StopReason.DATA_UNAVAILABLE.value
+                and item.get("conclusion_status") == "insufficient_evidence"
+                and bool(item.get("required_unavailable_evidence_ids"))
+            )
+        )
+        for item in results
+    )
     python_terminal = sum(
         item.get("terminal_question_updates_source") == "python_evidence_gate"
         for item in results
@@ -290,6 +339,8 @@ def _execution_layer(results: list[dict[str, Any]]) -> dict[str, Any]:
         "qwen_candidate_rate": ratio(qwen_candidates),
         "qwen_stop_proposal_count": qwen_stop,
         "qwen_stop_proposal_rate": ratio(qwen_stop),
+        "governed_python_stop_count": governed_python_stop,
+        "governed_python_stop_rate": ratio(governed_python_stop),
         "python_terminal_gate_count": python_terminal,
         "python_terminal_gate_rate": ratio(python_terminal),
         "llm_call_count": sum(int(item.get("llm_call_count") or 0) for item in results),
@@ -397,6 +448,7 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                 case.query,
                 job_id=f"FORMAL_BLIND_{case.case_id}",
                 lot_id=case.source_lot_id,
+                declared_unavailable_sources=case.declared_unavailable_sources,
             )
             state_path = output_dir / "states" / f"{case.case_id}.json"
             state_path.write_text(
@@ -404,20 +456,19 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                 + "\n",
                 encoding="utf-8",
             )
-            hypothesis = state.hypotheses[-1] if state.hypotheses else None
-            rca_finding = next(
-                (
-                    finding
-                    for finding in reversed(state.findings)
-                    if finding.agent == "rca_reasoning"
-                ),
-                None,
-            )
+            hypothesis = state.authoritative_hypothesis
+            rca_finding = state.authoritative_rca_finding
             rca_details = rca_finding.details if rca_finding is not None else {}
             candidate_generation = dict(
                 rca_details.get("hypothesis_candidate_generation", {})
             )
             ranked_candidates = list(rca_details.get("ranked_candidates", []))
+            required_unavailable_evidence_ids = [
+                item.evidence_id
+                for item in state.evidence
+                if item.evidence_type == "data_missing"
+                and item.metadata.get("required_for_confirmation") is True
+            ]
             case_result = {
                     "case_id": case.case_id,
                     "source_lot_id": case.source_lot_id,
@@ -432,6 +483,7 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                         "orchestration_fallback_reason"
                     ),
                     "hypothesis_status": hypothesis.status if hypothesis else None,
+                    "conclusion_status": rca_details.get("conclusion_status"),
                     "root_cause": hypothesis.root_cause if hypothesis else None,
                     "hypothesis_candidate_source": candidate_generation.get(
                         "source"
@@ -472,8 +524,12 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                     "planner_stop_proposed_by": state.execution_metadata.get(
                         "planner_stop_proposed_by"
                     ),
+                    "planner_stop_reason": state.stop_reason,
                     "terminal_question_updates_source": state.execution_metadata.get(
                         "terminal_question_updates_source"
+                    ),
+                    "required_unavailable_evidence_ids": (
+                        required_unavailable_evidence_ids
                     ),
                 }
             acceptance_reasons = _strict_qwen_acceptance_reasons(
@@ -495,6 +551,7 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                     "actual_orchestration_mode": None,
                     "fallback_reason": None,
                     "hypothesis_status": None,
+                    "conclusion_status": None,
                     "root_cause": None,
                     "hypothesis_candidate_source": None,
                     "hypothesis_candidate_count": None,
@@ -521,7 +578,9 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                         client.provider_failures if client is not None else []
                     ),
                     "planner_stop_proposed_by": None,
+                    "planner_stop_reason": None,
                     "terminal_question_updates_source": None,
+                    "required_unavailable_evidence_ids": [],
                 }
             acceptance_reasons = _strict_qwen_acceptance_reasons(
                 case_result,

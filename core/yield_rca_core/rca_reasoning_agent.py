@@ -7,6 +7,7 @@ uses the deterministic, evidence-bounded Hypothesis Engine.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -26,7 +27,9 @@ from yield_rca_core.causal_hypothesis import CausalHypothesis
 from yield_rca_core.causal_investigation_models import (
     AlternativeSearchStatus,
     CandidateChallenge,
+    CausalLaneRecord,
 )
+from yield_rca_core.evidence_models import EntityType, Evidence, EvidenceType
 from yield_rca_core.evidence_synthesis import build_evidence_synthesis
 from yield_rca_core.hypothesis_candidate_generator import (
     QwenHypothesisCandidateGenerator,
@@ -62,7 +65,10 @@ def _unique(values: list[str]) -> list[str]:
     return list(dict.fromkeys(values))
 
 
-def _lane_context(findings: list[AgentFinding]) -> tuple[list[str], list[str], list[str]]:
+def _lane_context(
+    findings: list[AgentFinding],
+    causal_lanes: Sequence[CausalLaneRecord] = (),
+) -> tuple[list[str], list[str], list[str], list[dict[str, Any]]]:
     """Return all, active, and Python-eliminated concrete Lane IDs."""
 
     raw_lanes: list[dict[str, Any]] = []
@@ -72,6 +78,7 @@ def _lane_context(findings: list[AgentFinding]) -> tuple[list[str], list[str], l
         raw = finding.details.get("lane_candidates", [])
         if isinstance(raw, list):
             raw_lanes.extend(item for item in raw if isinstance(item, dict))
+    raw_lanes.extend(record.to_dict() for record in causal_lanes)
     ordered = sorted(
         {
             str(item.get("lane_id", "")).strip(): item
@@ -84,21 +91,83 @@ def _lane_context(findings: list[AgentFinding]) -> tuple[list[str], list[str], l
         ),
     )
     all_ids = [str(item["lane_id"]) for item in ordered]
-    active_ids = [str(item["lane_id"]) for item in ordered[:3]]
+    active_ids = [
+        str(item["lane_id"])
+        for item in ordered
+        if str(item.get("investigation_status", "")) not in {"eliminated", "blocked"}
+    ][:3]
     eliminated_ids = [
         str(item["lane_id"])
         for item in ordered
         if str(item.get("investigation_status", "")) in {"eliminated", "blocked"}
     ]
-    return all_ids, active_ids, eliminated_ids
+    return all_ids, active_ids, eliminated_ids, ordered
 
 
-def _merge_evidence_payload(findings: list[AgentFinding]) -> list[dict[str, Any]]:
+def _merge_evidence_payload(
+    findings: list[AgentFinding],
+    context_evidence: Sequence[Evidence] = (),
+) -> list[dict[str, Any]]:
     evidence_by_id: dict[str, dict[str, Any]] = {}
     for finding in findings:
         for item in finding.details.get("evidence", []):
             evidence_by_id[str(item["evidence_id"])] = dict(item)
+    for item in context_evidence:
+        evidence_by_id[item.evidence_id] = item.to_dict()
     return list(evidence_by_id.values())
+
+
+def _typed_evidence(
+    findings: Sequence[AgentFinding],
+    context_evidence: Sequence[Evidence],
+) -> list[Evidence]:
+    return list(
+        {
+            item.evidence_id: item
+            for item in (
+                *[
+                    evidence
+                    for finding in findings
+                    for evidence in finding.evidence
+                ],
+                *context_evidence,
+            )
+            if item.is_typed
+        }.values()
+    )
+
+
+def _observed_impact_lot_ids(
+    findings: Sequence[AgentFinding],
+    evidence: Sequence[Evidence],
+    *,
+    source_lot_id: str | None,
+) -> list[str]:
+    """Recover the candidate Lot universe from findings and typed Evidence."""
+
+    values: list[str] = []
+    for finding in findings:
+        raw = finding.details.get("impact_lots")
+        if isinstance(raw, list):
+            values.extend(str(item) for item in raw)
+    for item in evidence:
+        if item.evidence_type != EvidenceType.IMPACT_SCOPE.value:
+            continue
+        raw = item.metadata.get("impact_lots", [])
+        if isinstance(raw, (list, tuple)):
+            values.extend(str(lot_id) for lot_id in raw)
+        values.extend(
+            entity.entity_id
+            for entity in item.entities
+            if entity.entity_type == EntityType.LOT.value
+        )
+    return list(
+        dict.fromkeys(
+            lot_id.strip()
+            for lot_id in values
+            if lot_id.strip() and lot_id.strip() != source_lot_id
+        )
+    )
 
 
 def _merge_warnings(findings: list[AgentFinding]) -> list[Warning]:
@@ -139,6 +208,7 @@ def _unsupported_source_warning(
     *,
     supported: bool,
     ranked_candidates: list[dict[str, Any]],
+    blocking_data_missing_evidence_ids: Sequence[str] = (),
 ) -> Warning | None:
     """Make an evidence gap explicit without letting Knowledge fill it.
 
@@ -149,6 +219,11 @@ def _unsupported_source_warning(
     similarity cannot silently stand in for that missing source.
     """
 
+    blocking_ids = {
+        str(evidence_id)
+        for evidence_id in blocking_data_missing_evidence_ids
+        if str(evidence_id)
+    }
     missing_ids = _unique(
         [
             evidence.evidence_id
@@ -157,8 +232,8 @@ def _unsupported_source_warning(
             if evidence.evidence_type == "data_missing"
             and evidence.source_type in {"fdc", "wat", "mes", "analytics"}
             and (
-                not supported
-                or evidence.evidence_id == "EV_FDC_FEATURE_DATA_MISSING"
+                evidence.evidence_id in blocking_ids
+                or evidence.metadata.get("required_for_confirmation") is True
             )
         ]
     )
@@ -233,7 +308,15 @@ class RCAReasoningAgent:
     agent_mode: str = AgentMode.DETERMINISTIC.value
     prompt_version: str = "v1"
 
-    def analyze(self, *, request_id: str, findings: list[AgentFinding]) -> AgentFinding:
+    def analyze(
+        self,
+        *,
+        request_id: str,
+        findings: list[AgentFinding],
+        context_evidence: Sequence[Evidence] = (),
+        causal_lanes: Sequence[CausalLaneRecord] = (),
+        prior_rca_finding: AgentFinding | None = None,
+    ) -> AgentFinding:
         if not findings:
             raise ModelValidationError("RCA reasoning requires Specialist findings")
         unsupported = {finding.agent for finding in findings} - SPECIALIST_AGENTS
@@ -242,10 +325,82 @@ class RCAReasoningAgent:
                 f"RCA reasoning only accepts Specialist findings, got {sorted(unsupported)}"
             )
         evidence_ids = _unique(
-            [evidence_id for finding in findings for evidence_id in finding.evidence_ids]
+            [
+                *[
+                    evidence_id
+                    for finding in findings
+                    for evidence_id in finding.evidence_ids
+                ],
+                *[item.evidence_id for item in context_evidence],
+            ]
         )
         if not evidence_ids:
             raise ModelValidationError("Specialist findings must reference evidence_ids")
+        source_lot_id = next(
+            (
+                str(finding.details.get("source_lot_id"))
+                for finding in findings
+                if finding.details.get("source_lot_id")
+            ),
+            None,
+        )
+        prior_candidates = (
+            [
+                dict(candidate)
+                for candidate in prior_rca_finding.details.get(
+                    "ranked_candidates", []
+                )
+                if isinstance(candidate, dict)
+            ]
+            if prior_rca_finding is not None
+            and isinstance(
+                prior_rca_finding.details.get("ranked_candidates", []),
+                list,
+            )
+            else []
+        )
+        prior_evidence_ids = (
+            set(prior_rca_finding.evidence_ids)
+            if prior_rca_finding is not None
+            else set()
+        )
+        new_evidence_ids_since_prior = [
+            evidence_id
+            for evidence_id in evidence_ids
+            if evidence_id not in prior_evidence_ids
+        ]
+        prior_challenges = (
+            [
+                dict(item)
+                for item in prior_rca_finding.details.get("candidate_challenges", [])
+                if isinstance(item, dict)
+            ]
+            if prior_rca_finding is not None
+            and isinstance(
+                prior_rca_finding.details.get("candidate_challenges", []),
+                list,
+            )
+            else []
+        )
+        prior_causal_gaps = (
+            [
+                dict(item)
+                for item in prior_rca_finding.details.get("causal_evidence_gaps", [])
+                if isinstance(item, dict)
+            ]
+            if prior_rca_finding is not None
+            and isinstance(
+                prior_rca_finding.details.get("causal_evidence_gaps", []),
+                list,
+            )
+            else []
+        )
+        (
+            all_lane_ids,
+            active_lane_ids,
+            eliminated_lane_ids,
+            lane_contexts,
+        ) = _lane_context(findings, causal_lanes)
 
         warnings = _merge_warnings(findings)
         present_agents = {finding.agent for finding in findings}
@@ -263,6 +418,7 @@ class RCAReasoningAgent:
             "candidate_count": 0,
             "attempt_count": 0,
             "validation_errors": [],
+            "rejected_candidates": [],
             "fallback_reason": None,
             "candidate_output_invalid": False,
         }
@@ -270,6 +426,7 @@ class RCAReasoningAgent:
         deterministic_candidates_enabled = self.agent_mode != AgentMode.LLM.value
         candidate_comparison: dict[str, Any] | None = None
         candidate_challenges: list[CandidateChallenge] = []
+        consumed_discriminators: set[tuple[str, str]] = set()
         alternative_search_status = AlternativeSearchStatus.NOT_SEARCHED.value
         challenge_generation: dict[str, Any] = {
             "source": "not_requested",
@@ -285,7 +442,26 @@ class RCAReasoningAgent:
                 ).generate(
                     request_id=request_id,
                     findings=findings,
+                    context_evidence=context_evidence,
+                    prior_candidates=prior_candidates,
+                    prior_challenges=prior_challenges,
+                    prior_causal_gaps=prior_causal_gaps,
+                    causal_lanes=lane_contexts,
+                    new_evidence_ids=new_evidence_ids_since_prior,
                 )
+                targeted_investigation_results = [
+                    dict(item) for item in generated.targeted_investigation_results
+                ]
+                consumed_discriminators = {
+                    (
+                        str(item.get("lane_id", "")),
+                        str(item.get("discriminator_kind", "")),
+                    )
+                    for item in targeted_investigation_results
+                    if item.get("answered")
+                    and str(item.get("lane_id", ""))
+                    and str(item.get("discriminator_kind", ""))
+                }
                 external_candidates = [
                     candidate.to_dict() for candidate in generated.candidates
                 ]
@@ -294,8 +470,40 @@ class RCAReasoningAgent:
                     "candidate_count": len(external_candidates),
                     "attempt_count": generated.attempt_count,
                     "validation_errors": list(generated.validation_errors),
+                    "rejected_candidates": [
+                        dict(item) for item in generated.rejected_candidates
+                    ],
                     "fallback_reason": None,
                     "candidate_output_invalid": generated.candidate_output_invalid,
+                    "prior_candidate_count": len(prior_candidates),
+                    "analysis_summary": generated.analysis_summary,
+                    "competition_repair_exhausted": (
+                        generated.competition_repair_exhausted
+                    ),
+                    "targeted_investigation_count": len(
+                        targeted_investigation_results
+                    ),
+                    "targeted_investigation_results": (
+                        targeted_investigation_results
+                    ),
+                    "targeted_supporting_evidence_ids": list(
+                        dict.fromkeys(
+                            evidence_id
+                            for item in targeted_investigation_results
+                            for evidence_id in item.get(
+                                "new_supporting_evidence_ids", []
+                            )
+                        )
+                    ),
+                    "consumed_discriminators": [
+                        {
+                            "lane_id": lane_id,
+                            "discriminator_kind": discriminator_kind,
+                        }
+                        for lane_id, discriminator_kind in sorted(
+                            consumed_discriminators
+                        )
+                    ],
                 }
                 if generated.candidate_output_invalid:
                     candidate_generation["fallback_reason"] = "qwen_candidate_output_invalid"
@@ -316,6 +524,13 @@ class RCAReasoningAgent:
                         for evidence in finding.evidence
                         if evidence.is_typed
                     }
+                    evidence_by_id.update(
+                        {
+                            evidence.evidence_id: evidence
+                            for evidence in context_evidence
+                            if evidence.is_typed
+                        }
+                    )
                     matrices = []
                     for candidate in external_candidates:
                         matrices.append(
@@ -333,8 +548,6 @@ class RCAReasoningAgent:
                                 evidence_by_id.values(),
                             )
                         )
-                    gaps = build_causal_evidence_gaps(matrices)
-                    gaps.extend(build_hypothesis_discrimination_gaps(matrices))
                     challenge_candidates = [
                         {
                             **candidate,
@@ -342,6 +555,19 @@ class RCAReasoningAgent:
                         }
                         for index, candidate in enumerate(external_candidates)
                     ]
+                    gaps = build_causal_evidence_gaps(matrices)
+                    gaps.extend(
+                        build_hypothesis_discrimination_gaps(
+                            matrices,
+                            causal_lanes=lane_contexts,
+                            candidate_ids=[
+                                str(candidate["candidate_id"])
+                                for candidate in challenge_candidates
+                            ],
+                            source_lot_id=source_lot_id,
+                            consumed_discriminators=consumed_discriminators,
+                        )
+                    )
                     if len(external_candidates) >= 2:
                         try:
                             candidate_comparison = QwenHypothesisCandidateComparator(
@@ -358,9 +584,6 @@ class RCAReasoningAgent:
                                 "source": "python",
                                 "comparison_error": str(exc),
                             }
-                    all_lane_ids, active_lane_ids, eliminated_lane_ids = _lane_context(
-                        findings
-                    )
                     if not all_lane_ids:
                         # Pre-Batch-25 snapshots may not contain concrete Lane
                         # records. There is no alternative Lane to investigate,
@@ -408,6 +631,7 @@ class RCAReasoningAgent:
                             lane_ids=all_lane_ids,
                             active_lane_ids=active_lane_ids,
                             eliminated_lane_ids=eliminated_lane_ids,
+                            lane_contexts=lane_contexts,
                         )
                         candidate_challenges = list(challenge_result.challenges)
                         alternative_search_status = (
@@ -494,10 +718,14 @@ class RCAReasoningAgent:
             strict_confirmation=self.agent_mode == AgentMode.LLM.value,
             alternative_search_status=alternative_search_status,
             candidate_challenges=candidate_challenges,
+            context_evidence=context_evidence,
+            causal_lanes=causal_lanes,
+            consumed_discriminators=consumed_discriminators,
         )
         decision = engine_result["decision_gate"]
         root_cause = str(decision["root_cause"])
         status = str(decision["status"])
+        conclusion_status = str(decision.get("conclusion_status", status))
         confidence = float(decision["confidence"])
         supported = status == HypothesisStatus.SUPPORTED.value
         if (
@@ -599,6 +827,9 @@ class RCAReasoningAgent:
         ranked_candidates = [
             {
                 "root_cause": candidate["root_cause"],
+                "causal_explanation": candidate.get(
+                    "causal_explanation", candidate["root_cause"]
+                ),
                 "score": candidate["confidence"],
                 "basis": candidate["basis"],
                 "status": candidate["status"],
@@ -628,53 +859,78 @@ class RCAReasoningAgent:
             findings,
             supported=supported,
             ranked_candidates=ranked_candidates,
+            blocking_data_missing_evidence_ids=decision.get(
+                "blocking_data_missing_evidence_ids", []
+            ),
         )
         if unsupported_source is not None:
             warnings.append(unsupported_source)
-        selected_candidate = active_candidate or (
-            engine_result["candidates"][0] if engine_result["candidates"] else None
+        all_typed_evidence = _typed_evidence(findings, context_evidence)
+        observed_impact_lots = _observed_impact_lot_ids(
+            findings,
+            all_typed_evidence,
+            source_lot_id=source_lot_id,
         )
-        source_lot_id = next(
-            (
-                str(finding.details.get("source_lot_id"))
-                for finding in findings
-                if finding.details.get("source_lot_id")
-            ),
-            None,
-        )
-        observed_impact_lots = next(
-            (
-                [str(item) for item in finding.details.get("impact_lots", [])]
-                for finding in findings
-                if finding.details.get("impact_lots") is not None
-            ),
-            [],
-        )
-        impact_lot_gate = (
-            evaluate_impact_lot_gate(
-                source_lot_id=source_lot_id,
-                candidate=selected_candidate,
-                evidence=[item for finding in findings for item in finding.evidence],
-                observed_impact_lots=observed_impact_lots,
+        candidate_impact_scopes: list[dict[str, Any]] = []
+        selected_impact_scope: dict[str, Any] | None = None
+        for candidate_index, candidate in enumerate(engine_result["candidates"]):
+            candidate_is_authoritative = (
+                supported and candidate["root_cause"] == root_cause
             )
-            if selected_candidate is not None
+            candidate_scope = evaluate_impact_lot_gate(
+                source_lot_id=source_lot_id,
+                candidate=candidate,
+                evidence=all_typed_evidence,
+                observed_impact_lots=observed_impact_lots,
+                authoritative_conclusion_status=(
+                    conclusion_status
+                    if candidate_is_authoritative
+                    else "inconclusive"
+                ),
+            )
+            candidate_scope = {
+                **candidate_scope,
+                "candidate_index": candidate_index,
+                "candidate_rank": candidate.get("rank"),
+            }
+            candidate_impact_scopes.append(candidate_scope)
+            if candidate_is_authoritative:
+                selected_impact_scope = candidate_scope
+        if selected_impact_scope is None and candidate_impact_scopes:
+            selected_impact_scope = candidate_impact_scopes[0]
+        impact_lot_gate = (
+            {
+                **selected_impact_scope,
+                "candidate_scopes": candidate_impact_scopes,
+            }
+            if selected_impact_scope is not None
             else {
                 "source_lot_id": source_lot_id,
                 "candidate_root_cause": None,
+                "authoritative_conclusion_status": conclusion_status,
+                "observed_impact_lots": observed_impact_lots,
+                "candidate_impact_lots": [],
                 "confirmed_impact_lots": [],
+                "confirmation_blocked_reason": (
+                    "no causal candidate is available"
+                ),
+                "scope_status": "not_evaluated",
+                "candidate_scope_status": "not_evaluated",
+                "publication_status": "not_evaluated",
+                "scope_basis": (
+                    "Impact scope was not evaluated because no causal candidate "
+                    "is available."
+                ),
+                "data_missing_evidence_ids": [
+                    item.evidence_id
+                    for item in context_evidence
+                    if item.evidence_type == "data_missing"
+                ],
+                "non_blocking_data_missing_evidence_ids": [],
+                "candidate_scopes": [],
                 "rows": [],
             }
         )
-        if not supported and isinstance(impact_lot_gate, dict):
-            # Candidate impact scope remains available for audit, but only an
-            # authoritative supported RCA may publish confirmed impact Lots.
-            impact_lot_gate = {
-                **impact_lot_gate,
-                "confirmed_impact_lots": [],
-                "confirmation_blocked_reason": (
-                    "authoritative RCA conclusion is not supported"
-                ),
-            }
         return AgentFinding(
             finding_id=f"{request_id}:rca",
             agent=AgentKind.RCA_REASONING.value,
@@ -687,6 +943,13 @@ class RCAReasoningAgent:
             evidence_ids=evidence_ids,
             details={
                 "root_cause": root_cause,
+                "reasoning_round": 2 if prior_rca_finding is not None else 1,
+                "prior_authoritative_rca_finding_id": (
+                    prior_rca_finding.finding_id
+                    if prior_rca_finding is not None
+                    else None
+                ),
+                "new_evidence_ids_since_prior": new_evidence_ids_since_prior,
                 "root_cause_evidence_ids": root_cause_evidence_ids,
                 "status": status,
                 "hypothesis": hypothesis.to_dict(),
@@ -709,17 +972,30 @@ class RCAReasoningAgent:
                 ],
                 "alternative_search_status": alternative_search_status,
                 "hypothesis_engine_result": engine_result,
-                "conclusion_status": str(decision.get("conclusion_status", status)),
+                "conclusion_status": conclusion_status,
                 "causal_chain_completeness": decision.get(
                     "causal_chain_completeness"
                 ),
                 "data_missing_evidence_ids": list(
                     decision.get("data_missing_evidence_ids", [])
                 ),
+                "blocking_data_missing_evidence_ids": list(
+                    decision.get("blocking_data_missing_evidence_ids", [])
+                ),
+                "non_blocking_data_missing_evidence_ids": list(
+                    decision.get("non_blocking_data_missing_evidence_ids", [])
+                ),
                 "evidence_synthesis": engine_result.get(
                     "evidence_synthesis",
                     build_evidence_synthesis(
-                        item for finding in findings for item in finding.evidence
+                        [
+                            *[
+                                item
+                                for finding in findings
+                                for item in finding.evidence
+                            ],
+                            *context_evidence,
+                        ]
                     ),
                 ),
                 "causal_evidence_gaps": list(
@@ -732,7 +1008,7 @@ class RCAReasoningAgent:
                     decision.get("confirmation_gate", {})
                 ),
                 "impact_lot_gate": impact_lot_gate,
-                "evidence": _merge_evidence_payload(findings),
+                "evidence": _merge_evidence_payload(findings, context_evidence),
             },
             warnings=list({warning.warning_id: warning for warning in warnings}.values()),
         )

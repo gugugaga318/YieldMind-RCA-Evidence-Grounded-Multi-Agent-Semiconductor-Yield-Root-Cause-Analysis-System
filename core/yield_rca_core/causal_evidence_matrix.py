@@ -1085,6 +1085,19 @@ def build_causal_evidence_matrix(
 
 
 def _scope_claim(evidence: list[Evidence]) -> CausalClaimResult:
+    concrete_lane_ids = {
+        str(item.metadata.get("lane_id", "")).strip()
+        for item in evidence
+        if str(item.metadata.get("lane_id", "")).strip()
+    }
+    if len(concrete_lane_ids) > 1:
+        return _result(
+            CausalClaim.SCOPE,
+            CausalClaimStatus.CONFLICTED,
+            evidence,
+            "Cited supporting Evidence mixes multiple concrete causal Lanes: "
+            f"{sorted(concrete_lane_ids)}.",
+        )
     lot_sets = [
         {
             entity.entity_id

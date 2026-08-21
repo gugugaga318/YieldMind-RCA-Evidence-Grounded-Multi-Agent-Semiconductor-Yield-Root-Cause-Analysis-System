@@ -221,6 +221,7 @@ def summarize_qwen_reliability_run(
         "checks": checks,
         "job_status": state.job.status,
         "actual_mode": metadata.get("orchestration_mode"),
+        "stop_reason": state.stop_reason,
         "fallback_reason": metadata.get("orchestration_fallback_reason"),
         "fallback_stage": metadata.get("orchestration_fallback_stage"),
         "fallback_failure_category": metadata.get(
@@ -297,6 +298,7 @@ def qwen_reliability_failure(
         "checks": {"workflow_completed": False},
         "job_status": "failed",
         "actual_mode": None,
+        "stop_reason": None,
         "fallback_reason": None,
         "fallback_stage": None,
         "fallback_failure_category": getattr(error, "failure_category", None),

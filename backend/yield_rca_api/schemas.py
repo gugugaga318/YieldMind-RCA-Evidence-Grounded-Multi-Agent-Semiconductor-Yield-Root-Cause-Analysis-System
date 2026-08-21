@@ -324,11 +324,16 @@ class RcaDiagnosisResponse(APIModel):
 
     finding_id: str
     conclusion_status: str
+    causal_chain_completeness: str | None = None
+    data_missing_evidence_ids: list[str] = Field(default_factory=list)
     root_cause: str | None = None
     ranked_candidates: list[dict[str, Any]] = Field(default_factory=list)
     evidence_synthesis: dict[str, Any] = Field(default_factory=dict)
     causal_evidence_gaps: list[dict[str, Any]] = Field(default_factory=list)
     candidate_comparison: dict[str, Any] = Field(default_factory=dict)
+    causal_lanes: list[dict[str, Any]] = Field(default_factory=list)
+    candidate_challenges: list[dict[str, Any]] = Field(default_factory=list)
+    competition_trace: dict[str, Any] | None = None
     confirmation_gate: dict[str, Any] = Field(default_factory=dict)
     impact_lot_gate: dict[str, Any] = Field(default_factory=dict)
 

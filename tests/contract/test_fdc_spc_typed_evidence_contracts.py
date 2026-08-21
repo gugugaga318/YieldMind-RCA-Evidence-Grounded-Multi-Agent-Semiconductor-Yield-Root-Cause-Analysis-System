@@ -11,6 +11,7 @@ from yield_rca_core import (  # noqa: E402
     AgentKind,
     EntityType,
     Evidence,
+    EvidenceCollection,
     EvidenceType,
     ModelValidationError,
     ToolInput,
@@ -228,6 +229,40 @@ class FdcSpcTypedEvidenceContractTest(unittest.TestCase):
             output.warnings[0].evidence_ids,
             [evidence.evidence_id],
         )
+
+    def test_basic_spc_lane_scopes_missing_evidence_without_merge_conflict(self) -> None:
+        tool = PerformBasicSpcAnalysisTool(self.golden_repository)
+        parameters: dict[str, object] = {
+            "lot_ids": [f"LOT_A_{number:03d}" for number in range(1, 21)],
+            "operation_no": "6400",
+            "equipment_id": "CMP_CU03",
+            "chamber_id": "CMP_CU03_CH02",
+        }
+        lane_a = tool.run(
+            fdc_input(
+                "perform_basic_spc_analysis",
+                "REQ_TYPED_BASIC_SPC_LANE_A",
+                {**parameters, "lane_id": "lane:6400:CMP_CU03:CMP_CU03_CH02:R1"},
+            )
+        )
+        lane_b = tool.run(
+            fdc_input(
+                "perform_basic_spc_analysis",
+                "REQ_TYPED_BASIC_SPC_LANE_B",
+                {**parameters, "lane_id": "lane:6400:CMP_CU03:CMP_CU03_CH02:R2"},
+            )
+        )
+
+        self.assertNotEqual(lane_a.evidence_ids, lane_b.evidence_ids)
+        self.assertTrue(
+            all(item.metadata["lane_id"].endswith(":R1") for item in lane_a.evidence)
+        )
+        self.assertTrue(
+            all(item.metadata["lane_id"].endswith(":R2") for item in lane_b.evidence)
+        )
+        merged = EvidenceCollection(lane_a.evidence)
+        merged.merge(lane_b.evidence)
+        self.assertEqual(len(merged), len(lane_a.evidence) + len(lane_b.evidence))
 
     def test_advanced_spc_uses_typed_strict_baseline_evidence(self) -> None:
         output = AnalyzeSpcEvidenceTool(self.spc_repository).run(

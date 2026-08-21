@@ -2142,7 +2142,10 @@ class PerformBasicSpcAnalysisTool(BaseTool):
                 violated_rules.append("MONOTONIC_TREND")
 
             target_mean = mean(observed_values)
-            evidence_id = _evidence_id("EV_SPC", parameter_name)
+            evidence_id = EvidenceBuilder.scoped_evidence_id(
+                tool_input,
+                _evidence_id("EV_SPC", parameter_name),
+            )
             result = {
                 "parameter_name": parameter_name,
                 "unit": ordered_rows[0]["unit"],
@@ -2550,7 +2553,10 @@ class AnalyzeSpcEvidenceTool(BaseTool):
             else:
                 chart = calculate_p_chart(baseline, analysis, parameter_name=parameter_name)
 
-            evidence_id = _evidence_id("EV_SPC", parameter_name)
+            evidence_id = EvidenceBuilder.scoped_evidence_id(
+                tool_input,
+                _evidence_id("EV_SPC", parameter_name),
+            )
             result = {
                 **chart.to_dict(),
                 "baseline_id": profile["baseline_id"],

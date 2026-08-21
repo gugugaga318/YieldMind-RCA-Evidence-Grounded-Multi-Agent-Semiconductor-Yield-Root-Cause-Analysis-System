@@ -192,6 +192,17 @@ class ImmediateUnsupportedStopClient(RecordingFakeClient):
         )
 
 
+class NextActionCallCapClient(RecordingFakeClient):
+    def complete_json(self, request: LLMRequest) -> LLMResponse:
+        if request.prompt_name == "next_action_planner":
+            self.requests.append(request)
+            raise LLMCallError(
+                "formal blind call cap reached",
+                failure_category="formal_blind_call_cap",
+            )
+        return super().complete_json(request)
+
+
 class RejectedQuestionUpdateThenStopClient(RecordingFakeClient):
     """Emit one legal Action with an unsafe ancillary QuestionUpdate claim."""
 
@@ -339,6 +350,49 @@ class LLMReactWorkflowIntegrationTest(unittest.TestCase):
         self.assertNotIn(
             "workflow-secret",
             metadata["orchestration_fallback_provider_message"],
+        )
+
+    def test_llm_call_cap_ends_llm_react_without_controlled_fallback(self) -> None:
+        state = run_lot(
+            NextActionCallCapClient(),
+            ROOT_CAUSE_QUERY,
+            job_id="JOB_LLM_REACT_CALL_CAP",
+        )
+
+        self.assertEqual(state.job.status, "completed")
+        self.assertEqual(state.execution_metadata["orchestration_mode"], "llm_react")
+        self.assertNotIn("orchestration_fallback_reason", state.execution_metadata)
+        self.assertTrue(state.execution_metadata["llm_budget_exhausted"])
+        self.assertEqual(state.execution_metadata["planner_stop_proposed_by"], "python_runtime")
+        self.assertEqual(state.stop_reason, "budget_exhausted")
+
+    def test_required_unavailable_source_stops_after_authoritative_rca_gate(self) -> None:
+        state = fake_llm_workflow(RecordingFakeClient()).run(
+            ROOT_CAUSE_QUERY,
+            job_id="JOB_LLM_REACT_REQUIRED_SOURCE_MISSING",
+            lot_id="LOT_A_001",
+            declared_unavailable_sources=("wafer_rework_and_split_genealogy",),
+        )
+
+        self.assertEqual(state.job.status, "completed")
+        self.assertEqual(state.execution_metadata["orchestration_mode"], "llm_react")
+        self.assertEqual(state.execution_metadata["planner_stop_proposed_by"], "python_runtime")
+        self.assertEqual(
+            state.execution_metadata["terminal_question_updates_source"],
+            "python_evidence_gate",
+        )
+        self.assertEqual(state.stop_reason, "data_unavailable")
+        self.assertIsNotNone(state.authoritative_rca_finding)
+        self.assertEqual(
+            state.authoritative_rca_finding.details["conclusion_status"],
+            "insufficient_evidence",
+        )
+        self.assertEqual(
+            sum(
+                record.action.kind == "run_rca_reasoning"
+                for record in state.action_history
+            ),
+            1,
         )
 
     def test_fake_qwen_intents_produce_different_bounded_action_chains(self) -> None:

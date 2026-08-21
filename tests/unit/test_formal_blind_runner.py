@@ -23,6 +23,7 @@ def clean_result() -> dict[str, object]:
         "provider_failures": [],
         "llm_call_cap_exceeded": False,
         "planner_stop_proposed_by": "qwen",
+        "planner_stop_reason": "goal_satisfied",
         "terminal_question_updates_source": "python_evidence_gate",
     }
 
@@ -58,7 +59,7 @@ def test_process_completion_does_not_hide_internal_qwen_fallbacks() -> None:
     assert "hypothesis_candidate_fallback" in reasons
 
 
-def test_strict_qwen_requires_qwen_stop_and_python_terminal_gate() -> None:
+def test_strict_qwen_requires_a_valid_stop_source_and_python_terminal_gate() -> None:
     result = {
         **clean_result(),
         "planner_stop_proposed_by": None,
@@ -71,8 +72,72 @@ def test_strict_qwen_requires_qwen_stop_and_python_terminal_gate() -> None:
         agent_mode="llm",
     )
 
-    assert "planner_stop_not_qwen" in reasons
+    assert "planner_stop_source_invalid" in reasons
     assert "terminal_updates_not_python_evidence_gate" in reasons
+
+
+def test_strict_qwen_accepts_governed_python_no_gain_stop() -> None:
+    result = {
+        **clean_result(),
+        "planner_stop_proposed_by": "python_runtime",
+        "planner_stop_reason": "no_allowed_action",
+    }
+
+    assert _strict_qwen_acceptance_reasons(
+        result,
+        requested_mode="llm_react",
+        agent_mode="llm",
+    ) == []
+
+
+def test_strict_qwen_rejects_ungoverned_python_stop() -> None:
+    result = {
+        **clean_result(),
+        "planner_stop_proposed_by": "python_runtime",
+        "planner_stop_reason": "goal_satisfied",
+    }
+
+    reasons = _strict_qwen_acceptance_reasons(
+        result,
+        requested_mode="llm_react",
+        agent_mode="llm",
+    )
+
+    assert "python_runtime_stop_not_governed" in reasons
+
+
+def test_strict_qwen_accepts_evidence_proven_data_unavailable_stop() -> None:
+    result = {
+        **clean_result(),
+        "planner_stop_proposed_by": "python_runtime",
+        "planner_stop_reason": "data_unavailable",
+        "conclusion_status": "insufficient_evidence",
+        "required_unavailable_evidence_ids": ["EV_REQUIRED_GENEALOGY_MISSING"],
+    }
+
+    assert _strict_qwen_acceptance_reasons(
+        result,
+        requested_mode="llm_react",
+        agent_mode="llm",
+    ) == []
+
+
+def test_strict_qwen_rejects_unproven_data_unavailable_stop() -> None:
+    result = {
+        **clean_result(),
+        "planner_stop_proposed_by": "python_runtime",
+        "planner_stop_reason": "data_unavailable",
+        "conclusion_status": "inconclusive",
+        "required_unavailable_evidence_ids": [],
+    }
+
+    reasons = _strict_qwen_acceptance_reasons(
+        result,
+        requested_mode="llm_react",
+        agent_mode="llm",
+    )
+
+    assert "python_runtime_stop_not_governed" in reasons
 
 
 def test_strict_qwen_is_not_applied_to_non_real_qwen_configuration() -> None:
@@ -102,3 +167,19 @@ def test_execution_layer_keeps_completion_and_strict_qwen_separate() -> None:
     assert layer["strict_qwen_acceptance_rate"] == 0.5
     assert layer["llm_react_preservation_rate"] == 0.5
     assert layer["provider_clean_rate"] == 0.5
+
+
+def test_execution_layer_reports_governed_python_stop_separately() -> None:
+    governed = {
+        **clean_result(),
+        "workflow_completed": True,
+        "strict_qwen_accepted": True,
+        "planner_stop_proposed_by": "python_runtime",
+        "planner_stop_reason": "no_allowed_action",
+    }
+
+    layer = _execution_layer([governed])
+
+    assert layer["qwen_stop_proposal_count"] == 0
+    assert layer["governed_python_stop_count"] == 1
+    assert layer["governed_python_stop_rate"] == 1.0

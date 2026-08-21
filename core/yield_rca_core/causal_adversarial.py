@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from yield_rca_core.causal_evidence_matrix import CausalEvidenceMatrix
@@ -54,6 +55,22 @@ def _string_list(value: object, field_name: str) -> tuple[str, ...]:
     return values
 
 
+def _gap_information_gain_for_lane(
+    gap: Mapping[str, Any],
+    lane_id: str,
+) -> float | None:
+    raw_by_lane = gap.get("information_gain_by_lane")
+    if isinstance(raw_by_lane, Mapping):
+        raw_score = raw_by_lane.get(lane_id)
+        if isinstance(raw_score, int | float):
+            return float(raw_score)
+        return None
+    raw_score = gap.get("information_gain")
+    if isinstance(raw_score, int | float):
+        return float(raw_score)
+    return None
+
+
 def _normalize_challenge_payload(
     payload: object,
     *,
@@ -61,7 +78,9 @@ def _normalize_challenge_payload(
     lane_ids: set[str],
     evidence_ids: set[str],
     gap_ids: set[str],
+    gap_by_id: Mapping[str, Mapping[str, Any]] | None = None,
     evidence_by_id: Mapping[str, Evidence] | None = None,
+    lane_contexts: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> CandidateChallenge:
     if not isinstance(payload, Mapping):
         raise LLMOutputValidationError("candidate challenge must be an object")
@@ -126,6 +145,56 @@ def _normalize_challenge_payload(
         raise LLMOutputValidationError(
             f"candidate challenge references unknown Evidence Gaps: {unknown_gaps}"
         )
+    if gap_by_id is not None:
+        for gap_id in gaps:
+            gap = gap_by_id.get(gap_id)
+            if gap is None:
+                continue
+            gap_candidate_id = str(gap.get("candidate_id", "")).strip()
+            if gap_candidate_id and gap_candidate_id != candidate_id:
+                raise LLMOutputValidationError(
+                    "candidate challenge selected an Evidence Gap owned by another "
+                    "candidate"
+                )
+            raw_scope = gap.get("target_scope", {})
+            target_lane_id = (
+                str(raw_scope.get("lane_id", "")).strip()
+                if isinstance(raw_scope, Mapping)
+                else ""
+            )
+            lane_binding = str(gap.get("lane_binding", "")).strip()
+            raw_applicable_lanes = gap.get("applicable_lane_ids", [])
+            applicable_lanes = (
+                {
+                    str(item).strip()
+                    for item in raw_applicable_lanes
+                    if str(item).strip()
+                }
+                if isinstance(raw_applicable_lanes, list | tuple)
+                else set()
+            )
+            template_binding = (
+                lane_binding == "challenge_selected" and not target_lane_id
+            )
+            if (
+                alternative_id is not None
+                and target_lane_id != alternative_id
+                and not template_binding
+            ):
+                raise LLMOutputValidationError(
+                    "candidate challenge selected a discriminator Gap for a "
+                    "different causal Lane"
+                )
+            if (
+                alternative_id is not None
+                and applicable_lanes
+                and alternative_id not in applicable_lanes
+            ):
+                raise LLMOutputValidationError(
+                    "candidate challenge selected a discriminator Gap that cannot "
+                    "produce an independent observation for the strongest "
+                    "alternative Lane"
+                )
     questions = _string_list(
         payload.get("distinguishing_questions", []),
         "distinguishing_questions",
@@ -145,6 +214,96 @@ def _normalize_challenge_payload(
         raise LLMOutputValidationError(
             f"candidate challenge status must be one of: {allowed}"
         ) from exc
+    if status == ChallengeStatus.RESOLVED.value and precursor:
+        raise LLMOutputValidationError(
+            "resolved challenge cannot retain unexplained precursor Evidence"
+        )
+    if alternative_id is not None and status != ChallengeStatus.RESOLVED.value:
+        if len(gaps) != 1:
+            raise LLMOutputValidationError(
+                "an unresolved named alternative Lane requires exactly one "
+                "highest-information-gain Python-generated typed discriminator Gap"
+            )
+        if gap_by_id is not None:
+            selected_gap_type = str(
+                gap_by_id.get(gaps[0], {}).get("gap_type", "")
+            ).strip()
+            if selected_gap_type != "hypothesis_discrimination":
+                raise LLMOutputValidationError(
+                    "an unresolved named alternative Lane must select a "
+                    "hypothesis_discrimination typed Gap"
+                )
+            scored_gaps = {
+                gap_id: score
+                for gap_id, gap in gap_by_id.items()
+                if str(gap.get("gap_type", "")) == "hypothesis_discrimination"
+                and str(gap.get("candidate_id", "")).strip() in {"", candidate_id}
+                and (
+                    score := _gap_information_gain_for_lane(gap, alternative_id)
+                )
+                is not None
+            }
+            selected_score = scored_gaps.get(gaps[0])
+            if scored_gaps and selected_score is not None:
+                highest_score = max(scored_gaps.values())
+                if selected_score < highest_score:
+                    highest_gap_ids = sorted(
+                        gap_id
+                        for gap_id, score in scored_gaps.items()
+                        if score == highest_score
+                    )
+                    raise LLMOutputValidationError(
+                        "selected discriminator is not the highest-information-gain "
+                        f"observation for the strongest alternative Lane; choose one "
+                        f"of {highest_gap_ids}"
+                    )
+    if alternative_id is not None and lane_contexts:
+        lane = lane_contexts.get(alternative_id)
+        if lane is None:
+            raise LLMOutputValidationError(
+                "strongest alternative Lane has no Python-owned context"
+            )
+        if gap_by_id is not None:
+            for gap_id in gaps:
+                gap = gap_by_id.get(gap_id, {})
+                kind = str(gap.get("discriminator_kind", ""))
+                if kind == "parameter_anomaly" and not lane.get("parameter_scope"):
+                    raise LLMOutputValidationError(
+                        "parameter_anomaly discriminator is not applicable to the "
+                        "selected causal Lane"
+                    )
+                if kind == "recipe_commonality" and not lane.get("recipe"):
+                    raise LLMOutputValidationError(
+                        "recipe_commonality discriminator is not applicable to the "
+                        "selected causal Lane"
+                    )
+                if kind == "product_outcome" and not lane.get("exposed_lot_ids"):
+                    raise LLMOutputValidationError(
+                        "product_outcome discriminator is not applicable to the "
+                        "selected causal Lane"
+                    )
+                raw_window = lane.get("time_window", [])
+                if kind == "temporal_alignment" and not (
+                    isinstance(raw_window, list | tuple) and len(raw_window) == 2
+                ):
+                    raise LLMOutputValidationError(
+                        "temporal_alignment discriminator is not applicable to the "
+                        "selected causal Lane"
+                    )
+        lane_evidence = [
+            evidence_by_id[evidence_id]
+            for evidence_id in referenced_evidence
+            if evidence_by_id is not None and evidence_id in evidence_by_id
+        ]
+        if not any(_evidence_matches_lane(item, lane) for item in lane_evidence):
+            raise LLMOutputValidationError(
+                "challenge does not cite Entity/time-consistent Evidence for the "
+                "strongest alternative Lane"
+            )
+        if status == ChallengeStatus.RESOLVED.value and not (supporting or contradicting):
+            raise LLMOutputValidationError(
+                "resolved alternative challenge requires distinguishing Evidence"
+            )
     return CandidateChallenge(
         candidate_id=candidate_id,
         strongest_alternative_lane_id=alternative_id,
@@ -157,6 +316,73 @@ def _normalize_challenge_payload(
         challenge_explanation=explanation.strip(),
         status=status,
     )
+
+
+def _normalized_entity(value: object) -> str:
+    normalized = str(value or "").strip().upper()
+    for prefix in ("OP_", "EQ_", "CH_", "RCP_"):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix) :]
+    return normalized
+
+
+def _parse_time(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(UTC).replace(tzinfo=None)
+    return parsed
+
+
+def _evidence_matches_lane(
+    evidence: Evidence,
+    lane: Mapping[str, Any],
+) -> bool:
+    """Validate a challenge citation against Python-owned Lane facts."""
+
+    lane_id = str(lane.get("lane_id", "")).strip()
+    evidence_lane_id = str(evidence.metadata.get("lane_id", "")).strip()
+    if evidence_lane_id and evidence_lane_id != lane_id:
+        return False
+
+    entity_types = {
+        "operation": "operation",
+        "equipment": "equipment",
+        "chamber": "chamber",
+        "recipe": "recipe",
+    }
+    matched_fact = bool(evidence_lane_id and evidence_lane_id == lane_id)
+    for lane_field, entity_type in entity_types.items():
+        expected = _normalized_entity(lane.get(lane_field))
+        if not expected:
+            continue
+        observed = {
+            _normalized_entity(entity.entity_id)
+            for entity in evidence.entities
+            if entity.entity_type == entity_type
+        }
+        if observed and expected not in observed:
+            return False
+        matched_fact = matched_fact or expected in observed
+
+    raw_window = lane.get("time_window", [])
+    if (
+        evidence.timestamp
+        and isinstance(raw_window, (list, tuple))
+        and len(raw_window) == 2
+    ):
+        observed_at = _parse_time(evidence.timestamp)
+        start = _parse_time(raw_window[0])
+        end = _parse_time(raw_window[1])
+        if observed_at is not None and start is not None and end is not None:
+            if not start <= observed_at <= end:
+                return False
+            matched_fact = True
+    return matched_fact
 
 
 def _candidate_ids(candidates: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
@@ -191,8 +417,8 @@ def derive_alternative_search_status(
         return AlternativeSearchStatus.NOT_SEARCHED.value
     if any(challenge.status == ChallengeStatus.BLOCKED.value for challenge in challenges):
         return AlternativeSearchStatus.BLOCKED_BY_MISSING_DATA.value
-    if any(challenge.strongest_alternative_lane_id for challenge in challenges):
-        return AlternativeSearchStatus.ALTERNATIVE_FOUND.value
+    if any(challenge.unexplained_precursor_evidence_ids for challenge in challenges):
+        return AlternativeSearchStatus.UNRESOLVED.value
 
     unresolved_statuses = {
         ChallengeStatus.OPEN.value,
@@ -200,7 +426,18 @@ def derive_alternative_search_status(
         ChallengeStatus.ALTERNATIVE_IDENTIFIED.value,
     }
     if any(challenge.status in unresolved_statuses for challenge in challenges):
+        if any(challenge.strongest_alternative_lane_id for challenge in challenges):
+            return AlternativeSearchStatus.ALTERNATIVE_FOUND.value
         return AlternativeSearchStatus.UNRESOLVED.value
+
+    resolved_alternative_ids = {
+        challenge.strongest_alternative_lane_id
+        for challenge in challenges
+        if challenge.status == ChallengeStatus.RESOLVED.value
+        and challenge.strongest_alternative_lane_id is not None
+    }
+    if resolved_alternative_ids:
+        return AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value
 
     # With multiple active Lanes, an empty alternative claim is not enough:
     # every other Lane must have been explicitly eliminated by Python-owned
@@ -239,11 +476,22 @@ class QwenAdversarialChallenger:
         lane_ids: Sequence[str] = (),
         active_lane_ids: Sequence[str] = (),
         eliminated_lane_ids: Sequence[str] = (),
+        lane_contexts: Sequence[Mapping[str, Any]] = (),
     ) -> AdversarialChallengeGeneration:
         if not candidates or len(candidates) != len(matrices):
             return AdversarialChallengeGeneration(challenges=(), attempt_count=0)
         ids = _candidate_ids(candidates)
-        gap_id_set = {str(item.get("gap_id")) for item in evidence_gaps}
+        gap_by_id = {
+            str(item.get("gap_id")): item
+            for item in evidence_gaps
+            if str(item.get("gap_id", "")).strip()
+        }
+        gap_id_set = set(gap_by_id)
+        lane_context_by_id = {
+            str(item.get("lane_id", "")).strip(): item
+            for item in lane_contexts
+            if str(item.get("lane_id", "")).strip()
+        }
         payload_candidates = []
         for index, (candidate, matrix) in enumerate(zip(candidates, matrices, strict=True)):
             payload_candidates.append(
@@ -268,9 +516,22 @@ class QwenAdversarialChallenger:
                     "causal_lane_ids": list(dict.fromkeys(lane_ids)),
                     "active_lane_ids": list(dict.fromkeys(active_lane_ids)),
                     "eliminated_lane_ids": list(dict.fromkeys(eliminated_lane_ids)),
+                    "causal_lanes": [dict(item) for item in lane_contexts],
                     "output_attempt": attempt,
                     "previous_validation_feedback": (
-                        validation_errors[-1] if validation_errors else None
+                        {
+                            "category": "challenge_output_validation_error",
+                            "message": validation_errors[-1],
+                            "must_repair_before_resubmission": True,
+                            "unresolved_named_alternative_gap_rule": (
+                                "Select exactly one highest-information-gain "
+                                "hypothesis_discrimination Gap for each unresolved "
+                                "named alternative Lane."
+                            ),
+                            "allowed_gap_ids": sorted(gap_id_set),
+                        }
+                        if validation_errors
+                        else None
                     ),
                     "deterministic_challenges": [],
                 },
@@ -301,14 +562,18 @@ class QwenAdversarialChallenger:
                                 lane_ids=set(lane_ids),
                                 evidence_ids=set(evidence_ids),
                                 gap_ids=gap_id_set,
+                                gap_by_id=gap_by_id,
                                 evidence_by_id=evidence_by_id,
+                                lane_contexts=lane_context_by_id,
                             )
                         )
                     except (LLMOutputValidationError, TypeError, ValueError) as exc:
                         candidate_errors.append(
                             str(exc).strip() or f"challenges[{index}] is invalid"
                         )
-                if candidate_errors and not parsed:
+                if candidate_errors and (
+                    not parsed or attempt < _OUTPUT_ATTEMPTS
+                ):
                     raise LLMOutputValidationError("; ".join(candidate_errors))
                 validation_errors.extend(candidate_errors)
                 status = derive_alternative_search_status(

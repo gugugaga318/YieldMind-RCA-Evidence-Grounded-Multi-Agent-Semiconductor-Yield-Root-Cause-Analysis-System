@@ -2701,6 +2701,49 @@ p {
   line-height: 1.4;
 }
 
+.causal-chain-summary,
+.causal-missing-source-note {
+  margin-top: 10px;
+  padding: 9px;
+  color: #43514b;
+  background: #f3f7f5;
+  border: 1px solid #d9e3de;
+  border-radius: 4px;
+  font-size: 9px;
+}
+
+.causal-chain-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.causal-chain-summary p,
+.causal-impact-basis {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.causal-gate-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.causal-missing-source-note strong {
+  display: block;
+  color: #825918;
+}
+
 .causal-evidence-ids {
   display: flex;
   flex-wrap: wrap;
@@ -2782,7 +2825,8 @@ p {
 }
 
 .causal-subpanel,
-.causal-impact-panel {
+.causal-impact-panel,
+.causal-competition-panel {
   min-width: 0;
   padding: 14px;
   background: var(--surface-subtle);
@@ -2792,6 +2836,50 @@ p {
 
 .causal-impact-panel {
   margin-top: 12px;
+}
+
+.causal-competition-panel {
+  margin-top: 12px;
+}
+
+.causal-lane-list,
+.causal-challenge-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.causal-lane-list article,
+.causal-challenge-list article {
+  min-width: 0;
+  padding: 9px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  font-size: 9px;
+}
+
+.causal-lane-list article > div:first-child,
+.causal-challenge-list article > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.causal-lane-list p,
+.causal-challenge-list p {
+  margin: 7px 0;
+  color: #35423c;
+  line-height: 1.45;
+}
+
+.causal-lane-list article > span,
+.causal-challenge-list article > span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
 }
 
 .causal-subheading {
@@ -4337,7 +4425,9 @@ p {
   }
 
   .causal-candidate-grid,
-  .causal-diagnosis-grid {
+  .causal-diagnosis-grid,
+  .causal-lane-list,
+  .causal-challenge-list {
     grid-template-columns: 1fr;
   }
 

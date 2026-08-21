@@ -95,11 +95,14 @@ For a stop decision:
   critical_contradiction, no_allowed_action, budget_exhausted, or data_unavailable.
 - Do not create new open questions.
 - A goal_satisfied stop is legal only when
-  goal_satisfied_stop_contract.python_terminal_transition_available is true, or
+  goal_satisfied_stop_contract.executable_causal_gap_ids is empty and either
+  goal_satisfied_stop_contract.python_terminal_transition_available is true or
   no currently open Question remains. Qwen chooses the stop boundary and returns
   question_updates=[]. Python owns and commits the terminal Question transitions
-  after the Evidence Gate verifies complete coverage. When the flag is false,
-  choose a legal action or a different evidence-bounded stop.
+  after the Evidence Gate verifies complete coverage. When an executable causal
+  Gap remains, choose its legal Action before proposing goal_satisfied. When the
+  terminal-transition flag is false, choose a legal action or a different
+  evidence-bounded stop.
 
 When output_attempt is greater than 1, previous_validation_feedback is the
 authoritative repair instruction. Fix the exact rejected field before resubmitting;

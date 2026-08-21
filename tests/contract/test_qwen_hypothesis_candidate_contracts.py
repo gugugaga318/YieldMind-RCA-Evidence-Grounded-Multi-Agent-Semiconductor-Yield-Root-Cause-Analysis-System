@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -7,10 +8,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "core"))
 
+from yield_rca_core.causal_evidence_gap import (  # noqa: E402
+    build_hypothesis_discrimination_gaps,
+)
 from yield_rca_core.causal_evidence_matrix import (  # noqa: E402
     build_causal_evidence_matrix,
 )
 from yield_rca_core.causal_hypothesis import CausalClaimStatus, CausalHypothesis  # noqa: E402
+from yield_rca_core.causal_investigation_models import CausalLaneRecord  # noqa: E402
 from yield_rca_core.evidence_models import (  # noqa: E402
     EVIDENCE_SCHEMA_VERSION,
     EntityType,
@@ -65,6 +70,56 @@ def typed_evidence(
         confidence=0.95,
         evidence_schema_version=EVIDENCE_SCHEMA_VERSION,
     )
+
+
+def lane_process_evidence(
+    *,
+    evidence_id: str,
+    lane_id: str,
+    recipe: str,
+    parameter: str,
+    equipment: str = "EQ_01",
+    chamber: str = "EQ_01_CH01",
+    operation: str = "4000",
+) -> Evidence:
+    return Evidence(
+        evidence_id=evidence_id,
+        source_type=EvidenceSourceType.FDC.value,
+        source_id=f"SOURCE_{evidence_id}",
+        summary=f"{parameter} deviation on {lane_id}",
+        evidence_type=EvidenceType.PARAMETER_DEVIATION.value,
+        source_agent=AgentKind.FDC.value,
+        source_tool="inspect_fdc_spc",
+        observation=f"Measured {parameter} deviation for {recipe}",
+        entities=[
+            EvidenceEntity(EntityType.LOT.value, "LOT_01"),
+            EvidenceEntity(EntityType.EQUIPMENT.value, equipment),
+            EvidenceEntity(EntityType.CHAMBER.value, chamber),
+            EvidenceEntity(EntityType.OPERATION.value, operation),
+            EvidenceEntity(EntityType.RECIPE.value, recipe),
+            EvidenceEntity(EntityType.PARAMETER.value, parameter),
+        ],
+        metadata={
+            "lane_id": lane_id,
+            "recipe": recipe,
+            "parameter_name": parameter,
+        },
+        confidence=0.95,
+        evidence_schema_version=EVIDENCE_SCHEMA_VERSION,
+    )
+
+
+def findings_with_process_evidence(*items: Evidence) -> list[AgentFinding]:
+    findings = causal_findings()
+    findings[1] = AgentFinding(
+        finding_id="FINDING_FDC_LANES",
+        agent=AgentKind.FDC.value,
+        summary="Lane-specific FDC Evidence is available.",
+        confidence=0.95,
+        evidence_ids=[item.evidence_id for item in items],
+        evidence=list(items),
+    )
+    return findings
 
 
 def approved_knowledge_evidence() -> Evidence:
@@ -169,6 +224,198 @@ class CandidateProviderFailureClient(FakeLLMClient):
 
 
 class QwenHypothesisCandidateContractTest(unittest.TestCase):
+    def test_first_candidate_request_receives_traceable_lane_first_synthesis(
+        self,
+    ) -> None:
+        lane_process = lane_process_evidence(
+            evidence_id="EV_LANE_PROCESS",
+            lane_id="LANE_4000_A",
+            recipe="RCP_A",
+            parameter="backside_pressure_cv",
+        )
+        global_outcome = typed_evidence(
+            evidence_id="EV_GLOBAL_OUTCOME",
+            evidence_type=EvidenceType.DEFECT_SIGNAL.value,
+            agent=AgentKind.DEFECT_WAT.value,
+            entity_type=EntityType.DEFECT.value,
+            entity_id="center_seam_void",
+        )
+        findings = findings_with_process_evidence(lane_process)
+        findings[2] = AgentFinding(
+            finding_id="FINDING_GLOBAL_OUTCOME",
+            agent=AgentKind.DEFECT_WAT.value,
+            summary=global_outcome.summary,
+            confidence=0.95,
+            evidence_ids=[global_outcome.evidence_id],
+            evidence=[global_outcome],
+        )
+        client = CandidateClient(
+            [{"candidates": [], "analysis_summary": "No bounded candidate."}]
+        )
+
+        QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_LANE_FIRST",
+            findings=findings,
+            causal_lanes=[
+                {
+                    "lane_id": "LANE_4000_A",
+                    "operation": "4000",
+                    "equipment": "EQ_01",
+                    "chamber": "EQ_01_CH01",
+                    "recipe": "RCP_A",
+                    "parameter_scope": ["backside_pressure_cv"],
+                    "exposed_lot_ids": ["LOT_01", "LOT_02"],
+                    "time_window": [
+                        "2026-01-01T00:00:00Z",
+                        "2026-01-01T01:00:00Z",
+                    ],
+                    "initial_evidence_ids": ["EV_EXPOSURE"],
+                    "priority_score": 0.9,
+                    "investigation_status": "evidence_collected",
+                }
+            ],
+        )
+
+        payload = client.requests[0].payload
+        synthesis = payload["evidence_synthesis"]
+        self.assertEqual(synthesis["schema"], "lane_first_v1")
+        self.assertEqual(synthesis["active_lane_count"], 1)
+        lane = synthesis["active_causal_lanes"][0]
+        self.assertEqual(lane["lane_id"], "LANE_4000_A")
+        self.assertEqual(lane["operation"], "4000")
+        self.assertEqual(lane["recipe"], "RCP_A")
+        self.assertEqual(
+            lane["facts"]["process_excursions"][0]["evidence_id"],
+            "EV_LANE_PROCESS",
+        )
+        self.assertEqual(
+            synthesis["global_facts"]["outcomes"][0]["evidence_id"],
+            "EV_GLOBAL_OUTCOME",
+        )
+        register_ids = {
+            item["evidence_id"] for item in payload["typed_evidence_register"]
+        }
+        self.assertIn("EV_LANE_PROCESS", register_ids)
+        self.assertIn("EV_GLOBAL_OUTCOME", register_ids)
+        self.assertEqual(payload["prior_authoritative_candidates"], [])
+
+    def test_lane_first_synthesis_is_bounded_and_excludes_terminal_lanes(self) -> None:
+        process = lane_process_evidence(
+            evidence_id="EV_ACTIVE_PROCESS",
+            lane_id="LANE_HIGH",
+            recipe="RCP_HIGH",
+            parameter="pressure_cv",
+        )
+        inactive_process = lane_process_evidence(
+            evidence_id="EV_INACTIVE_PROCESS",
+            lane_id="LANE_LOW",
+            recipe="RCP_LOW",
+            parameter="temperature_range",
+        )
+        client = CandidateClient(
+            [{"candidates": [], "analysis_summary": "No bounded candidate."}]
+        )
+        lanes = [
+            {
+                "lane_id": "LANE_LOW",
+                "priority_score": 0.1,
+                "investigation_status": "uninvestigated",
+            },
+            {
+                "lane_id": "LANE_BLOCKED",
+                "priority_score": 1.0,
+                "investigation_status": "blocked",
+            },
+            {
+                "lane_id": "LANE_HIGH",
+                "priority_score": 0.9,
+                "investigation_status": "evidence_collected",
+            },
+            {
+                "lane_id": "LANE_MID_A",
+                "priority_score": 0.7,
+                "investigation_status": "uninvestigated",
+            },
+            {
+                "lane_id": "LANE_MID_B",
+                "priority_score": 0.6,
+                "investigation_status": "uninvestigated",
+            },
+        ]
+
+        QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_BOUNDED_LANES",
+            findings=findings_with_process_evidence(process, inactive_process),
+            causal_lanes=lanes,
+        )
+
+        payload = client.requests[0].payload
+        active_ids = [
+            item["lane_id"]
+            for item in payload["evidence_synthesis"]["active_causal_lanes"]
+        ]
+        self.assertEqual(active_ids, ["LANE_HIGH", "LANE_MID_A", "LANE_MID_B"])
+        self.assertNotIn("LANE_BLOCKED", active_ids)
+        self.assertNotIn("LANE_LOW", active_ids)
+        register_ids = {
+            item["evidence_id"] for item in payload["typed_evidence_register"]
+        }
+        self.assertIn("EV_ACTIVE_PROCESS", register_ids)
+        self.assertNotIn("EV_INACTIVE_PROCESS", register_ids)
+
+    def test_candidate_prompt_uses_bounded_nonduplicated_evidence_projection(
+        self,
+    ) -> None:
+        findings = causal_findings()
+        process = findings[1].evidence[0]
+        bloated = Evidence.from_dict(
+            {
+                **process.to_dict(),
+                "summary": "S" * 10_000,
+                "observation": "O" * 10_000,
+                "metadata": {
+                    "lane_id": "LANE_4000",
+                    "direction": "high",
+                    "raw_rows": ["RAW" * 5_000 for _ in range(20)],
+                },
+            }
+        )
+        findings[1] = AgentFinding(
+            finding_id="FINDING_FDC_BLOATED",
+            agent=AgentKind.FDC.value,
+            summary="FDC typed Evidence is available.",
+            confidence=0.9,
+            evidence_ids=[bloated.evidence_id],
+            evidence=[bloated],
+        )
+        client = CandidateClient(
+            [
+                {
+                    "candidates": [],
+                    "analysis_summary": "No bounded candidate is required.",
+                }
+            ]
+        )
+
+        QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_COMPACT_PROMPT",
+            findings=findings,
+        )
+
+        payload = client.requests[0].payload
+        serialized = json.dumps(payload)
+        process_row = next(
+            item
+            for item in payload["typed_evidence_register"]
+            if item["evidence_id"] == "EV_PROCESS"
+        )
+        self.assertNotIn("raw_rows", serialized)
+        self.assertLessEqual(len(process_row["fact"]), 480)
+        self.assertEqual(payload["evidence_synthesis"]["evidence_count"], 3)
+        self.assertIn("group_counts", payload["evidence_synthesis"])
+        self.assertNotIn("process_excursions", payload["evidence_synthesis"])
+        self.assertLess(len(serialized), 20_000)
+
     def test_approved_knowledge_can_support_mechanism_without_becoming_a_causal_lane(
         self,
     ) -> None:
@@ -511,12 +758,22 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
         self.assertEqual(len(client.requests), 1)
 
     def test_near_duplicate_second_candidate_is_isolated(self) -> None:
-        second = proposal()
+        process = lane_process_evidence(
+            evidence_id="EV_PROCESS_LANE_A",
+            lane_id="LANE_A",
+            recipe="RCP_A",
+            parameter="chamber_temperature_range",
+        )
+        findings = findings_with_process_evidence(process)
+        first = proposal(
+            supporting=["EV_EXPOSURE", "EV_PROCESS_LANE_A", "EV_PRODUCT"]
+        )
+        second = dict(first)
         second["root_cause"] = "Temperature drift failure at EQ_01 chamber"
         client = CandidateClient(
             [
                 {
-                    "candidates": [proposal(), second],
+                    "candidates": [first, second],
                     "analysis_summary": "Two paraphrases of one mechanism.",
                 }
             ]
@@ -524,11 +781,207 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
 
         result = QwenHypothesisCandidateGenerator(client).generate(
             request_id="REQ_NEAR_DUPLICATE",
-            findings=causal_findings(),
+            findings=findings,
         )
 
         self.assertEqual(len(result.candidates), 1)
         self.assertTrue(any("near-duplicate" in item for item in result.validation_errors))
+        self.assertEqual(len(result.rejected_candidates), 1)
+        rejected = result.rejected_candidates[0]
+        self.assertEqual(rejected["rejected_candidate_index"], 1)
+        self.assertEqual(rejected["candidate_root_cause"], second["root_cause"])
+        self.assertEqual(rejected["lane_id"], "lane_a")
+        self.assertEqual(
+            rejected["evidence_ids"],
+            ["EV_EXPOSURE", "EV_PROCESS_LANE_A", "EV_PRODUCT"],
+        )
+        self.assertGreaterEqual(rejected["duplicate_score"], 0.75)
+        self.assertIn("same_lane_identity", rejected["duplicate_reason"])
+        self.assertEqual(rejected["compared_candidate_id"], "candidate_0")
+
+        finding = RCAReasoningAgent(
+            llm_client=CandidateClient(
+                [
+                    {
+                        "candidates": [first, second],
+                        "analysis_summary": "Two paraphrases of one mechanism.",
+                    }
+                ]
+            ),
+            agent_mode="llm",
+        ).analyze(request_id="REQ_NEAR_DUPLICATE_AUDIT", findings=findings)
+        finding_rejected = finding.details["hypothesis_candidate_generation"][
+            "rejected_candidates"
+        ]
+        self.assertEqual(len(finding_rejected), 1)
+        self.assertEqual(finding_rejected[0]["lane_id"], "lane_a")
+
+    def test_same_equipment_operation_with_distinct_recipe_evidence_is_preserved(
+        self,
+    ) -> None:
+        process_a = lane_process_evidence(
+            evidence_id="EV_PROCESS_RECIPE_A",
+            lane_id="LANE_SHARED",
+            recipe="RCP_A",
+            parameter="backside_pressure_cv",
+        )
+        process_b = lane_process_evidence(
+            evidence_id="EV_PROCESS_RECIPE_B",
+            lane_id="LANE_SHARED",
+            recipe="RCP_B",
+            parameter="backside_pressure_cv",
+        )
+        findings = findings_with_process_evidence(process_a, process_b)
+        candidate_a = proposal(
+            supporting=["EV_EXPOSURE", "EV_PROCESS_RECIPE_A", "EV_PRODUCT"]
+        )
+        candidate_b = proposal(
+            supporting=["EV_EXPOSURE", "EV_PROCESS_RECIPE_B", "EV_PRODUCT"]
+        )
+        client = CandidateClient(
+            [
+                {
+                    "candidates": [candidate_a, candidate_b],
+                    "analysis_summary": "Two recipes remain evidence-bounded.",
+                }
+            ]
+        )
+
+        result = QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_DIFFERENT_RECIPE",
+            findings=findings,
+        )
+
+        self.assertEqual(len(result.candidates), 2)
+        self.assertEqual(result.rejected_candidates, ())
+
+    def test_different_lanes_survive_even_with_identical_candidate_text(self) -> None:
+        process_a = lane_process_evidence(
+            evidence_id="EV_PROCESS_LANE_A",
+            lane_id="LANE_A",
+            recipe="RCP_SHARED",
+            parameter="backside_pressure_cv",
+        )
+        process_b = lane_process_evidence(
+            evidence_id="EV_PROCESS_LANE_B",
+            lane_id="LANE_B",
+            recipe="RCP_SHARED",
+            parameter="backside_pressure_cv",
+        )
+        findings = findings_with_process_evidence(process_a, process_b)
+        candidate_a = proposal(
+            supporting=["EV_EXPOSURE", "EV_PROCESS_LANE_A", "EV_PRODUCT"]
+        )
+        candidate_b = proposal(
+            supporting=["EV_EXPOSURE", "EV_PROCESS_LANE_B", "EV_PRODUCT"]
+        )
+
+        result = QwenHypothesisCandidateGenerator(
+            CandidateClient(
+                [
+                    {
+                        "candidates": [candidate_a, candidate_b],
+                        "analysis_summary": "Identical wording refers to two Lanes.",
+                    }
+                ]
+            )
+        ).generate(request_id="REQ_DIFFERENT_LANE", findings=findings)
+
+        self.assertEqual(len(result.candidates), 2)
+        self.assertEqual(result.rejected_candidates, ())
+
+    def test_formal_002_lane_competition_structure_replay_preserves_candidate_b(
+        self,
+    ) -> None:
+        original_process = lane_process_evidence(
+            evidence_id="EV_PROCESS_ORIGINAL_RECIPE",
+            lane_id="LANE_ORIGINAL_RECIPE",
+            recipe="RCP_A",
+            parameter="deposition_rate_delta",
+        )
+        alternative_process = lane_process_evidence(
+            evidence_id="EV_PROCESS_ALTERNATIVE_RECIPE",
+            lane_id="LANE_ALTERNATIVE_RECIPE",
+            recipe="RCP_B",
+            parameter="backside_pressure_cv",
+        )
+        findings = findings_with_process_evidence(original_process)
+        candidate_a = proposal(
+            supporting=[
+                "EV_EXPOSURE",
+                "EV_PROCESS_ORIGINAL_RECIPE",
+                "EV_PRODUCT",
+            ]
+        )
+        candidate_b = {
+            **candidate_a,
+            "root_cause": "Temperature drift failure at EQ_01 chamber",
+            "supporting_evidence_ids": [
+                "EV_EXPOSURE",
+                "EV_PROCESS_ALTERNATIVE_RECIPE",
+                "EV_PRODUCT",
+            ],
+        }
+        gap_id = "candidate_0.hypothesis_discrimination.parameter_anomaly"
+        client = CandidateClient(
+            [
+                {
+                    "candidates": [candidate_a, candidate_b],
+                    "analysis_summary": (
+                        "The newly investigated recipe remains a distinct "
+                        "evidence-bounded competitor."
+                    ),
+                }
+            ]
+        )
+
+        result = QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_FORMAL_002_STRUCTURE_REPLAY",
+            findings=findings,
+            context_evidence=[alternative_process],
+            prior_candidates=[candidate_a],
+            prior_challenges=[
+                {
+                    "candidate_id": "prior_candidate_0",
+                    "strongest_alternative_lane_id": "LANE_ALTERNATIVE_RECIPE",
+                    "distinguishing_gap_ids": [gap_id],
+                    "status": "alternative_identified",
+                }
+            ],
+            prior_causal_gaps=[
+                {
+                    "gap_id": gap_id,
+                    "discriminator_kind": "parameter_anomaly",
+                    "target_scope": {
+                        "lane_id": "LANE_ALTERNATIVE_RECIPE",
+                        "operation": "4000",
+                    },
+                }
+            ],
+            causal_lanes=[
+                {
+                    "lane_id": "LANE_ALTERNATIVE_RECIPE",
+                    "operation": "4000",
+                    "equipment": "EQ_01",
+                    "chamber": "EQ_01_CH01",
+                    "recipe": "RCP_B",
+                    "parameter_scope": ["backside_pressure_cv"],
+                    "investigation_status": "evidence_collected",
+                }
+            ],
+            new_evidence_ids=["EV_PROCESS_ALTERNATIVE_RECIPE"],
+        )
+
+        self.assertEqual(result.attempt_count, 1)
+        self.assertEqual(len(result.candidates), 2)
+        self.assertFalse(result.competition_repair_exhausted)
+        self.assertEqual(result.rejected_candidates, ())
+        self.assertEqual(
+            result.targeted_investigation_results[0][
+                "new_supporting_evidence_ids"
+            ],
+            ["EV_PROCESS_ALTERNATIVE_RECIPE"],
+        )
 
     def test_unstated_operation_is_incomplete_not_conflicted(self) -> None:
         findings = causal_findings()
@@ -755,6 +1208,368 @@ class QwenHypothesisCandidateContractTest(unittest.TestCase):
             "llm_evidence_composition",
         )
         self.assertEqual(len(client.requests), 1)
+
+    def test_rca_impact_scope_recovers_candidate_lots_from_typed_evidence(self) -> None:
+        findings = causal_findings()
+        original_exposure = findings[0].evidence[0]
+        typed_impact_scope = Evidence.from_dict(
+            {
+                **original_exposure.to_dict(),
+                "evidence_id": "EV_TYPED_IMPACT_SCOPE",
+                "entities": [
+                    EvidenceEntity(EntityType.LOT.value, "LOT_01").to_dict(),
+                    EvidenceEntity(EntityType.LOT.value, "LOT_IMPACT").to_dict(),
+                    EvidenceEntity(EntityType.EQUIPMENT.value, "EQ_01").to_dict(),
+                ],
+                "metadata": {"impact_lots": ["LOT_IMPACT"]},
+            }
+        )
+        findings[0] = AgentFinding(
+            finding_id=findings[0].finding_id,
+            agent=findings[0].agent,
+            summary=findings[0].summary,
+            confidence=findings[0].confidence,
+            evidence_ids=[original_exposure.evidence_id, typed_impact_scope.evidence_id],
+            evidence=[original_exposure, typed_impact_scope],
+            details={"source_lot_id": "LOT_01"},
+        )
+        client = CandidateClient(
+            [
+                {
+                    "candidates": [proposal()],
+                    "analysis_summary": "One evidence-bounded mechanism.",
+                }
+            ]
+        )
+
+        result = RCAReasoningAgent(
+            llm_client=client,
+            agent_mode="llm",
+        ).analyze(
+            request_id="REQ_TYPED_IMPACT_SCOPE",
+            findings=findings,
+        )
+
+        impact_gate = result.details["impact_lot_gate"]
+        self.assertEqual(impact_gate["observed_impact_lots"], ["LOT_IMPACT"])
+        self.assertEqual([row["lot_id"] for row in impact_gate["rows"]], ["LOT_IMPACT"])
+        self.assertEqual(len(impact_gate["candidate_scopes"]), 1)
+
+    def test_rca_reasoning_refresh_receives_prior_candidate_and_new_evidence(self) -> None:
+        first_client = CandidateClient(
+            [
+                {
+                    "candidates": [proposal()],
+                    "analysis_summary": "First evidence-bounded mechanism.",
+                }
+            ]
+        )
+        agent = RCAReasoningAgent(llm_client=first_client, agent_mode="llm")
+        findings = causal_findings()
+        first = agent.analyze(request_id="REQ_RCA_ROUND_1", findings=findings)
+        new_product = typed_evidence(
+            evidence_id="EV_PRODUCT_NEW",
+            evidence_type=EvidenceType.METROLOGY_DEVIATION.value,
+            agent=AgentKind.DEFECT_WAT.value,
+            entity_type=EntityType.DEFECT.value,
+            entity_id="edge_void",
+        )
+        second_client = CandidateClient(
+            [
+                {
+                    "candidates": [proposal()],
+                    "analysis_summary": "Prior mechanism rechecked with new Evidence.",
+                }
+            ]
+        )
+
+        second = RCAReasoningAgent(
+            llm_client=second_client,
+            agent_mode="llm",
+        ).analyze(
+            request_id="REQ_RCA_ROUND_2",
+            findings=findings,
+            context_evidence=[new_product],
+            prior_rca_finding=first,
+        )
+
+        self.assertEqual(second.details["reasoning_round"], 2)
+        self.assertEqual(
+            second.details["prior_authoritative_rca_finding_id"],
+            first.finding_id,
+        )
+        self.assertEqual(
+            second.details["new_evidence_ids_since_prior"],
+            ["EV_PRODUCT_NEW"],
+        )
+        self.assertEqual(
+            second.details["hypothesis_candidate_generation"][
+                "prior_candidate_count"
+            ],
+            1,
+        )
+        prior_payload = second_client.requests[0].payload[
+            "prior_authoritative_candidates"
+        ]
+        self.assertEqual(len(prior_payload), 1)
+        self.assertEqual(
+            prior_payload[0]["root_cause"],
+            first.details["ranked_candidates"][0]["root_cause"],
+        )
+        self.assertEqual(
+            second_client.requests[0].payload["new_evidence_ids_since_prior"],
+            ["EV_PRODUCT_NEW"],
+        )
+        self.assertEqual(
+            second_client.requests[0].payload["prior_candidate_challenges"][0][
+                "status"
+            ],
+            "resolved",
+        )
+        self.assertEqual(
+            second_client.requests[0].payload["targeted_investigation_results"],
+            [],
+        )
+        self.assertNotEqual(second.finding_id, first.finding_id)
+
+    def test_targeted_alternative_evidence_repairs_candidate_competition(self) -> None:
+        findings = causal_findings()
+        alternative = typed_evidence(
+            evidence_id="EV_ALT_PROCESS",
+            evidence_type=EvidenceType.PARAMETER_DEVIATION.value,
+            agent=AgentKind.FDC.value,
+            entity_type=EntityType.PARAMETER.value,
+            entity_id="backside_pressure_range",
+            metadata={"lane_id": "LANE_ALT", "direction": "high"},
+        )
+        gap_id = "candidate_0.hypothesis_discrimination.parameter_anomaly"
+        alternative_candidate = {
+            "root_cause": "EQ_02 backside pressure regulation instability",
+            "causal_explanation": (
+                "The alternative Lane contains an independent backside pressure "
+                "deviation that can explain a different process failure mechanism."
+            ),
+            "supporting_evidence_ids": ["EV_ALT_PROCESS"],
+            "contradicting_evidence_ids": [],
+        }
+        client = CandidateClient(
+            [
+                {
+                    "candidates": [proposal()],
+                    "analysis_summary": "The prior mechanism remains plausible.",
+                },
+                {
+                    "candidates": [proposal(), alternative_candidate],
+                    "analysis_summary": "Two distinct mechanisms now compete.",
+                },
+            ]
+        )
+
+        result = QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_COMPETITION_REPAIR",
+            findings=findings,
+            context_evidence=[alternative],
+            prior_candidates=[proposal()],
+            prior_challenges=[
+                {
+                    "candidate_id": "REQ_PRIOR:llm:1",
+                    "strongest_alternative_lane_id": "LANE_ALT",
+                    "distinguishing_gap_ids": [gap_id],
+                    "challenge_explanation": "An alternative process Lane remains.",
+                    "status": "alternative_identified",
+                }
+            ],
+            prior_causal_gaps=[
+                {
+                    "gap_id": gap_id,
+                    "discriminator_kind": "parameter_anomaly",
+                    "target_scope": {
+                        "lane_id": "LANE_ALT",
+                        "operation": "OP_ALT",
+                    },
+                }
+            ],
+            causal_lanes=[
+                {
+                    "lane_id": "LANE_ALT",
+                    "operation": "OP_ALT",
+                    "equipment": "EQ_02",
+                    "chamber": "CH_02",
+                    "parameter_scope": ["backside_pressure_range"],
+                    "investigation_status": "evidence_collected",
+                }
+            ],
+            new_evidence_ids=["EV_ALT_PROCESS"],
+        )
+
+        self.assertEqual(result.attempt_count, 2)
+        self.assertEqual(len(result.candidates), 2)
+        self.assertFalse(result.competition_repair_exhausted)
+        self.assertEqual(
+            result.targeted_investigation_results[0][
+                "new_supporting_evidence_ids"
+            ],
+            ["EV_ALT_PROCESS"],
+        )
+        first_payload = client.requests[0].payload
+        self.assertEqual(
+            first_payload["new_evidence_ids_since_prior"],
+            ["EV_ALT_PROCESS"],
+        )
+        self.assertEqual(
+            first_payload["prior_candidate_challenges"][0][
+                "strongest_alternative_lane_id"
+            ],
+            "LANE_ALT",
+        )
+        self.assertEqual(
+            first_payload["targeted_investigation_results"][0]["lane_id"],
+            "LANE_ALT",
+        )
+        feedback = client.requests[1].payload["previous_validation_feedback"]
+        self.assertIn("candidate competition", feedback["message"])
+        self.assertTrue(
+            feedback["candidate_competition"][
+                "requires_distinct_candidate_review"
+            ]
+        )
+
+    def test_competition_repair_does_not_invent_an_alternative_candidate(self) -> None:
+        findings = causal_findings()
+        alternative = typed_evidence(
+            evidence_id="EV_ALT_PROCESS",
+            evidence_type=EvidenceType.PARAMETER_DEVIATION.value,
+            agent=AgentKind.FDC.value,
+            entity_type=EntityType.PARAMETER.value,
+            entity_id="backside_pressure_range",
+            metadata={"lane_id": "LANE_ALT"},
+        )
+        gap_id = "candidate_0.hypothesis_discrimination.parameter_anomaly"
+        response = {
+            "candidates": [proposal()],
+            "analysis_summary": "No independent alternative is justified.",
+        }
+        client = CandidateClient([response, response])
+
+        result = QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_COMPETITION_EXHAUSTED",
+            findings=findings,
+            context_evidence=[alternative],
+            prior_candidates=[proposal()],
+            prior_challenges=[
+                {
+                    "candidate_id": "REQ_PRIOR:llm:1",
+                    "strongest_alternative_lane_id": "LANE_ALT",
+                    "distinguishing_gap_ids": [gap_id],
+                    "status": "alternative_identified",
+                }
+            ],
+            prior_causal_gaps=[
+                {
+                    "gap_id": gap_id,
+                    "discriminator_kind": "parameter_anomaly",
+                    "target_scope": {"lane_id": "LANE_ALT"},
+                }
+            ],
+            causal_lanes=[{"lane_id": "LANE_ALT"}],
+            new_evidence_ids=["EV_ALT_PROCESS"],
+        )
+
+        self.assertEqual(len(result.candidates), 1)
+        self.assertTrue(result.competition_repair_exhausted)
+        self.assertFalse(result.candidate_output_invalid)
+
+    def test_non_discriminating_evidence_does_not_force_an_alternative(self) -> None:
+        findings = causal_findings()
+        unavailable = typed_evidence(
+            evidence_id="EV_ALT_MISSING",
+            evidence_type=EvidenceType.DATA_MISSING.value,
+            agent=AgentKind.FDC.value,
+            entity_type=EntityType.PARAMETER.value,
+            entity_id="backside_pressure_range",
+            metadata={"lane_id": "LANE_ALT"},
+        )
+        unrelated_product = typed_evidence(
+            evidence_id="EV_ALT_PRODUCT",
+            evidence_type=EvidenceType.DEFECT_SIGNAL.value,
+            agent=AgentKind.DEFECT_WAT.value,
+            entity_type=EntityType.DEFECT.value,
+            entity_id="edge_void",
+            metadata={"lane_id": "LANE_ALT"},
+        )
+        gap_id = "candidate_0.hypothesis_discrimination.parameter_anomaly"
+        client = CandidateClient(
+            [
+                {
+                    "candidates": [proposal()],
+                    "analysis_summary": "The alternative source is unavailable.",
+                }
+            ]
+        )
+
+        result = QwenHypothesisCandidateGenerator(client).generate(
+            request_id="REQ_COMPETITION_MISSING",
+            findings=findings,
+            context_evidence=[unavailable, unrelated_product],
+            prior_candidates=[proposal()],
+            prior_challenges=[
+                {
+                    "candidate_id": "REQ_PRIOR:llm:1",
+                    "strongest_alternative_lane_id": "LANE_ALT",
+                    "distinguishing_gap_ids": [gap_id],
+                    "status": "blocked",
+                }
+            ],
+            prior_causal_gaps=[
+                {
+                    "gap_id": gap_id,
+                    "discriminator_kind": "parameter_anomaly",
+                    "target_scope": {"lane_id": "LANE_ALT"},
+                }
+            ],
+            causal_lanes=[{"lane_id": "LANE_ALT"}],
+            new_evidence_ids=["EV_ALT_MISSING", "EV_ALT_PRODUCT"],
+        )
+
+        self.assertEqual(result.attempt_count, 1)
+        self.assertEqual(len(result.candidates), 1)
+        self.assertFalse(result.competition_repair_exhausted)
+        self.assertFalse(
+            result.targeted_investigation_results[0]["support_observed"]
+        )
+
+    def test_consumed_lane_discriminator_is_not_generated_again(self) -> None:
+        findings = causal_findings()
+        evidence = [item for finding in findings for item in finding.evidence]
+        matrix = build_causal_evidence_matrix(
+            CausalHypothesis(
+                root_cause=str(proposal()["root_cause"]),
+                causal_explanation=str(proposal()["causal_explanation"]),
+                supporting_evidence_ids=tuple(
+                    proposal()["supporting_evidence_ids"]
+                ),
+            ),
+            evidence,
+        )
+        lane = CausalLaneRecord(
+            lane_id="LANE_ALT",
+            operation="OP_ALT",
+            equipment="EQ_02",
+            chamber="CH_02",
+            parameter_scope=("backside_pressure_range",),
+            exposed_lot_ids=("LOT_01", "LOT_02"),
+        )
+
+        gaps = build_hypothesis_discrimination_gaps(
+            [matrix],
+            causal_lanes=[lane],
+            source_lot_id="LOT_01",
+            consumed_discriminators={("LANE_ALT", "parameter_anomaly")},
+        )
+
+        kinds = {str(item["discriminator_kind"]) for item in gaps}
+        self.assertNotIn("parameter_anomaly", kinds)
+        self.assertIn("product_outcome", kinds)
 
     def test_rca_agent_falls_back_safely_after_invalid_qwen_candidates(self) -> None:
         invalid = {

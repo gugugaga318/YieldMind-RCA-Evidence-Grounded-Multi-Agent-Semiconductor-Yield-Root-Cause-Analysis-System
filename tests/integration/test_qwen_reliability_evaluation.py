@@ -374,8 +374,11 @@ class QwenReliabilityEvaluationTest(unittest.TestCase):
         run = evaluation["runs"][0]
         self.assertEqual(run["paid_llm_call_count"], 1)
         self.assertTrue(run["call_limit_exceeded"])
-        self.assertFalse(run["checks"]["workflow_completed"])
-        self.assertEqual(run["error_type"], "LLMCallError")
+        self.assertTrue(run["checks"]["workflow_completed"])
+        self.assertEqual(run["actual_mode"], "llm_react")
+        self.assertEqual(run["stop_reason"], "budget_exhausted")
+        self.assertFalse(run["checks"]["within_llm_call_limit"])
+        self.assertIsNone(run["error_type"])
 
     def test_legacy_close_and_target_error_remains_attributed(self) -> None:
         self.assertTrue(
