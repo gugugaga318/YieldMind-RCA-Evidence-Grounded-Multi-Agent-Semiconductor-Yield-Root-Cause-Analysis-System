@@ -12,11 +12,17 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Self
 
+from yield_rca_core.authoritative_result import (
+    AuthoritativeRCAResult,
+    ImpactPublicationResult,
+)
 from yield_rca_core.causal_investigation_models import (
+    ActionValueAssessment,
     CandidateChallenge,
     CausalChainCompleteness,
     CausalLaneRecord,
     CompetitionTrace,
+    InvestigationGainRecord,
 )
 from yield_rca_core.evidence_models import (
     SCHEMA_VERSION as SCHEMA_VERSION,
@@ -54,6 +60,7 @@ from yield_rca_core.investigation_models import (
     RunEvaluation,
     StopReason,
 )
+from yield_rca_core.triage_result import TriageResult
 
 
 class LotDrivenRCAError(ValueError):
@@ -688,6 +695,7 @@ class RCAJob:
     source_lot_id: str | None = None
     product_id: str | None = None
     time_window: dict[str, str] = field(default_factory=dict)
+    declared_unavailable_sources: list[str] = field(default_factory=list)
     status: str = TaskStatus.PENDING.value
     created_at: str = field(default_factory=_utc_now_iso)
     schema_version: str = SCHEMA_VERSION
@@ -704,6 +712,21 @@ class RCAJob:
         if self.product_id is not None:
             _validate_non_empty(self.product_id, "product_id")
         _validate_json_object(self.time_window, "time_window")
+        _validate_string_list(
+            self.declared_unavailable_sources,
+            "declared_unavailable_sources",
+            allow_empty=True,
+        )
+        if len(self.declared_unavailable_sources) != len(
+            set(self.declared_unavailable_sources)
+        ):
+            raise ModelValidationError(
+                "declared_unavailable_sources must not contain duplicates"
+            )
+        if self.declared_unavailable_sources and self.source_lot_id is None:
+            raise ModelValidationError(
+                "declared_unavailable_sources require source_lot_id"
+            )
         _enum_value(self.status, TaskStatus, "status")
         _validate_non_empty(self.created_at, "created_at")
 
@@ -715,6 +738,9 @@ class RCAJob:
             "source_lot_id": self.source_lot_id,
             "product_id": self.product_id,
             "time_window": dict(self.time_window),
+            "declared_unavailable_sources": list(
+                self.declared_unavailable_sources
+            ),
             "status": self.status,
             "created_at": self.created_at,
             "schema_version": self.schema_version,
@@ -732,6 +758,9 @@ class RCAJob:
             source_lot_id=data.get("source_lot_id"),
             product_id=data.get("product_id"),
             time_window=dict(data.get("time_window", {})),
+            declared_unavailable_sources=list(
+                data.get("declared_unavailable_sources", [])
+            ),
             status=data.get("status", TaskStatus.PENDING.value),
             created_at=data.get("created_at", _utc_now_iso()),
             schema_version=data.get("schema_version", SCHEMA_VERSION),
@@ -818,6 +847,12 @@ class LLMUsageEvent:
 
 @dataclass(frozen=True)
 class RCAState:
+    @property
+    def result_identities(self) -> dict[str, dict[str, Any]]:
+        from yield_rca_core.result_identity import state_identity_view
+
+        return state_identity_view(self)
+
     job: RCAJob
     task_plan: TaskPlan | None = None
     current_task_id: str | None = None
@@ -836,6 +871,12 @@ class RCAState:
     causal_lanes: list[CausalLaneRecord] = field(default_factory=list)
     candidate_challenges: list[CandidateChallenge] = field(default_factory=list)
     competition_trace: CompetitionTrace | None = None
+    investigation_gain_history: list[InvestigationGainRecord] = field(
+        default_factory=list
+    )
+    latest_action_value_assessments: list[ActionValueAssessment] = field(
+        default_factory=list
+    )
     causal_chain_completeness: str | None = None
     warnings: list[Warning] = field(default_factory=list)
     report: Report | None = None
@@ -853,12 +894,18 @@ class RCAState:
     # report/API/memory/product surfaces.
     authoritative_rca_finding_id: str | None = None
     authoritative_hypothesis_id: str | None = None
+    # Batch 1 authority foundation. These additive containers are intentionally
+    # not populated by current workflows until later ownership migration batches.
+    authoritative_rca_result: AuthoritativeRCAResult | None = None
+    impact_publication_result: ImpactPublicationResult | None = None
     goal_status: str | None = None
     conclusion_level: str | None = None
     evidence_gaps: list[str] = field(default_factory=list)
     stop_reason: str | None = None
     run_evaluation: RunEvaluation | None = None
     schema_version: str = SCHEMA_VERSION
+    # R1: optional triage authority; no current workflow populates this field.
+    triage_result: TriageResult | None = None
 
     def __post_init__(self) -> None:
         _validate_schema_version(self.schema_version)
@@ -882,6 +929,33 @@ class RCAState:
             if not isinstance(usage, LLMUsageEvent):
                 raise ModelValidationError("llm_usage must contain LLMUsageEvent instances")
         self._validate_causal_investigation()
+        if not isinstance(self.investigation_gain_history, list) or any(
+            not isinstance(item, InvestigationGainRecord)
+            for item in self.investigation_gain_history
+        ):
+            raise ModelValidationError(
+                "investigation_gain_history must contain InvestigationGainRecord instances"
+            )
+        gain_action_ids = [item.action_id for item in self.investigation_gain_history]
+        if len(gain_action_ids) != len(set(gain_action_ids)):
+            raise ModelValidationError(
+                "investigation_gain_history must contain at most one record per Action"
+            )
+        if not isinstance(self.latest_action_value_assessments, list) or any(
+            not isinstance(item, ActionValueAssessment)
+            for item in self.latest_action_value_assessments
+        ):
+            raise ModelValidationError(
+                "latest_action_value_assessments must contain "
+                "ActionValueAssessment instances"
+            )
+        assessment_option_ids = [
+            item.option_id for item in self.latest_action_value_assessments
+        ]
+        if len(assessment_option_ids) != len(set(assessment_option_ids)):
+            raise ModelValidationError(
+                "latest_action_value_assessments must contain unique option_id values"
+            )
         if self.investigation_goal is not None and not isinstance(
             self.investigation_goal, InvestigationGoal
         ):
@@ -959,6 +1033,13 @@ class RCAState:
         self._validate_task_references()
         self._validate_investigation_trace()
         self._validate_authority_references()
+        self._validate_authoritative_results()
+        if self.triage_result is not None:
+            if not isinstance(self.triage_result, TriageResult):
+                raise ModelValidationError("triage_result must be a TriageResult")
+            self.triage_result.validate_state_references(
+                self.findings, {item.evidence_id for item in self.evidence}
+            )
 
     @property
     def evidence_by_id(self) -> dict[str, Evidence]:
@@ -1127,6 +1208,23 @@ class RCAState:
                 known_evidence_ids,
                 "causal lane",
             )
+            self._validate_reference_set(
+                [
+                    evidence_id
+                    for transition in lane.lifecycle_history
+                    for evidence_id in transition.evidence_ids
+                ],
+                known_evidence_ids,
+                "causal lane lifecycle",
+            )
+            if (
+                lane.merged_into_lane_id is not None
+                and lane.merged_into_lane_id not in known_lane_ids
+            ):
+                raise ModelValidationError(
+                    "merged causal lane references an unknown canonical lane: "
+                    f"{lane.merged_into_lane_id!r}"
+                )
 
         if not isinstance(self.candidate_challenges, list) or any(
             not isinstance(challenge, CandidateChallenge)
@@ -1166,6 +1264,21 @@ class RCAState:
                 + trace.represented_lane_ids
                 + trace.unresolved_lane_ids
                 + trace.eliminated_lane_ids
+                + trace.blocked_lane_ids
+                + tuple(item.lane_id for item in trace.lane_resolutions)
+                + tuple(
+                    lane_id
+                    for profile in trace.candidate_semantic_profiles
+                    for lane_id in (
+                        *profile.claimed_lane_ids,
+                        *profile.comparison_lane_ids,
+                        *(
+                            prediction_lane_id
+                            for prediction in profile.distinguishing_predictions
+                            for prediction_lane_id in prediction.lane_ids
+                        ),
+                    )
+                )
             )
             unknown_lane_ids = referenced_lane_ids - known_lane_ids
             if unknown_lane_ids:
@@ -1174,7 +1287,16 @@ class RCAState:
                     f"{sorted(unknown_lane_ids)}"
                 )
             self._validate_reference_set(
-                list(trace.resolution_evidence_ids),
+                list(
+                    (
+                        *trace.resolution_evidence_ids,
+                        *[
+                            evidence_id
+                            for item in trace.lane_resolutions
+                            for evidence_id in item.evidence_ids
+                        ],
+                    )
+                ),
                 known_evidence_ids,
                 "competition trace",
             )
@@ -1217,6 +1339,95 @@ class RCAState:
                 raise ModelValidationError(
                     "authoritative_hypothesis_id references an unknown Hypothesis"
                 )
+
+    def _validate_authoritative_results(self) -> None:
+        result = self.authoritative_rca_result
+        publication = self.impact_publication_result
+        if result is not None and not isinstance(result, AuthoritativeRCAResult):
+            raise ModelValidationError(
+                "authoritative_rca_result must be an AuthoritativeRCAResult"
+            )
+        if publication is not None and not isinstance(
+            publication,
+            ImpactPublicationResult,
+        ):
+            raise ModelValidationError(
+                "impact_publication_result must be an ImpactPublicationResult"
+            )
+
+        known_evidence_ids = set(self.evidence_by_id)
+        if result is not None:
+            self._validate_reference_set(
+                list(result.evidence_refs),
+                known_evidence_ids,
+                "authoritative RCA result",
+            )
+            if result.source_finding_id is not None:
+                source_finding = next(
+                    (
+                        item
+                        for item in self.findings
+                        if item.finding_id == result.source_finding_id
+                    ),
+                    None,
+                )
+                if source_finding is None:
+                    raise ModelValidationError(
+                        "authoritative RCA result source_finding_id references "
+                        "an unknown Finding"
+                    )
+                if source_finding.agent != AgentKind.RCA_REASONING.value:
+                    raise ModelValidationError(
+                        "authoritative RCA result source_finding_id must reference "
+                        "an RCA Reasoning Finding"
+                    )
+                if (
+                    self.authoritative_rca_finding_id is not None
+                    and result.source_finding_id != self.authoritative_rca_finding_id
+                ):
+                    raise ModelValidationError(
+                        "authoritative RCA result source_finding_id must match "
+                        "authoritative_rca_finding_id"
+                    )
+            if result.source_hypothesis_id is not None:
+                if not any(
+                    item.hypothesis_id == result.source_hypothesis_id
+                    for item in self.hypotheses
+                ):
+                    raise ModelValidationError(
+                        "authoritative RCA result source_hypothesis_id references "
+                        "an unknown Hypothesis"
+                    )
+                if (
+                    self.authoritative_hypothesis_id is not None
+                    and result.source_hypothesis_id != self.authoritative_hypothesis_id
+                ):
+                    raise ModelValidationError(
+                        "authoritative RCA result source_hypothesis_id must match "
+                        "authoritative_hypothesis_id"
+                    )
+
+        if publication is None:
+            return
+        if result is None:
+            raise ModelValidationError(
+                "impact_publication_result requires authoritative_rca_result"
+            )
+        if publication.rca_result_id != result.result_id:
+            raise ModelValidationError(
+                "impact publication rca_result_id must match authoritative RCA result"
+            )
+        self._validate_reference_set(
+            list(publication.evidence_refs),
+            known_evidence_ids,
+            "impact publication result",
+        )
+        if publication.publication_status == "confirmed" and (
+            result.conclusion_status != "supported"
+        ):
+            raise ModelValidationError(
+                "confirmed impact publication requires a supported authoritative RCA result"
+            )
 
     @staticmethod
     def _validate_reference_set(values: list[str], known_values: set[str], context: str) -> None:
@@ -1320,6 +1531,23 @@ class RCAState:
             record.action.action_id for record in self.action_history
         }
         known_evidence_ids = set(self.evidence_by_id)
+        known_lane_ids = {lane.lane_id for lane in self.causal_lanes}
+        for gain in self.investigation_gain_history:
+            if gain.action_id not in known_action_ids:
+                raise ModelValidationError(
+                    "InvestigationGainRecord references an unknown ActionRecord: "
+                    f"{gain.action_id!r}"
+                )
+            self._validate_reference_set(
+                list(gain.evidence_ids),
+                known_evidence_ids,
+                "investigation gain",
+            )
+            if gain.lane_id is not None and gain.lane_id not in known_lane_ids:
+                raise ModelValidationError(
+                    "InvestigationGainRecord references an unknown causal Lane: "
+                    f"{gain.lane_id!r}"
+                )
         seen_links: set[tuple[str, str, str, str]] = set()
         for link in self.question_evidence_links:
             if link.question_id not in known_question_ids:
@@ -1452,6 +1680,12 @@ class RCAState:
                 if self.competition_trace is not None
                 else None
             ),
+            "investigation_gain_history": [
+                item.to_dict() for item in self.investigation_gain_history
+            ],
+            "latest_action_value_assessments": [
+                item.to_dict() for item in self.latest_action_value_assessments
+            ],
             "causal_chain_completeness": self.causal_chain_completeness,
             "warnings": [item.to_dict() for item in self.warnings],
             "report": self.report.to_dict() if self.report else None,
@@ -1478,6 +1712,21 @@ class RCAState:
             ],
             "authoritative_rca_finding_id": self.authoritative_rca_finding_id,
             "authoritative_hypothesis_id": self.authoritative_hypothesis_id,
+            **(
+                {"authoritative_rca_result": self.authoritative_rca_result.to_dict()}
+                if self.authoritative_rca_result is not None
+                else {}
+            ),
+            **(
+                {"impact_publication_result": self.impact_publication_result.to_dict()}
+                if self.impact_publication_result is not None
+                else {}
+            ),
+            **(
+                {"triage_result": self.triage_result.to_dict()}
+                if self.triage_result is not None
+                else {}
+            ),
             "goal_status": self.goal_status,
             "conclusion_level": self.conclusion_level,
             "evidence_gaps": list(self.evidence_gaps),
@@ -1551,6 +1800,14 @@ class RCAState:
                 if data.get("competition_trace") is not None
                 else None
             ),
+            investigation_gain_history=[
+                InvestigationGainRecord.from_dict(item)
+                for item in data.get("investigation_gain_history", [])
+            ],
+            latest_action_value_assessments=[
+                ActionValueAssessment.from_dict(item)
+                for item in data.get("latest_action_value_assessments", [])
+            ],
             causal_chain_completeness=data.get("causal_chain_completeness"),
             warnings=[Warning.from_dict(item) for item in data.get("warnings", [])],
             report=Report.from_dict(data["report"]) if data.get("report") else None,
@@ -1599,6 +1856,21 @@ class RCAState:
             authoritative_hypothesis_id=(
                 str(raw_authoritative_hypothesis_id)
                 if raw_authoritative_hypothesis_id is not None
+                else None
+            ),
+            authoritative_rca_result=(
+                AuthoritativeRCAResult.from_dict(data["authoritative_rca_result"])
+                if data.get("authoritative_rca_result") is not None
+                else None
+            ),
+            impact_publication_result=(
+                ImpactPublicationResult.from_dict(data["impact_publication_result"])
+                if data.get("impact_publication_result") is not None
+                else None
+            ),
+            triage_result=(
+                TriageResult.from_dict(data["triage_result"])
+                if data.get("triage_result") is not None
                 else None
             ),
             goal_status=data.get("goal_status"),

@@ -222,6 +222,10 @@ class Evidence:
             "metadata",
             _freeze_json_object(self.metadata, "metadata"),
         )
+        if "outcome_observation_receipt" in self.metadata:
+            from yield_rca_core.outcome_observation import validate_receipt
+
+            validate_receipt(self.metadata["outcome_observation_receipt"])
         if not isinstance(self.entities, list | tuple):
             raise ModelValidationError("entities must be a list or tuple")
         object.__setattr__(self, "entities", tuple(self.entities))
@@ -262,6 +266,25 @@ class Evidence:
         for entity in self.entities:
             if not isinstance(entity, EvidenceEntity):
                 raise ModelValidationError("entities must contain EvidenceEntity instances")
+        receipt = self.metadata.get("outcome_observation_receipt")
+        if receipt and self.evidence_type == EvidenceType.NEGATIVE_SIGNAL.value:
+            # Passing control claims must point to actual normal observations;
+            # empty/missing receipt rows cannot become negative via prose/type.
+            for entity in self.entities:
+                if entity.entity_type != EntityType.LOT.value:
+                    continue
+                if not any(
+                    row["lot_id"] == entity.entity_id and row["normal_record_count"] > 0
+                    and (
+                        not self.source_table
+                        or row["source_table"] == self.source_table
+                        # Legacy aggregate quality controls span multiple domains;
+                        # their per-domain status stays explicit in the receipt.
+                        or "observed_quality_lot_ids" in self.metadata
+                    )
+                    for row in receipt["observations"]
+                ):
+                    raise ModelValidationError("negative quality Evidence requires normal rows")
 
     @property
     def is_typed(self) -> bool:

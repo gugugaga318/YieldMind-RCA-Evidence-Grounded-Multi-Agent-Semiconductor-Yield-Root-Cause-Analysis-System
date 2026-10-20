@@ -1,4 +1,4 @@
-import { Bot, Braces, Clock3, Cpu, Gauge, GitBranch, ShieldCheck, Wrench } from "lucide-react";
+import { Bot, Braces, Clock3, Gauge, GitBranch, ShieldCheck, Wrench } from "lucide-react";
 
 import type { RCAState } from "../types";
 
@@ -44,11 +44,6 @@ export function RuntimeMetadata({ state }: { state: RCAState }) {
       label: "Agent mode",
       value: metadata.agent_mode ?? "deterministic",
       icon: Bot,
-    },
-    {
-      label: "Model",
-      value: metadata.model ?? "No LLM",
-      icon: Cpu,
     },
     {
       label: "Conclusion",

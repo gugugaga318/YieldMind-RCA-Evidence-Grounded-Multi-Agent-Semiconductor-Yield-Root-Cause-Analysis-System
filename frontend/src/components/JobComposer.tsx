@@ -7,9 +7,12 @@ import type {
   RuntimeInfo,
   WorkspaceMode,
 } from "../types";
+import { canSubmitModel } from "../modelSelection";
+import { ModelSelector, type ModelSelectorProps } from "./ModelSelector";
 import { StatusBadge } from "./StatusBadge";
 
 interface JobComposerProps {
+  modelSelector: ModelSelectorProps;
   workspaceMode: WorkspaceMode;
   onWorkspaceModeChange: (mode: WorkspaceMode) => void;
   query: string;
@@ -31,6 +34,7 @@ interface JobComposerProps {
 }
 
 export function JobComposer({
+  modelSelector,
   workspaceMode,
   onWorkspaceModeChange,
   query,
@@ -195,11 +199,13 @@ export function JobComposer({
             />
           </>
         )}
+        {workspaceMode !== "knowledge" && <ModelSelector {...modelSelector} />}
         <button
           type="submit"
           className="primary-button"
           disabled={
             loading ||
+            (workspaceMode !== "knowledge" && !canSubmitModel(modelSelector.catalog, modelSelector.status, modelSelector.selection, modelSelector.agentMode)) ||
             (workspaceMode === "lot"
               ? lotId.trim().length === 0 || query.trim().length === 0
               : query.trim().length === 0)

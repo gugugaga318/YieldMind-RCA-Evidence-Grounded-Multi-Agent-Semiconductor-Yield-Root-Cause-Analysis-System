@@ -25,11 +25,16 @@ CORE_DIR = ROOT / "core"
 if str(CORE_DIR) not in sys.path:
     sys.path.insert(0, str(CORE_DIR))
 
+from model_contract_acceptance import model_contract_acceptance_reasons  # noqa: E402
 from validate_sealed_blind_packet import (  # noqa: E402
     FORMAL_V2_ROLE,
     validate_sealed_public_packet,
 )
-from yield_rca_core.investigation_models import OrchestrationMode  # noqa: E402
+from yield_rca_core.challenge_diagnostics import challenge_diagnostic_artifact  # noqa: E402
+from yield_rca_core.investigation_models import (  # noqa: E402
+    OrchestrationMode,
+    StopReason,
+)
 from yield_rca_core.llm_gateway import (  # noqa: E402
     LLMCallError,
     LLMClient,
@@ -38,6 +43,7 @@ from yield_rca_core.llm_gateway import (  # noqa: E402
     LLMSettings,
     build_llm_client,
 )
+from yield_rca_core.result_identity import configured_identity  # noqa: E402
 from yield_rca_core.workflow import build_csv_workflow  # noqa: E402
 
 DEFAULT_PUBLIC_DIR = ROOT / ".blind_evaluation" / "formal_v1_candidate_r2" / "public"
@@ -69,6 +75,12 @@ class CappedLLMClient:
         self.provider_failures: list[dict[str, Any]] = []
         self.provider = delegate.provider
         self.model = delegate.model
+
+    @property
+    def remaining_calls(self) -> int:
+        """Expose the non-consuming budget capability used by core preflight."""
+
+        return max(0, self.max_calls - self.call_count)
 
     def complete_json(self, request: LLMRequest) -> LLMResponse:
         if self.call_count >= self.max_calls:
@@ -102,16 +114,29 @@ class PublicCase:
     case_id: str
     source_lot_id: str
     query: str
+    declared_unavailable_sources: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> PublicCase:
         unknown = set(payload) - SUPPORTED_CASE_KEYS
         if unknown:
             raise ValueError(f"public case contains unsupported keys: {sorted(unknown)}")
+        raw_unavailable = payload.get("declared_unavailable_sources", [])
+        if not isinstance(raw_unavailable, list) or any(
+            not isinstance(item, str) or not item.strip()
+            for item in raw_unavailable
+        ):
+            raise ValueError(
+                "declared_unavailable_sources must be an array of non-empty strings"
+            )
+        unavailable = tuple(item.strip() for item in raw_unavailable)
+        if len(unavailable) != len(set(unavailable)):
+            raise ValueError("declared_unavailable_sources must not contain duplicates")
         case = cls(
             case_id=str(payload["case_id"]).strip(),
             source_lot_id=str(payload["source_lot_id"]).strip(),
             query=str(payload["query"]).strip(),
+            declared_unavailable_sources=unavailable,
         )
         if not case.case_id or not case.source_lot_id or not case.query:
             raise ValueError("public case_id, source_lot_id, and query are required")
@@ -223,13 +248,94 @@ def _prepare_output(output_dir: Path, *, overwrite: bool) -> None:
     (output_dir / "states").mkdir(parents=True)
 
 
+_FINALIZER_TERMINAL_PROJECTOR = "python_investigation_finalizer"
+
+
+def _stop_reason_telemetry_fields(stop_reason: str | None) -> dict[str, Any]:
+    """Stop-reason telemetry fields for one case result.
+
+    ``terminal_stop_reason`` is the canonical key for the Finalizer-governed
+    terminal outcome. ``planner_stop_reason`` is a deprecated compatibility
+    alias kept for historical run_results.json consumers; both always carry
+    the same terminal value. The Planner proposal stop reason is tracked
+    separately through ``planner_stop_proposed_by`` provenance and is never
+    written into either key.
+    """
+
+    return {
+        "terminal_stop_reason": stop_reason,
+        "planner_stop_reason": stop_reason,
+    }
+
+
+def _terminal_stop_reason(
+    result: dict[str, Any],
+    *,
+    allow_legacy_alias: bool,
+) -> Any:
+    """Read the terminal stop reason with strict-new / lax-old semantics.
+
+    New runner output always carries the canonical ``terminal_stop_reason``
+    key. The strict mode never falls back to the deprecated alias, so a
+    missing canonical write cannot pass acceptance silently. Only historical
+    result files, which predate the canonical key, are read through
+    ``allow_legacy_alias=True``.
+    """
+
+    canonical = result.get("terminal_stop_reason")
+    if canonical is not None:
+        return canonical
+    if allow_legacy_alias:
+        return result.get("planner_stop_reason")
+    return None
+
+
+def _python_terminal_stop_is_governed(result: dict[str, Any]) -> bool:
+    stop_proposer = result.get("planner_stop_proposed_by")
+    terminal_projector = result.get("terminal_stop_projected_by")
+    if (
+        stop_proposer != "python_runtime"
+        and terminal_projector != _FINALIZER_TERMINAL_PROJECTOR
+    ):
+        return False
+    governed_stop_reasons = {
+        StopReason.NO_ALLOWED_ACTION.value,
+        StopReason.NO_HIGH_VALUE_ACTION.value,
+        StopReason.BUDGET_EXHAUSTED.value,
+    }
+    terminal_stop_reason = _terminal_stop_reason(
+        result,
+        allow_legacy_alias=False,
+    )
+    governed_legacy_data_unavailable = (
+        terminal_stop_reason == StopReason.DATA_UNAVAILABLE.value
+        and result.get("conclusion_status") == "insufficient_evidence"
+        and bool(result.get("required_unavailable_evidence_ids"))
+    )
+    governed_competition_data_unavailable = (
+        terminal_stop_reason == StopReason.DATA_UNAVAILABLE.value
+        and result.get("conclusion_status") == "insufficient_evidence"
+        and result.get("competition_status") == "blocked_by_missing_data"
+        and result.get("competition_terminal_reason")
+        == "no_high_value_action_after_required_source_unavailable"
+        and result.get("competition_lifecycle_valid") is True
+        and result.get("investigation_decision_accepted") is True
+        and bool(result.get("decision_critical_unavailable_evidence_ids"))
+    )
+    return (
+        terminal_stop_reason in governed_stop_reasons
+        or governed_legacy_data_unavailable
+        or governed_competition_data_unavailable
+    )
+
+
 def _strict_qwen_acceptance_reasons(
     result: dict[str, Any],
     *,
     requested_mode: str,
     agent_mode: str,
 ) -> list[str]:
-    """Separate process completion from a clean, real-Qwen execution path."""
+    """Separate process completion from a clean, governed real-Qwen path."""
 
     if requested_mode != OrchestrationMode.LLM_REACT.value or agent_mode != "llm":
         return []
@@ -248,11 +354,52 @@ def _strict_qwen_acceptance_reasons(
         reasons.append("provider_failure")
     if result.get("llm_call_cap_exceeded"):
         reasons.append("llm_call_cap_exceeded")
-    if result.get("planner_stop_proposed_by") != "qwen":
-        reasons.append("planner_stop_not_qwen")
+    stop_proposer = result.get("planner_stop_proposed_by")
+    terminal_projector = result.get("terminal_stop_projected_by")
+    if terminal_projector not in {None, _FINALIZER_TERMINAL_PROJECTOR}:
+        reasons.append("terminal_stop_projection_source_invalid")
+    if stop_proposer not in {"qwen", "python_runtime"}:
+        reasons.append("planner_stop_source_invalid")
+    elif (
+        stop_proposer == "python_runtime"
+        or terminal_projector == _FINALIZER_TERMINAL_PROJECTOR
+    ) and not _python_terminal_stop_is_governed(result):
+        reasons.append("python_runtime_stop_not_governed")
     if result.get("terminal_question_updates_source") != "python_evidence_gate":
         reasons.append("terminal_updates_not_python_evidence_gate")
+    if result.get("competition_lifecycle_valid") is False:
+        reasons.append("competition_lifecycle_invalid")
+    if result.get("investigation_decision_accepted") is False:
+        reasons.append("investigation_decision_invalid")
     return reasons
+
+
+def _decision_critical_unavailable_evidence_ids(
+    *,
+    competition_trace: dict[str, Any],
+    rca_details: dict[str, Any],
+    data_missing_evidence_ids: set[str],
+) -> list[str]:
+    """Project typed missing Evidence that governed a terminal Competition stop."""
+
+    candidate_ids = [
+        *(competition_trace.get("resolution_evidence_ids") or []),
+        *(rca_details.get("blocking_data_missing_evidence_ids") or []),
+        *(
+            evidence_id
+            for resolution in (competition_trace.get("lane_resolutions") or [])
+            if isinstance(resolution, dict)
+            and resolution.get("status") == "blocked"
+            for evidence_id in (resolution.get("evidence_ids") or [])
+        ),
+    ]
+    return list(
+        dict.fromkeys(
+            str(evidence_id)
+            for evidence_id in candidate_ids
+            if str(evidence_id) in data_missing_evidence_ids
+        )
+    )
 
 
 def _execution_layer(results: list[dict[str, Any]]) -> dict[str, Any]:
@@ -269,12 +416,41 @@ def _execution_layer(results: list[dict[str, Any]]) -> dict[str, Any]:
     )
     provider_clean = sum(not bool(item.get("provider_failure")) for item in results)
     qwen_candidates = sum(
-        item.get("hypothesis_candidate_source") == "qwen" for item in results
+        item.get("hypothesis_candidate_source") == "qwen"
+        and type(item.get("hypothesis_candidate_count")) is int
+        and int(item["hypothesis_candidate_count"]) > 0
+        for item in results
     )
     qwen_stop = sum(item.get("planner_stop_proposed_by") == "qwen" for item in results)
+    governed_python_stop = sum(
+        _python_terminal_stop_is_governed(item) for item in results
+    )
+    finalizer_terminal_projection = sum(
+        item.get("terminal_stop_projected_by") == _FINALIZER_TERMINAL_PROJECTOR
+        for item in results
+    )
     python_terminal = sum(
         item.get("terminal_question_updates_source") == "python_evidence_gate"
         for item in results
+    )
+    competition_evaluated = sum(
+        item.get("competition_status") not in {None, "not_evaluated"}
+        for item in results
+    )
+    competition_accepted = sum(
+        bool(item.get("qwen_competition_accepted")) for item in results
+    )
+    execution_accepted = sum(
+        bool(item.get("execution_accepted")) for item in results
+    )
+    lifecycle_valid = sum(
+        bool(item.get("competition_lifecycle_valid")) for item in results
+    )
+    investigation_accepted = sum(
+        bool(item.get("investigation_decision_accepted")) for item in results
+    )
+    root_cause_confirmed = sum(
+        bool(item.get("root_cause_confirmed")) for item in results
     )
     return {
         "case_count": case_count,
@@ -290,8 +466,27 @@ def _execution_layer(results: list[dict[str, Any]]) -> dict[str, Any]:
         "qwen_candidate_rate": ratio(qwen_candidates),
         "qwen_stop_proposal_count": qwen_stop,
         "qwen_stop_proposal_rate": ratio(qwen_stop),
+        "governed_python_stop_count": governed_python_stop,
+        "governed_python_stop_rate": ratio(governed_python_stop),
+        "finalizer_terminal_projection_count": finalizer_terminal_projection,
+        "finalizer_terminal_projection_rate": ratio(
+            finalizer_terminal_projection
+        ),
         "python_terminal_gate_count": python_terminal,
         "python_terminal_gate_rate": ratio(python_terminal),
+        "qwen_competition_evaluated_count": competition_evaluated,
+        "qwen_competition_accepted_count": competition_accepted,
+        "qwen_competition_acceptance_rate": ratio(competition_accepted),
+        "execution_accepted_count": execution_accepted,
+        "execution_acceptance_rate": ratio(execution_accepted),
+        "competition_lifecycle_valid_count": lifecycle_valid,
+        "competition_lifecycle_valid_rate": ratio(lifecycle_valid),
+        "investigation_decision_accepted_count": investigation_accepted,
+        "investigation_decision_acceptance_rate": ratio(
+            investigation_accepted
+        ),
+        "root_cause_confirmed_count": root_cause_confirmed,
+        "root_cause_confirmation_rate": ratio(root_cause_confirmed),
         "llm_call_count": sum(int(item.get("llm_call_count") or 0) for item in results),
     }
 
@@ -311,7 +506,15 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
     cases = _select_cases(catalog_cases, args.case_id)
     mode = OrchestrationMode(args.orchestration_mode).value
     settings = LLMSettings.from_env()
-    if settings.agent_mode == "llm" and not args.confirm_paid_qwen:
+    neutral = getattr(args, "acceptance_contract", "strict_qwen") == "model_contract"
+    if (settings.agent_mode == "llm" and not neutral
+            and settings.provider not in {"dashscope", "qwen"}):
+        raise ValueError("non-Qwen runs require --acceptance-contract model_contract")
+    if neutral and (settings.agent_mode != "llm" or mode != "llm_react"):
+        raise ValueError("model_contract requires llm agent mode and llm_react")
+    if neutral and not getattr(args, "confirm_paid_model", False):
+        raise ValueError("--confirm-paid-model is required for model_contract execution")
+    if settings.agent_mode == "llm" and not neutral and not args.confirm_paid_qwen:
         raise ValueError(
             "--confirm-paid-qwen is required when YIELD_RCA_AGENT_MODE=llm"
         )
@@ -372,6 +575,12 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
         },
         "selected_case_ids": [case.case_id for case in cases],
     }
+    if neutral:
+        manifest["configuration"].update({
+            "acceptance_contract": "model_contract",
+            "timeout_seconds": settings.timeout_seconds,
+            "max_retries": settings.max_retries,
+        })
     (output_dir / "run_manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -380,6 +589,7 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
     results: list[dict[str, Any]] = []
     for case in cases:
         client: CappedLLMClient | None = None
+        state = None
         try:
             delegate = build_llm_client(settings)
             if delegate is not None:
@@ -393,31 +603,122 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                 llm_client=client,
                 orchestration_mode=mode,
             )
-            state = workflow.run(
-                case.query,
-                job_id=f"FORMAL_BLIND_{case.case_id}",
-                lot_id=case.source_lot_id,
-            )
+            with challenge_diagnostic_artifact(
+                output_dir / "diagnostics" / f"{case.case_id}.challenge.json",
+                enabled=getattr(args, "challenge_diagnostics", False),
+                include_response_json=getattr(args, "challenge_response_json", False),
+            ):
+                state = workflow.run(
+                    case.query,
+                    job_id=f"FORMAL_BLIND_{case.case_id}",
+                    lot_id=case.source_lot_id,
+                    declared_unavailable_sources=case.declared_unavailable_sources,
+                )
             state_path = output_dir / "states" / f"{case.case_id}.json"
             state_path.write_text(
                 json.dumps(state.to_dict(), ensure_ascii=False, indent=2, sort_keys=True)
                 + "\n",
                 encoding="utf-8",
             )
-            hypothesis = state.hypotheses[-1] if state.hypotheses else None
-            rca_finding = next(
-                (
-                    finding
-                    for finding in reversed(state.findings)
-                    if finding.agent == "rca_reasoning"
-                ),
-                None,
-            )
+            hypothesis = state.authoritative_hypothesis
+            rca_finding = state.authoritative_rca_finding
             rca_details = rca_finding.details if rca_finding is not None else {}
             candidate_generation = dict(
                 rca_details.get("hypothesis_candidate_generation", {})
             )
+            competition_trace = (
+                state.competition_trace.to_dict()
+                if state.competition_trace is not None
+                else {}
+            )
+            competition_requirement = competition_trace.get(
+                "competition_requirement",
+                rca_details.get("competition_requirement"),
+            )
+            competition_status = competition_trace.get(
+                "competition_status",
+                rca_details.get("competition_status"),
+            )
+            competition_failure_reason = competition_trace.get(
+                "competition_failure_reason",
+                rca_details.get("competition_failure_reason"),
+            )
+            competition_gap_reason = competition_trace.get(
+                "competition_gap_reason",
+                rca_details.get("competition_gap_reason"),
+            )
+            new_terminal_competition_statuses = {
+                "complete_confirmed",
+                "complete_rejected",
+                "exhausted",
+                "blocked_by_missing_data",
+                "budget_exhausted",
+                "failed",
+            }
+            accepted_terminal_competition_statuses = {
+                "not_required",
+                "resolved",  # Legacy terminal State compatibility.
+                *new_terminal_competition_statuses,
+            }
+            competition_terminal_reason = competition_trace.get(
+                "terminal_reason"
+            )
+            competition_lifecycle_valid = (
+                competition_status in {None, "not_evaluated"}
+                or (
+                    competition_status in accepted_terminal_competition_statuses
+                    and (
+                        competition_status not in new_terminal_competition_statuses
+                        or bool(competition_terminal_reason)
+                    )
+                )
+            )
+            investigation_decision_accepted = (
+                competition_lifecycle_valid
+                and competition_status != "failed"
+                and competition_failure_reason is None
+            )
+            root_cause_confirmed = (
+                competition_status == "complete_confirmed"
+                and rca_details.get("conclusion_status") == "supported"
+                and hypothesis is not None
+                and hypothesis.status == "supported"
+            )
+            execution_accepted = (
+                state.job.status == "completed"
+                and state.execution_metadata.get("orchestration_mode") == mode
+                and not state.execution_metadata.get(
+                    "orchestration_fallback_reason"
+                )
+                and not (client.provider_failures if client is not None else [])
+                and not (client.limit_exceeded if client is not None else False)
+            )
+            competition_evaluated = competition_status not in {
+                None,
+                "not_evaluated",
+            }
+            qwen_competition_accepted = (
+                competition_evaluated and investigation_decision_accepted
+            )
             ranked_candidates = list(rca_details.get("ranked_candidates", []))
+            required_unavailable_evidence_ids = [
+                item.evidence_id
+                for item in state.evidence
+                if item.evidence_type == "data_missing"
+                and item.metadata.get("required_for_confirmation") is True
+            ]
+            data_missing_evidence_ids = {
+                item.evidence_id
+                for item in state.evidence
+                if item.evidence_type == "data_missing"
+            }
+            decision_critical_unavailable_evidence_ids = (
+                _decision_critical_unavailable_evidence_ids(
+                    competition_trace=competition_trace,
+                    rca_details=rca_details,
+                    data_missing_evidence_ids=data_missing_evidence_ids,
+                )
+            )
             case_result = {
                     "case_id": case.case_id,
                     "source_lot_id": case.source_lot_id,
@@ -432,6 +733,7 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                         "orchestration_fallback_reason"
                     ),
                     "hypothesis_status": hypothesis.status if hypothesis else None,
+                    "conclusion_status": rca_details.get("conclusion_status"),
                     "root_cause": hypothesis.root_cause if hypothesis else None,
                     "hypothesis_candidate_source": candidate_generation.get(
                         "source"
@@ -443,6 +745,22 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                         "fallback_reason"
                     ),
                     "ranked_candidate_count": len(ranked_candidates),
+                    "competition_requirement": competition_requirement,
+                    "competition_status": competition_status,
+                    "competition_type": competition_trace.get(
+                        "competition_type",
+                        rca_details.get("competition_type"),
+                    ),
+                    "competition_failure_reason": competition_failure_reason,
+                    "competition_gap_reason": competition_gap_reason,
+                    "competition_terminal_reason": competition_terminal_reason,
+                    "execution_accepted": execution_accepted,
+                    "competition_lifecycle_valid": competition_lifecycle_valid,
+                    "investigation_decision_accepted": (
+                        investigation_decision_accepted
+                    ),
+                    "root_cause_confirmed": root_cause_confirmed,
+                    "qwen_competition_accepted": qwen_competition_accepted,
                     "top_candidate_basis": (
                         ranked_candidates[0].get("basis")
                         if ranked_candidates
@@ -472,11 +790,21 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                     "planner_stop_proposed_by": state.execution_metadata.get(
                         "planner_stop_proposed_by"
                     ),
+                    "terminal_stop_projected_by": state.execution_metadata.get(
+                        "terminal_stop_projected_by"
+                    ),
+                    **_stop_reason_telemetry_fields(state.stop_reason),
                     "terminal_question_updates_source": state.execution_metadata.get(
                         "terminal_question_updates_source"
                     ),
+                    "required_unavailable_evidence_ids": (
+                        required_unavailable_evidence_ids
+                    ),
+                    "decision_critical_unavailable_evidence_ids": (
+                        decision_critical_unavailable_evidence_ids
+                    ),
                 }
-            acceptance_reasons = _strict_qwen_acceptance_reasons(
+            acceptance_reasons = [] if neutral else _strict_qwen_acceptance_reasons(
                 case_result,
                 requested_mode=mode,
                 agent_mode=settings.agent_mode,
@@ -495,11 +823,23 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                     "actual_orchestration_mode": None,
                     "fallback_reason": None,
                     "hypothesis_status": None,
+                    "conclusion_status": None,
                     "root_cause": None,
                     "hypothesis_candidate_source": None,
                     "hypothesis_candidate_count": None,
                     "hypothesis_candidate_fallback_reason": None,
                     "ranked_candidate_count": None,
+                    "competition_requirement": None,
+                    "competition_status": None,
+                    "competition_type": None,
+                    "competition_failure_reason": None,
+                    "competition_gap_reason": None,
+                    "competition_terminal_reason": None,
+                    "execution_accepted": False,
+                    "competition_lifecycle_valid": False,
+                    "investigation_decision_accepted": False,
+                    "root_cause_confirmed": False,
+                    "qwen_competition_accepted": False,
                     "top_candidate_basis": None,
                     "impact_lot_count": None,
                     "evidence_count": None,
@@ -521,9 +861,12 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
                         client.provider_failures if client is not None else []
                     ),
                     "planner_stop_proposed_by": None,
+                    "terminal_stop_projected_by": None,
+                    **_stop_reason_telemetry_fields(None),
                     "terminal_question_updates_source": None,
+                    "required_unavailable_evidence_ids": [],
                 }
-            acceptance_reasons = _strict_qwen_acceptance_reasons(
+            acceptance_reasons = [] if neutral else _strict_qwen_acceptance_reasons(
                 case_result,
                 requested_mode=mode,
                 agent_mode=settings.agent_mode,
@@ -532,9 +875,20 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
             case_result["strict_qwen_rejection_reasons"] = acceptance_reasons
             results.append(case_result)
 
+        if neutral:
+            reasons = model_contract_acceptance_reasons(
+                case_result, state=state, identity=configured_identity(client),
+                requested_mode=mode, agent_mode=settings.agent_mode,
+                python_stop_is_governed=_python_terminal_stop_is_governed,
+            )
+            case_result["model_contract_accepted"] = not reasons
+            case_result["model_contract_rejection_reasons"] = reasons
+            case_result["strict_qwen_accepted"] = None
+            case_result["strict_qwen_rejection_reasons"] = []
+
     completed = sum(bool(item["workflow_completed"]) for item in results)
     strict_qwen_evaluated = (
-        mode == OrchestrationMode.LLM_REACT.value
+        not neutral and mode == OrchestrationMode.LLM_REACT.value
         and settings.agent_mode == "llm"
     )
     strict_qwen_accepted = sum(
@@ -557,6 +911,15 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
         "results": results,
         "notice": "This execution artifact contains no Ground Truth and is not a score.",
     }
+    if neutral:
+        payload["model_contract_acceptance_evaluated"] = True
+        payload["model_contract_accepted_case_count"] = sum(
+            bool(item["model_contract_accepted"]) for item in results
+        )
+        payload["model_contract_rejected_case_count"] = (
+            len(results) - payload["model_contract_accepted_case_count"]
+        )
+        payload["strict_qwen_rejected_case_count"] = 0
     (output_dir / "run_results.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -579,6 +942,12 @@ def run_formal_blind(args: argparse.Namespace) -> dict[str, Any]:
         "Run `score_formal_blind_rca.py` in a separate, explicitly approved step "
         "to score this output.",
     ]
+    if neutral:
+        lines.extend([
+            "", "Contract: model_contract (strict_qwen not evaluated)",
+            "Model contract accepted: "
+            f"{payload['model_contract_accepted_case_count']}/{len(results)}",
+        ])
     (output_dir / "report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return payload
 
@@ -604,6 +973,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--case-id", action="append", default=[])
     parser.add_argument("--max-llm-calls-per-case", type=int, default=20)
     parser.add_argument("--confirm-paid-qwen", action="store_true")
+    parser.add_argument("--confirm-paid-model", action="store_true")
+    parser.add_argument("--acceptance-contract", choices=("strict_qwen", "model_contract"),
+                        default="strict_qwen")
+    parser.add_argument("--challenge-diagnostics", action="store_true",
+                        help="Write bounded, redacted Challenge diagnostics outside State.")
+    parser.add_argument("--challenge-response-json", action="store_true",
+                        help="With --challenge-diagnostics, include bounded redacted parsed JSON.")
     parser.add_argument("--overwrite", action="store_true")
     return parser
 
@@ -630,7 +1006,10 @@ def main() -> int:
         result["strict_qwen_acceptance_evaluated"]
         and result["strict_qwen_rejected_case_count"] != 0
     )
-    return 1 if execution_failed or strict_qwen_failed else 0
+    if result.get("model_contract_acceptance_evaluated"):
+        print(f"model_contract={result['model_contract_accepted_case_count']}/{result['case_count']}")
+    return 1 if (execution_failed or strict_qwen_failed
+                 or result.get("model_contract_rejected_case_count", 0)) else 0
 
 
 if __name__ == "__main__":

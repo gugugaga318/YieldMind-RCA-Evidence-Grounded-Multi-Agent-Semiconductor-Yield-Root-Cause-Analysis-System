@@ -54,6 +54,43 @@ class EvidenceBuilderTest(unittest.TestCase):
         self.assertEqual(evidence.summary, evidence.observation)
         self.assertEqual(evidence.evidence_type, EvidenceType.EQUIPMENT_EXPOSURE.value)
 
+    def test_builder_scopes_evidence_identity_by_causal_lane(self) -> None:
+        lane_a_input = ToolInput(
+            tool_name="perform_basic_spc_analysis",
+            request_id="req_lane_a",
+            parameters={"lane_id": "lane:4000:EQ_A:CH01:R1"},
+            requested_by=AgentKind.FDC.value,
+        )
+        lane_b_input = ToolInput(
+            tool_name="perform_basic_spc_analysis",
+            request_id="req_lane_b",
+            parameters={"lane_id": "lane:4000:EQ_B:CH01:R1"},
+            requested_by=AgentKind.FDC.value,
+        )
+
+        lane_a_id = EvidenceBuilder.scoped_evidence_id(
+            lane_a_input,
+            "EV_SPC_BASELINE_STATUS",
+        )
+        lane_b_id = EvidenceBuilder.scoped_evidence_id(
+            lane_b_input,
+            "EV_SPC_BASELINE_STATUS",
+        )
+
+        self.assertRegex(lane_a_id, r"^EV_SPC_BASELINE_STATUS_LANE_[A-F0-9]{16}$")
+        self.assertNotEqual(lane_a_id, lane_b_id)
+        self.assertEqual(
+            EvidenceBuilder.scoped_evidence_id(lane_a_input, lane_a_id),
+            lane_a_id,
+        )
+        self.assertEqual(
+            EvidenceBuilder.scoped_evidence_id(
+                self.tool_input,
+                "EV_SPC_BASELINE_STATUS",
+            ),
+            "EV_SPC_BASELINE_STATUS",
+        )
+
     def test_builder_rejects_missing_observation_and_entities(self) -> None:
         with self.assertRaises(ModelValidationError):
             EvidenceBuilder.from_tool(

@@ -1,0 +1,254 @@
+{
+  "$defs": {
+    "Observation": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "title": "Value"
+        },
+        "availability": {
+          "enum": [
+            "available",
+            "partial",
+            "missing",
+            "not_applicable"
+          ],
+          "title": "Availability",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "availability",
+        "source"
+      ],
+      "title": "Observation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "benchmark_version": {
+      "const": "development-rca/1.1",
+      "title": "Benchmark Version",
+      "type": "string"
+    },
+    "scorer_version": {
+      "const": "formal-r2-scorer/1.1",
+      "title": "Scorer Version",
+      "type": "string"
+    },
+    "source_commit": {
+      "pattern": "^[a-f0-9]{40}$",
+      "title": "Source Commit",
+      "type": "string"
+    },
+    "prompt_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Prompt Hash",
+      "type": "string"
+    },
+    "workflow_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Workflow Hash",
+      "type": "string"
+    },
+    "config_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Config Hash",
+      "type": "string"
+    },
+    "rubric_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Rubric Hash",
+      "type": "string"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "case_revision": {
+      "title": "Case Revision",
+      "type": "string"
+    },
+    "exposure_class": {
+      "enum": [
+        "normal_development",
+        "high_exposure",
+        "development_calibration"
+      ],
+      "title": "Exposure Class",
+      "type": "string"
+    },
+    "ground_truth_class": {
+      "title": "Ground Truth Class",
+      "type": "string"
+    },
+    "provider": {
+      "enum": [
+        "dashscope",
+        "deepseek"
+      ],
+      "title": "Provider",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "actual_provider": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Actual Provider"
+    },
+    "actual_model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Actual Model"
+    },
+    "run_id": {
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "execution_order": {
+      "minimum": 1,
+      "title": "Execution Order",
+      "type": "integer"
+    },
+    "timestamp": {
+      "title": "Timestamp",
+      "type": "string"
+    },
+    "execution_kind": {
+      "enum": [
+        "offline_fixture",
+        "historical_artifact",
+        "paid_benchmark"
+      ],
+      "title": "Execution Kind",
+      "type": "string"
+    },
+    "pricing_snapshot_id": {
+      "title": "Pricing Snapshot Id",
+      "type": "string"
+    },
+    "raw_hashes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Raw Hashes",
+      "type": "object"
+    },
+    "job_status": {
+      "$ref": "#/$defs/Observation"
+    },
+    "contract_status": {
+      "$ref": "#/$defs/Observation"
+    },
+    "funnel": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Funnel",
+      "type": "array"
+    },
+    "quality": {
+      "$ref": "#/$defs/Observation"
+    },
+    "diagnostics": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Diagnostics",
+      "type": "array"
+    },
+    "repairs": {
+      "additionalProperties": true,
+      "title": "Repairs",
+      "type": "object"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Observation"
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "coverage": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Coverage",
+      "type": "object"
+    },
+    "observer_complete": {
+      "title": "Observer Complete",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "benchmark_version",
+    "scorer_version",
+    "source_commit",
+    "prompt_hash",
+    "workflow_hash",
+    "config_hash",
+    "rubric_hash",
+    "case_id",
+    "case_revision",
+    "exposure_class",
+    "ground_truth_class",
+    "provider",
+    "model",
+    "actual_provider",
+    "actual_model",
+    "run_id",
+    "execution_order",
+    "timestamp",
+    "execution_kind",
+    "pricing_snapshot_id",
+    "raw_hashes",
+    "job_status",
+    "contract_status",
+    "funnel",
+    "quality",
+    "diagnostics",
+    "repairs",
+    "metrics",
+    "coverage",
+    "observer_complete"
+  ],
+  "title": "BenchmarkRecord",
+  "type": "object"
+}

@@ -1,4 +1,5 @@
 import type {
+  ModelSelection,
   ActionRecord,
   AgentFinding,
   AgentTask,
@@ -19,9 +20,14 @@ import type {
   PlannerDecision,
   RCAState,
   CausalClaimStatus,
+  CausalChainTrace,
+  CausalLaneTrace,
+  CandidateChallengeTrace,
+  CompetitionTrace,
   CausalEvidenceGap,
   CausalEvidenceMatrix,
   CausalMatrixClaim,
+  DataMissingSourceTrace,
   ImpactLotGateRow,
   RcaCandidateTrace,
   RcaDiagnosisTrace,
@@ -36,16 +42,22 @@ export function buildRCAJobRequest(
   investigationMode: InvestigationMode,
   query: string,
   lotId: string,
+  selection: ModelSelection | null = null,
 ): CreateRCAJobRequest {
   const userQuery = query.trim();
+  const modelFields = selection ? {
+    model_selection: { provider: selection.provider, model: selection.model },
+  } : {};
   if (investigationMode === "lot") {
     return {
+      ...modelFields,
       investigation_mode: "lot",
       lot_id: lotId.trim().toUpperCase(),
       user_query: userQuery,
     };
   }
   return {
+    ...modelFields,
     investigation_mode: "product_window",
     user_query: userQuery,
   };
@@ -80,10 +92,13 @@ function findingFor(
 }
 
 export function authoritativeRcaFindingFor(state: RCAState): AgentFinding | undefined {
-  const authoritativeId = state.authoritative_rca_finding_id;
+  const authoritativeId = state.authoritative_rca_result
+    ? state.authoritative_rca_result.source_finding_id
+    : state.authoritative_rca_finding_id;
   if (typeof authoritativeId === "string" && authoritativeId.length > 0) {
     return state.findings.find((finding) => finding.finding_id === authoritativeId);
   }
+  if (state.authoritative_rca_result) return undefined;
   const rankingFindings = state.findings.filter(
     (finding) =>
       finding.agent === "rca_reasoning" &&
@@ -109,7 +124,7 @@ function stringList(value: unknown): string[] {
 }
 
 function causalStatus(value: unknown): CausalClaimStatus {
-  return value === "supported" || value === "incomplete" || value === "conflicted" || value === "unavailable"
+  return value === "supported" || value === "plausible" || value === "incomplete" || value === "conflicted" || value === "unavailable"
     ? value
     : "unavailable";
 }
@@ -126,6 +141,156 @@ function matrixClaim(value: unknown, claim: string): CausalMatrixClaim {
   };
 }
 
+function missingSource(value: unknown): DataMissingSourceTrace | null {
+  if (!isRecord(value) || typeof value.evidence_id !== "string") return null;
+  return {
+    evidence_id: value.evidence_id,
+    source_type: typeof value.source_type === "string" ? value.source_type : "unknown",
+    source_id: typeof value.source_id === "string" ? value.source_id : "",
+    source_table: typeof value.source_table === "string" ? value.source_table : null,
+    source_field: typeof value.source_field === "string" ? value.source_field : null,
+    observation: typeof value.observation === "string" ? value.observation : "",
+    entity_ids: stringList(value.entity_ids),
+    required_for_confirmation: value.required_for_confirmation === true,
+  };
+}
+
+function causalLane(value: unknown): CausalLaneTrace | null {
+  if (!isRecord(value) || typeof value.lane_id !== "string") return null;
+  return {
+    lane_id: value.lane_id,
+    operation: typeof value.operation === "string" ? value.operation : "",
+    operation_name: typeof value.operation_name === "string" ? value.operation_name : "",
+    module: typeof value.module === "string" ? value.module : "",
+    equipment: typeof value.equipment === "string" ? value.equipment : "",
+    chamber: typeof value.chamber === "string" ? value.chamber : "",
+    recipe: typeof value.recipe === "string" ? value.recipe : "",
+    parameter_scope: stringList(value.parameter_scope),
+    exposed_lot_ids: stringList(value.exposed_lot_ids),
+    time_window: stringList(value.time_window),
+    initial_evidence_ids: stringList(value.initial_evidence_ids),
+    priority_score: typeof value.priority_score === "number" ? value.priority_score : 0,
+    investigation_status:
+      typeof value.investigation_status === "string" ? value.investigation_status : "uninvestigated",
+    pruned_reason: typeof value.pruned_reason === "string" ? value.pruned_reason : null,
+  };
+}
+
+function candidateChallenge(value: unknown): CandidateChallengeTrace | null {
+  if (!isRecord(value) || typeof value.candidate_id !== "string") return null;
+  return {
+    candidate_id: value.candidate_id,
+    alternative_candidate_id:
+      typeof value.alternative_candidate_id === "string"
+        ? value.alternative_candidate_id
+        : null,
+    evidence_probe_lane_id:
+      typeof value.evidence_probe_lane_id === "string"
+        ? value.evidence_probe_lane_id
+        : typeof value.strongest_alternative_lane_id === "string"
+          ? value.strongest_alternative_lane_id
+          : null,
+    challenge_kind:
+      typeof value.challenge_kind === "string" ? value.challenge_kind : "lane_probe",
+    strongest_alternative_lane_id:
+      typeof value.strongest_alternative_lane_id === "string"
+        ? value.strongest_alternative_lane_id
+        : null,
+    supporting_evidence_ids: stringList(value.supporting_evidence_ids),
+    contradicting_evidence_ids: stringList(value.contradicting_evidence_ids),
+    unexplained_precursor_evidence_ids: stringList(value.unexplained_precursor_evidence_ids),
+    distinguishing_gap_ids: stringList(value.distinguishing_gap_ids),
+    distinguishing_questions: stringList(value.distinguishing_questions),
+    challenge_explanation:
+      typeof value.challenge_explanation === "string" ? value.challenge_explanation : "",
+    status: typeof value.status === "string" ? value.status : "open",
+  };
+}
+
+function competitionTrace(value: unknown): CompetitionTrace | null {
+  if (!isRecord(value)) return null;
+  return {
+    active_lane_ids: stringList(value.active_lane_ids),
+    overflow_lane_ids: stringList(value.overflow_lane_ids),
+    represented_lane_ids: stringList(value.represented_lane_ids),
+    unresolved_lane_ids: stringList(value.unresolved_lane_ids),
+    eliminated_lane_ids: stringList(value.eliminated_lane_ids),
+    blocked_lane_ids: stringList(value.blocked_lane_ids),
+    lane_resolutions: Array.isArray(value.lane_resolutions)
+      ? value.lane_resolutions.flatMap((item) => {
+          if (!isRecord(item) || typeof item.lane_id !== "string") return [];
+          const allowedStatuses = new Set([
+            "retained",
+            "eliminated",
+            "unresolved",
+            "blocked",
+            "non_discriminative",
+          ]);
+          const status = typeof item.status === "string" && allowedStatuses.has(item.status)
+            ? item.status as "retained" | "eliminated" | "unresolved" | "blocked" | "non_discriminative"
+            : "unresolved";
+          return [{
+            lane_id: item.lane_id,
+            status,
+            candidate_id: typeof item.candidate_id === "string" ? item.candidate_id : null,
+            evidence_ids: stringList(item.evidence_ids),
+            distinguishing_gap_ids: stringList(item.distinguishing_gap_ids),
+            reason: typeof item.reason === "string" ? item.reason : "",
+          }];
+        })
+      : [],
+    alternative_search_status:
+      typeof value.alternative_search_status === "string"
+        ? value.alternative_search_status
+        : "not_searched",
+    competition_requirement:
+      typeof value.competition_requirement === "string"
+        ? value.competition_requirement
+        : "not_evaluated",
+    competition_status:
+      typeof value.competition_status === "string"
+        ? value.competition_status
+        : "not_evaluated",
+    competition_type:
+      typeof value.competition_type === "string"
+        ? value.competition_type
+        : "not_evaluated",
+    competition_axes: stringList(value.competition_axes),
+    scope_assessment_status:
+      typeof value.scope_assessment_status === "string"
+        ? value.scope_assessment_status
+        : "not_evaluated",
+    competition_failure_reason:
+      typeof value.competition_failure_reason === "string"
+        ? value.competition_failure_reason
+        : null,
+    candidate_lineage: Array.isArray(value.candidate_lineage)
+      ? value.candidate_lineage.filter(isRecord)
+      : [],
+    challenge_round_count:
+      typeof value.challenge_round_count === "number" ? value.challenge_round_count : 0,
+    resolution_evidence_ids: stringList(value.resolution_evidence_ids),
+  };
+}
+
+function causalChain(value: unknown): CausalChainTrace | null {
+  if (!isRecord(value)) return null;
+  const rawStages = isRecord(value.stages) ? value.stages : {};
+  const stages: Record<string, CausalClaimStatus> = {};
+  for (const [stage, status] of Object.entries(rawStages)) {
+    stages[stage] = causalStatus(status);
+  }
+  return {
+    status: typeof value.status === "string" ? value.status : "incomplete",
+    stages,
+    evidence_ids: stringList(value.evidence_ids),
+    missing_stages: stringList(value.missing_stages),
+    conflicting_stages: stringList(value.conflicting_stages),
+    data_missing_evidence_ids: stringList(value.data_missing_evidence_ids),
+    reason: typeof value.reason === "string" ? value.reason : "",
+  };
+}
+
 function causalMatrix(value: unknown): CausalEvidenceMatrix | null {
   if (!isRecord(value)) return null;
   const rawClaims = isRecord(value.claims) ? value.claims : {};
@@ -136,6 +301,18 @@ function causalMatrix(value: unknown): CausalEvidenceMatrix | null {
     claims,
     status: causalStatus(value.status),
     invalid_evidence_ids: stringList(value.invalid_evidence_ids),
+    data_missing_evidence_ids: stringList(value.data_missing_evidence_ids),
+    data_missing_sources: Array.isArray(value.data_missing_sources)
+      ? value.data_missing_sources.flatMap((item) => {
+          const source = missingSource(item);
+          return source ? [source] : [];
+        })
+      : [],
+    causal_chain: causalChain(value.causal_chain),
+    causal_chain_completeness:
+      typeof value.causal_chain_completeness === "string"
+        ? value.causal_chain_completeness
+        : null,
     mechanism_support_source:
       typeof value.mechanism_support_source === "string" ? value.mechanism_support_source : null,
   };
@@ -156,13 +333,18 @@ function candidateTrace(value: unknown): RcaCandidateTrace | null {
       value.causal_matrix_status === null || value.causal_matrix_status === undefined
         ? null
         : causalStatus(value.causal_matrix_status),
+    causal_chain_completeness:
+      typeof value.causal_chain_completeness === "string"
+        ? value.causal_chain_completeness
+        : null,
+    data_missing_evidence_ids: stringList(value.data_missing_evidence_ids),
     mechanism_support_source:
       typeof value.mechanism_support_source === "string" ? value.mechanism_support_source : null,
     causal_evidence_matrix: causalMatrix(value.causal_evidence_matrix),
   };
 }
 
-function diagnosisTrace(value: unknown, findingId: string): RcaDiagnosisTrace | undefined {
+function diagnosisTrace(value: unknown, findingId: string | null): RcaDiagnosisTrace | undefined {
   if (!isRecord(value)) return undefined;
   const candidates = Array.isArray(value.ranked_candidates)
     ? value.ranked_candidates.flatMap((item) => {
@@ -177,11 +359,19 @@ function diagnosisTrace(value: unknown, findingId: string): RcaDiagnosisTrace | 
           gap_id: item.gap_id,
           candidate_index: typeof item.candidate_index === "number" ? item.candidate_index : -1,
           claim: typeof item.claim === "string" ? item.claim : "unknown",
-          status: causalStatus(item.status),
+          status: typeof item.status === "string" ? item.status : "unresolved",
           reason: typeof item.reason === "string" ? item.reason : "",
           question_kind: typeof item.question_kind === "string" ? item.question_kind : "",
           allowed_actions: stringList(item.allowed_actions),
           evidence_ids: stringList(item.evidence_ids),
+          gap_type: typeof item.gap_type === "string" ? item.gap_type : undefined,
+          data_missing_evidence_ids: stringList(item.data_missing_evidence_ids),
+          unavailable_sources: Array.isArray(item.unavailable_sources)
+            ? item.unavailable_sources.flatMap((source) => {
+                const parsed = missingSource(source);
+                return parsed ? [parsed] : [];
+              })
+            : [],
         } satisfies CausalEvidenceGap];
       })
     : [];
@@ -193,20 +383,65 @@ function diagnosisTrace(value: unknown, findingId: string): RcaDiagnosisTrace | 
         return [{
           lot_id: item.lot_id,
           included: item.included === true,
+          candidate_included:
+            typeof item.candidate_included === "boolean"
+              ? item.candidate_included
+              : item.included === true,
+          confirmed: item.confirmed === true,
           included_reason: typeof item.included_reason === "string" ? item.included_reason : null,
           excluded_reason: typeof item.excluded_reason === "string" ? item.excluded_reason : null,
           supporting_evidence_ids: stringList(item.supporting_evidence_ids),
+          data_missing_evidence_ids: stringList(item.data_missing_evidence_ids),
+          non_blocking_data_missing_evidence_ids: stringList(
+            item.non_blocking_data_missing_evidence_ids,
+          ),
+          data_available:
+            typeof item.data_available === "boolean" ? item.data_available : undefined,
+          checks: isRecord(item.checks)
+            ? Object.fromEntries(
+                Object.entries(item.checks).flatMap(([key, value]) =>
+                  typeof value === "boolean" ? [[key, value]] : [],
+                ),
+              )
+            : undefined,
         } satisfies ImpactLotGateRow];
       })
     : [];
   return {
     finding_id: findingId,
+    result_id: typeof value.result_id === "string" ? value.result_id : null,
     conclusion_status: typeof value.conclusion_status === "string" ? value.conclusion_status : "inconclusive",
+    root_cause_candidate_id:
+      typeof value.root_cause_candidate_id === "string" ? value.root_cause_candidate_id : null,
+    confirmation_status:
+      typeof value.confirmation_status === "string" ? value.confirmation_status : null,
+    competition_status:
+      typeof value.competition_status === "string" ? value.competition_status : null,
+    terminal_reason: typeof value.terminal_reason === "string" ? value.terminal_reason : null,
+    evidence_refs: stringList(value.evidence_refs),
+    causal_chain_completeness:
+      typeof value.causal_chain_completeness === "string"
+        ? value.causal_chain_completeness
+        : null,
+    data_missing_evidence_ids: stringList(value.data_missing_evidence_ids),
     root_cause: typeof value.root_cause === "string" ? value.root_cause : null,
     ranked_candidates: candidates,
     evidence_synthesis: isRecord(value.evidence_synthesis) ? value.evidence_synthesis : {},
     causal_evidence_gaps: gaps,
     candidate_comparison: isRecord(value.candidate_comparison) ? value.candidate_comparison : {},
+    causal_lanes: Array.isArray(value.causal_lanes)
+      ? value.causal_lanes.flatMap((item) => {
+          const lane = causalLane(item);
+          return lane ? [lane] : [];
+        })
+      : [],
+    candidate_challenges: Array.isArray(value.candidate_challenges)
+      ? value.candidate_challenges.flatMap((item) => {
+          const challenge = candidateChallenge(item);
+          return challenge ? [challenge] : [];
+        })
+      : [],
+    competition_trace: competitionTrace(value.competition_trace),
     confirmation_gate: {
       status: typeof rawGate.status === "string" ? rawGate.status : undefined,
       checks: isRecord(rawGate.checks)
@@ -214,15 +449,121 @@ function diagnosisTrace(value: unknown, findingId: string): RcaDiagnosisTrace | 
         : undefined,
       reasons: stringList(rawGate.reasons),
       unresolved_gaps: stringList(rawGate.unresolved_gaps),
+      causal_chain_completeness:
+        typeof rawGate.causal_chain_completeness === "string"
+          ? rawGate.causal_chain_completeness
+          : null,
+      data_missing_evidence_ids: stringList(rawGate.data_missing_evidence_ids),
+      blocking_data_missing_evidence_ids: stringList(
+        rawGate.blocking_data_missing_evidence_ids,
+      ),
+      non_blocking_data_missing_evidence_ids: stringList(
+        rawGate.non_blocking_data_missing_evidence_ids,
+      ),
     },
     impact_lot_gate: {
-      confirmed_impact_lots: stringList(rawImpact.confirmed_impact_lots),
+      scope_status: typeof rawImpact.scope_status === "string" ? rawImpact.scope_status : undefined,
+      candidate_scope_status:
+        typeof rawImpact.candidate_scope_status === "string"
+          ? rawImpact.candidate_scope_status
+          : undefined,
+      publication_status:
+        typeof value.publication_status === "string"
+          ? value.publication_status
+          : typeof rawImpact.publication_status === "string"
+          ? rawImpact.publication_status
+          : undefined,
+      scope_basis: typeof rawImpact.scope_basis === "string" ? rawImpact.scope_basis : undefined,
+      data_missing_evidence_ids: stringList(rawImpact.data_missing_evidence_ids),
+      non_blocking_data_missing_evidence_ids: stringList(
+        rawImpact.non_blocking_data_missing_evidence_ids,
+      ),
+      observed_impact_lots: stringList(rawImpact.observed_impact_lots),
+      candidate_impact_lots: stringList(rawImpact.candidate_impact_lots),
+      confirmed_impact_lots: Array.isArray(value.confirmed_impact_lots)
+        ? stringList(value.confirmed_impact_lots)
+        : stringList(rawImpact.confirmed_impact_lots),
+      confirmation_blocked_reason:
+        typeof rawImpact.confirmation_blocked_reason === "string"
+          ? rawImpact.confirmation_blocked_reason
+          : null,
+      candidate_scopes: Array.isArray(rawImpact.candidate_scopes)
+        ? rawImpact.candidate_scopes.flatMap((item) => {
+            if (!isRecord(item) || typeof item.candidate_index !== "number") return [];
+            return [{
+              candidate_index: item.candidate_index,
+              candidate_rank: typeof item.candidate_rank === "number" ? item.candidate_rank : null,
+              candidate_root_cause:
+                typeof item.candidate_root_cause === "string"
+                  ? item.candidate_root_cause
+                  : null,
+              candidate_scope_status:
+                typeof item.candidate_scope_status === "string"
+                  ? item.candidate_scope_status
+                  : undefined,
+              publication_status:
+                typeof item.publication_status === "string"
+                  ? item.publication_status
+                  : undefined,
+              candidate_impact_lots: stringList(item.candidate_impact_lots),
+              confirmed_impact_lots: stringList(item.confirmed_impact_lots),
+              data_missing_evidence_ids: stringList(item.data_missing_evidence_ids),
+              non_blocking_data_missing_evidence_ids: stringList(
+                item.non_blocking_data_missing_evidence_ids,
+              ),
+            }];
+          })
+        : [],
       rows: impactRows,
     },
+    publication_status:
+      typeof value.publication_status === "string" ? value.publication_status : null,
+    confirmed_impact_lots: stringList(value.confirmed_impact_lots),
   };
 }
 
 export function authoritativeRcaDiagnosisFor(state: RCAState): RcaDiagnosisTrace | undefined {
+  const authority = state.authoritative_rca_result;
+  if (authority) {
+    const findingId = authority.source_finding_id;
+    if (state.rca_diagnosis?.result_id === authority.result_id) {
+      return diagnosisTrace(state.rca_diagnosis, findingId);
+    }
+    const finding = typeof findingId === "string"
+      ? state.findings.find((item) => item.finding_id === findingId)
+      : undefined;
+    const details = finding?.details ?? {};
+    const publication = state.impact_publication_result?.rca_result_id === authority.result_id
+      ? state.impact_publication_result
+      : undefined;
+    return diagnosisTrace(
+      {
+        result_id: authority.result_id,
+        conclusion_status: authority.conclusion_status,
+        root_cause_candidate_id: authority.root_cause_candidate_id,
+        confirmation_status: authority.confirmation_status,
+        competition_status: authority.competition_status,
+        terminal_reason: authority.terminal_reason,
+        evidence_refs: authority.evidence_refs,
+        causal_chain_completeness: details.causal_chain_completeness,
+        data_missing_evidence_ids: details.data_missing_evidence_ids,
+        root_cause: authority.root_cause,
+        ranked_candidates: details.ranked_candidates,
+        evidence_synthesis: details.evidence_synthesis,
+        causal_evidence_gaps: details.causal_evidence_gaps,
+        candidate_comparison: details.candidate_comparison,
+        causal_lanes: state.causal_lanes,
+        candidate_challenges: state.candidate_challenges ?? details.candidate_challenges,
+        competition_trace: state.competition_trace,
+        confirmation_gate: details.confirmation_gate,
+        impact_lot_gate: details.impact_lot_gate,
+        publication_status: publication?.publication_status,
+        confirmed_impact_lots: publication?.confirmed_impact_lots,
+      },
+      findingId,
+    );
+  }
+
   const finding = authoritativeRcaFindingFor(state);
   if (!finding) return undefined;
   if (state.rca_diagnosis?.finding_id === finding.finding_id) {
@@ -233,11 +574,16 @@ export function authoritativeRcaDiagnosisFor(state: RCAState): RcaDiagnosisTrace
     {
       finding_id: finding.finding_id,
       conclusion_status: details.conclusion_status ?? details.status,
+      causal_chain_completeness: details.causal_chain_completeness,
+      data_missing_evidence_ids: details.data_missing_evidence_ids,
       root_cause: details.root_cause,
       ranked_candidates: details.ranked_candidates,
       evidence_synthesis: details.evidence_synthesis,
       causal_evidence_gaps: details.causal_evidence_gaps,
       candidate_comparison: details.candidate_comparison,
+      causal_lanes: state.causal_lanes,
+      candidate_challenges: state.candidate_challenges ?? details.candidate_challenges,
+      competition_trace: state.competition_trace,
       confirmation_gate: details.confirmation_gate,
       impact_lot_gate: details.impact_lot_gate,
     },
@@ -356,6 +702,7 @@ export function formatTraceLabel(value: string): string {
     llm: "LLM",
     mes: "MES",
     qwen: "Qwen",
+    model: "Model",
     rca: "RCA",
     react: "ReAct",
     spc: "SPC",
@@ -701,6 +1048,7 @@ function parseSpecialistTrace(
   }
   const analysisSource =
     raw.analysis_source === "qwen" ||
+    raw.analysis_source === "model" ||
     raw.analysis_source === "deterministic_fallback"
       ? raw.analysis_source
       : null;
@@ -1226,4 +1574,10 @@ export function selectAgentTrace(state: RCAState): AgentTraceViewModel {
     intentPlannerAttempts,
     integrityIssues,
   };
+}
+
+
+/** Identity is descriptive metadata; it never selects the authoritative result. */
+export function resultIdentityFor(state: RCAState, resultPath: string) {
+  return state.result_identities?.[resultPath] ?? null;
 }

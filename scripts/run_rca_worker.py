@@ -16,13 +16,15 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from yield_rca_api.audit import PostgresAuditSink  # noqa: E402
 from yield_rca_api.memory import MemoryApprovalService, PostgresMemoryStore  # noqa: E402
+from yield_rca_api.model_selection import workflow_factory  # noqa: E402
 from yield_rca_api.observability import RCAMetrics, configure_logging  # noqa: E402
 from yield_rca_api.store import PostgresRCAJobStore  # noqa: E402
 from yield_rca_api.worker import RCAQueueWorker, WorkerSettings  # noqa: E402
 from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever  # noqa: E402
 from yield_rca_core.knowledge_runtime import build_knowledge_retriever  # noqa: E402
 from yield_rca_core.knowledge_store import PostgresKnowledgeStore  # noqa: E402
-from yield_rca_core.workflow import build_postgres_workflow  # noqa: E402
+from yield_rca_core.llm_gateway import LLMSettings  # noqa: E402
+from yield_rca_core.repositories import PostgresFabRepository  # noqa: E402
 
 LOGGER = logging.getLogger("yield_rca_worker")
 
@@ -33,14 +35,15 @@ def build_worker(database_url: str, *, worker_id: str | None = None) -> RCAQueue
         knowledge_store,
         database_url=database_url,
     )
-    workflow = build_postgres_workflow(
-        database_url,
-        knowledge_retriever=knowledge_retriever,
-    )
+    factory = workflow_factory(PostgresFabRepository(database_url),
+                               knowledge_retriever=knowledge_retriever)
+    workflow = factory(LLMSettings.from_env(),
+                       os.getenv("YIELD_RCA_ORCHESTRATION_MODE", "fixed"))
     store = PostgresRCAJobStore(database_url)
     return RCAQueueWorker(
         store=store,
         workflow=workflow,
+        job_workflow_factory=factory,
         audit_sink=PostgresAuditSink(database_url),
         memory_service=MemoryApprovalService(PostgresMemoryStore(database_url)),
         metrics=RCAMetrics(),

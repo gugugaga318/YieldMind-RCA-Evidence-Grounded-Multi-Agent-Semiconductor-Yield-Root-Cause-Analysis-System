@@ -32,7 +32,7 @@ class EvaluationV2RCATest(unittest.TestCase):
                 corpus=ROOT / "data" / "knowledge" / "synthetic_v2" / "corpus.json",
                 retrieval_results=(
                     ROOT
-                    / "outputs"
+                    / "tests" / "fixtures" / "reference_outputs"
                     / "evaluation_v2_release"
                     / "retrieval"
                     / "results.json"

@@ -1,0 +1,367 @@
+{
+  "0_candidates": {
+    "result_id": "TRIAGE_TEST",
+    "source_finding_id": "F_TRIAGE",
+    "primary": null,
+    "strongest_alternative": null,
+    "comparison": {
+      "preference_status": "preference_not_established",
+      "ordering_basis": "none",
+      "primary_ordering_reason": "Stable candidate ID ordering, not a causal winner.",
+      "alternative_retention_reason": null,
+      "alternative_disposition": "alternative_not_investigated",
+      "discriminating_evidence_ids": [],
+      "preferred_candidate_id": null,
+      "causal_winner_established": false
+    },
+    "evidence_assessment": [],
+    "remaining_uncertainty": [
+      {
+        "kind": "not_acquired",
+        "description": "Dose data not acquired.",
+        "candidate_ids": [],
+        "evidence_ids": [],
+        "scope": {
+          "entity": null,
+          "operation": "OP_X",
+          "equipment": "EQ_X",
+          "chamber": null,
+          "recipe": "RECIPE_X",
+          "recipe_version": null,
+          "scope_kind": "equipment",
+          "lane_ids": [
+            "LANE_X"
+          ],
+          "time_window": []
+        }
+      }
+    ],
+    "next_investigation_action": {
+      "action_id": "NEXT_1",
+      "purpose": "acquire_missing_evidence",
+      "target_candidate_ids": [],
+      "requested_observation": "Acquire independent dose metrology.",
+      "scope": {
+        "entity": null,
+        "operation": "OP_X",
+        "equipment": "EQ_X",
+        "chamber": null,
+        "recipe": "RECIPE_X",
+        "recipe_version": null,
+        "scope_kind": "equipment",
+        "lane_ids": [
+          "LANE_X"
+        ],
+        "time_window": []
+      },
+      "expected_discriminating_outcomes": [],
+      "inconclusive_outcome": "Unchanged measurements do not distinguish hypotheses.",
+      "executor": "external_process",
+      "approval_required": true,
+      "executability": "external_only",
+      "availability": "unknown",
+      "availability_reason": "Engineer must arrange metrology.",
+      "recommendation_only": true
+    },
+    "no_next_action_reason": null,
+    "terminal_reason": "insufficient_candidate_evidence",
+    "schema_version": "triage/1.0",
+    "authority": "hypothesis_triage",
+    "writer": "python_finalizer",
+    "execution_completed": true,
+    "scientific_question_resolved": false,
+    "engineering_sign_off": "not_recorded"
+  },
+  "1_candidates": {
+    "result_id": "TRIAGE_TEST",
+    "source_finding_id": "F_TRIAGE",
+    "primary": {
+      "candidate_id": "C1",
+      "engineering_statement": "  Model mechanism 1: 工程表述  ",
+      "causal_explanation": "Model-authored explanation 1",
+      "primary_mechanism": "mechanism 1",
+      "supporting_evidence_ids": [
+        "E1"
+      ],
+      "contradicting_evidence_ids": [
+        "EC"
+      ],
+      "scope": {
+        "entity": null,
+        "operation": "OP_X",
+        "equipment": "EQ_X",
+        "chamber": null,
+        "recipe": "RECIPE_X",
+        "recipe_version": null,
+        "scope_kind": "equipment",
+        "lane_ids": [
+          "LANE_X"
+        ],
+        "time_window": []
+      },
+      "authority": "suspected_hypothesis",
+      "engineering_sign_off": "not_recorded"
+    },
+    "strongest_alternative": null,
+    "comparison": {
+      "preference_status": "preference_not_established",
+      "ordering_basis": "single",
+      "primary_ordering_reason": "Stable candidate ID ordering, not a causal winner.",
+      "alternative_retention_reason": null,
+      "alternative_disposition": "alternative_not_investigated",
+      "discriminating_evidence_ids": [],
+      "preferred_candidate_id": null,
+      "causal_winner_established": false
+    },
+    "evidence_assessment": [
+      {
+        "candidate_id": "C1",
+        "parameter_support": null,
+        "mechanism_support": null,
+        "entity_consistency": null,
+        "operation_consistency": null,
+        "recipe_version_consistency": null,
+        "scope_consistency": null,
+        "temporal_consistency": null,
+        "contradiction": null,
+        "causal_chain": null,
+        "alternative_status": null
+      }
+    ],
+    "remaining_uncertainty": [
+      {
+        "kind": "not_acquired",
+        "description": "Dose data not acquired.",
+        "candidate_ids": [
+          "C1"
+        ],
+        "evidence_ids": [],
+        "scope": {
+          "entity": null,
+          "operation": "OP_X",
+          "equipment": "EQ_X",
+          "chamber": null,
+          "recipe": "RECIPE_X",
+          "recipe_version": null,
+          "scope_kind": "equipment",
+          "lane_ids": [
+            "LANE_X"
+          ],
+          "time_window": []
+        }
+      }
+    ],
+    "next_investigation_action": {
+      "action_id": "NEXT_1",
+      "purpose": "acquire_missing_evidence",
+      "target_candidate_ids": [
+        "C1"
+      ],
+      "requested_observation": "Acquire independent dose metrology.",
+      "scope": {
+        "entity": null,
+        "operation": "OP_X",
+        "equipment": "EQ_X",
+        "chamber": null,
+        "recipe": "RECIPE_X",
+        "recipe_version": null,
+        "scope_kind": "equipment",
+        "lane_ids": [
+          "LANE_X"
+        ],
+        "time_window": []
+      },
+      "expected_discriminating_outcomes": [
+        {
+          "candidate_id": "C1",
+          "expected_observation": "Observation favoring C1",
+          "interpretation": "Would support C1; does not confirm it."
+        }
+      ],
+      "inconclusive_outcome": "Unchanged measurements do not distinguish hypotheses.",
+      "executor": "external_process",
+      "approval_required": true,
+      "executability": "external_only",
+      "availability": "unknown",
+      "availability_reason": "Engineer must arrange metrology.",
+      "recommendation_only": true
+    },
+    "no_next_action_reason": null,
+    "terminal_reason": "single_candidate_unconfirmed",
+    "schema_version": "triage/1.0",
+    "authority": "hypothesis_triage",
+    "writer": "python_finalizer",
+    "execution_completed": true,
+    "scientific_question_resolved": false,
+    "engineering_sign_off": "not_recorded"
+  },
+  "2_candidates": {
+    "result_id": "TRIAGE_TEST",
+    "source_finding_id": "F_TRIAGE",
+    "primary": {
+      "candidate_id": "C1",
+      "engineering_statement": "  Model mechanism 1: 工程表述  ",
+      "causal_explanation": "Model-authored explanation 1",
+      "primary_mechanism": "mechanism 1",
+      "supporting_evidence_ids": [
+        "E1"
+      ],
+      "contradicting_evidence_ids": [
+        "EC"
+      ],
+      "scope": {
+        "entity": null,
+        "operation": "OP_X",
+        "equipment": "EQ_X",
+        "chamber": null,
+        "recipe": "RECIPE_X",
+        "recipe_version": null,
+        "scope_kind": "equipment",
+        "lane_ids": [
+          "LANE_X"
+        ],
+        "time_window": []
+      },
+      "authority": "suspected_hypothesis",
+      "engineering_sign_off": "not_recorded"
+    },
+    "strongest_alternative": {
+      "candidate_id": "C2",
+      "engineering_statement": "  Model mechanism 2: 工程表述  ",
+      "causal_explanation": "Model-authored explanation 2",
+      "primary_mechanism": "mechanism 2",
+      "supporting_evidence_ids": [
+        "E2"
+      ],
+      "contradicting_evidence_ids": [
+        "EC"
+      ],
+      "scope": {
+        "entity": null,
+        "operation": "OP_X",
+        "equipment": "EQ_X",
+        "chamber": null,
+        "recipe": "RECIPE_X",
+        "recipe_version": null,
+        "scope_kind": "equipment",
+        "lane_ids": [
+          "LANE_X"
+        ],
+        "time_window": []
+      },
+      "authority": "suspected_hypothesis",
+      "engineering_sign_off": "not_recorded"
+    },
+    "comparison": {
+      "preference_status": "tied",
+      "ordering_basis": "stable_presentation_order",
+      "primary_ordering_reason": "Stable candidate ID ordering, not a causal winner.",
+      "alternative_retention_reason": "Independent Evidence remains.",
+      "alternative_disposition": "retained",
+      "discriminating_evidence_ids": [],
+      "preferred_candidate_id": null,
+      "causal_winner_established": false
+    },
+    "evidence_assessment": [
+      {
+        "candidate_id": "C1",
+        "parameter_support": null,
+        "mechanism_support": null,
+        "entity_consistency": null,
+        "operation_consistency": null,
+        "recipe_version_consistency": null,
+        "scope_consistency": null,
+        "temporal_consistency": null,
+        "contradiction": null,
+        "causal_chain": null,
+        "alternative_status": null
+      },
+      {
+        "candidate_id": "C2",
+        "parameter_support": null,
+        "mechanism_support": null,
+        "entity_consistency": null,
+        "operation_consistency": null,
+        "recipe_version_consistency": null,
+        "scope_consistency": null,
+        "temporal_consistency": null,
+        "contradiction": null,
+        "causal_chain": null,
+        "alternative_status": null
+      }
+    ],
+    "remaining_uncertainty": [
+      {
+        "kind": "not_acquired",
+        "description": "Dose data not acquired.",
+        "candidate_ids": [
+          "C1",
+          "C2"
+        ],
+        "evidence_ids": [],
+        "scope": {
+          "entity": null,
+          "operation": "OP_X",
+          "equipment": "EQ_X",
+          "chamber": null,
+          "recipe": "RECIPE_X",
+          "recipe_version": null,
+          "scope_kind": "equipment",
+          "lane_ids": [
+            "LANE_X"
+          ],
+          "time_window": []
+        }
+      }
+    ],
+    "next_investigation_action": {
+      "action_id": "NEXT_1",
+      "purpose": "discriminate_hypotheses",
+      "target_candidate_ids": [
+        "C1",
+        "C2"
+      ],
+      "requested_observation": "Acquire independent dose metrology.",
+      "scope": {
+        "entity": null,
+        "operation": "OP_X",
+        "equipment": "EQ_X",
+        "chamber": null,
+        "recipe": "RECIPE_X",
+        "recipe_version": null,
+        "scope_kind": "equipment",
+        "lane_ids": [
+          "LANE_X"
+        ],
+        "time_window": []
+      },
+      "expected_discriminating_outcomes": [
+        {
+          "candidate_id": "C1",
+          "expected_observation": "Observation favoring C1",
+          "interpretation": "Would support C1; does not confirm it."
+        },
+        {
+          "candidate_id": "C2",
+          "expected_observation": "Observation favoring C2",
+          "interpretation": "Would support C2; does not confirm it."
+        }
+      ],
+      "inconclusive_outcome": "Unchanged measurements do not distinguish hypotheses.",
+      "executor": "external_process",
+      "approval_required": true,
+      "executability": "external_only",
+      "availability": "unknown",
+      "availability_reason": "Engineer must arrange metrology.",
+      "recommendation_only": true
+    },
+    "no_next_action_reason": null,
+    "terminal_reason": "hypotheses_tied",
+    "schema_version": "triage/1.0",
+    "authority": "hypothesis_triage",
+    "writer": "python_finalizer",
+    "execution_completed": true,
+    "scientific_question_resolved": false,
+    "engineering_sign_off": "not_recorded"
+  }
+}

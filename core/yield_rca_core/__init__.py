@@ -2,14 +2,37 @@
 
 from __future__ import annotations
 
+from yield_rca_core.authoritative_result import (
+    AuthoritativeRCAResult,
+    ImpactPublicationResult,
+)
 from yield_rca_core.causal_adversarial import (
     AdversarialChallengeGeneration,
     QwenAdversarialChallenger,
+    derive_alternative_lane_resolutions,
     derive_alternative_search_status,
 )
 from yield_rca_core.causal_candidate_comparison import (
     QwenHypothesisCandidateComparator,
     compare_candidate_matrices,
+)
+from yield_rca_core.causal_chain import (
+    CausalChainAssessment,
+    DataMissingSource,
+    assess_causal_chain,
+    build_causal_chain_assessment,
+    collect_data_missing_sources,
+    extract_data_missing_sources,
+)
+from yield_rca_core.causal_competition import (
+    build_candidate_competition_brief,
+    causal_direction_identity,
+    select_diverse_lane_ids,
+)
+from yield_rca_core.causal_competition_progression import (
+    CompetitionProgressionResult,
+    derive_candidate_resolutions,
+    progress_competition,
 )
 from yield_rca_core.causal_confirmation import (
     ConfirmationGateResult,
@@ -33,13 +56,48 @@ from yield_rca_core.causal_hypothesis import (
     MechanismSupportSource,
 )
 from yield_rca_core.causal_investigation_models import (
+    ActionDecisionImpact,
+    ActionSourceAvailability,
+    ActionValueAssessment,
+    ActionValueTier,
+    AlternativeLaneResolution,
+    AlternativeLaneResolutionStatus,
     AlternativeSearchStatus,
     CandidateChallenge,
+    CandidateClaimedScopeKind,
+    CandidateCompetitionAxis,
+    CandidateCompetitionStatus,
+    CandidateCompetitionType,
+    CandidateDistinguishingPrediction,
+    CandidateMechanismRelation,
+    CandidateResolution,
+    CandidateResolutionStatus,
+    CandidateScopeRelation,
+    CandidateSemanticProfile,
     CausalChainCompleteness,
     CausalLaneRecord,
+    ChallengeKind,
     ChallengeStatus,
+    CompetitionFailureReason,
+    CompetitionGapReason,
+    CompetitionRequirement,
     CompetitionTrace,
+    InvestigationGainReasonCode,
+    InvestigationGainRecord,
+    InvestigationGainType,
     InvestigationLaneStatus,
+    LaneLifecycleStatus,
+    LaneLifecycleTransition,
+    ScopeAssessmentStatus,
+)
+from yield_rca_core.causal_lane_lifecycle import (
+    apply_active_lane_snapshot,
+    causal_lane_scope_identity,
+    lane_is_searchable,
+    mark_lanes_challenged,
+    merge_lane_discovery,
+    reconcile_lane_inventory,
+    transition_lane,
 )
 from yield_rca_core.causal_retrieval import (
     CausalLaneKnowledgeRetriever,
@@ -66,7 +124,10 @@ from yield_rca_core.evidence_models import (
     EvidenceEntity,
     EvidenceType,
 )
-from yield_rca_core.evidence_synthesis import build_evidence_synthesis
+from yield_rca_core.evidence_synthesis import (
+    build_evidence_synthesis,
+    build_lane_first_evidence_synthesis,
+)
 from yield_rca_core.hybrid_retrieval import (
     BM25DocumentChunkRetriever,
     DeterministicHashEmbeddingBackend,
@@ -87,7 +148,20 @@ from yield_rca_core.hypothesis_candidate_generator import (
 )
 from yield_rca_core.hypothesis_engine import HypothesisEngine
 from yield_rca_core.improvement_agent import ImprovementAgent
+from yield_rca_core.incident_evidence import build_incident_observation_evidence
 from yield_rca_core.intent_planner import QwenIntentPlanner, QwenIntentPlannerError
+from yield_rca_core.investigation_decision import (
+    action_scope_fingerprint,
+    assess_action_values,
+    classify_investigation_gain,
+    derive_investigation_gain_history,
+    high_value_action_assessments,
+)
+from yield_rca_core.investigation_finalizer import (
+    InvestigationFinalizationError,
+    finalize_investigation,
+    validate_terminal_investigation_state,
+)
 from yield_rca_core.investigation_models import (
     MAX_CROSS_DOMAIN_ACTIONS,
     MAX_INITIAL_QUESTIONS,
@@ -252,11 +326,16 @@ from yield_rca_core.workflow import (
 )
 
 __all__ = [
+    "ActionDecisionImpact",
+    "ActionSourceAvailability",
+    "ActionValueAssessment",
+    "ActionValueTier",
     "AgentFinding",
     "AgentKind",
     "AgentMode",
     "AgentTask",
     "ApprovalDecision",
+    "AuthoritativeRCAResult",
     "AnalyzeLotGenealogyTool",
     "AnalyzeParameterShiftTool",
     "AnalyzeSpcEvidenceTool",
@@ -273,20 +352,59 @@ __all__ = [
     "CausalClaimResult",
     "CausalClaimStatus",
     "CausalEvidenceMatrix",
+    "CausalChainAssessment",
     "CausalChainCompleteness",
     "CausalLaneRecord",
     "CandidateChallenge",
     "ChallengeStatus",
     "CompetitionTrace",
+    "CompetitionFailureReason",
+    "CompetitionGapReason",
+    "CompetitionRequirement",
+    "CompetitionProgressionResult",
     "AlternativeSearchStatus",
+    "CandidateCompetitionStatus",
+    "CandidateCompetitionAxis",
+    "CandidateCompetitionType",
+    "CandidateResolution",
+    "CandidateResolutionStatus",
+    "CandidateDistinguishingPrediction",
+    "CandidateMechanismRelation",
+    "CandidateClaimedScopeKind",
+    "CandidateScopeRelation",
+    "CandidateSemanticProfile",
+    "ChallengeKind",
+    "ScopeAssessmentStatus",
+    "AlternativeLaneResolution",
+    "AlternativeLaneResolutionStatus",
     "AdversarialChallengeGeneration",
+    "InvestigationFinalizationError",
+    "InvestigationGainRecord",
+    "InvestigationGainReasonCode",
+    "InvestigationGainType",
     "InvestigationLaneStatus",
+    "LaneLifecycleStatus",
+    "LaneLifecycleTransition",
     "ConfirmationGateResult",
+    "DataMissingSource",
     "QwenHypothesisCandidateComparator",
     "QwenAdversarialChallenger",
+    "derive_alternative_lane_resolutions",
     "build_causal_evidence_gaps",
     "build_hypothesis_discrimination_gaps",
+    "build_incident_observation_evidence",
     "build_evidence_synthesis",
+    "build_lane_first_evidence_synthesis",
+    "build_candidate_competition_brief",
+    "causal_direction_identity",
+    "select_diverse_lane_ids",
+    "apply_active_lane_snapshot",
+    "causal_lane_scope_identity",
+    "lane_is_searchable",
+    "mark_lanes_challenged",
+    "merge_lane_discovery",
+    "reconcile_lane_inventory",
+    "transition_lane",
     "CausalHypothesis",
     "CausalScopeMode",
     "CausalScopePolicy",
@@ -314,6 +432,7 @@ __all__ = [
     "HypothesisCandidateProposal",
     "HypothesisEngine",
     "HypothesisStatus",
+    "ImpactPublicationResult",
     "HybridDocumentChunkRetriever",
     "HybridRetrievalConfigurationError",
     "ImprovementAgent",
@@ -437,6 +556,10 @@ __all__ = [
     "build_knowledge_retriever",
     "build_causal_search_scope",
     "build_causal_evidence_matrix",
+    "assess_causal_chain",
+    "build_causal_chain_assessment",
+    "collect_data_missing_sources",
+    "extract_data_missing_sources",
     "compare_candidate_matrices",
     "derive_alternative_search_status",
     "confirm_candidate",
@@ -451,6 +574,15 @@ __all__ = [
     "review_qwen_planner_output",
     "reciprocal_rank_fusion",
     "prepare_causal_plan",
+    "action_scope_fingerprint",
+    "assess_action_values",
+    "classify_investigation_gain",
+    "derive_candidate_resolutions",
+    "derive_investigation_gain_history",
+    "finalize_investigation",
+    "high_value_action_assessments",
+    "progress_competition",
+    "validate_terminal_investigation_state",
     "__version__",
 ]
 

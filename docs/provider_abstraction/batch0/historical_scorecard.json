@@ -1,0 +1,836 @@
+{
+  "schema_version": "0.1",
+  "run": {
+    "run_id": "historical-qwen-8d9192f-formal012",
+    "comparison_kind": "architecture_parity",
+    "execution_kind": "historical_real",
+    "code_commit": "8d9192f2769f0c6843f8944a84dd280a301f8ed9",
+    "base_commit": "8d9192f2769f0c6843f8944a84dd280a301f8ed9",
+    "code_worktree_clean": true,
+    "source_snapshot_sha256": "a3119c28fd0c934bc362d6ed7479e40ee94b3a2047c64d038494940382bb9fd0",
+    "dataset_id": "synthetic-semiconductor-formal-blind-v1-candidate-r2",
+    "public_input_hashes": {
+      "cases.json": "2D6F0747C8AA5CDDAC96003BB2C96525435F1A6A4BC18AB09A67787C30B6CE71",
+      "dataset_context.md": "F7BACB8A7374E3859CB3AE0C7B5EC683AE38D6F23583B913D9A95FEA1FFFECDD",
+      "fab_data/chamber_master.csv": "5461A49FFBA64910984D67E1CD22EBBAEFD5EFF2158C56EE23945E31CD84004A",
+      "fab_data/defect_summary.csv": "C1AE75D47F9FD77903135B6150FE8A86C75DF02763B7F539FEAEFD304332DB9D",
+      "fab_data/equipment_capability.csv": "E54E6334D5F568D1761A6FF4C415BA419AF09AFDFB8DC9A1DF36AE2C2325C2BE",
+      "fab_data/equipment_master.csv": "CF6FB14952ECB1DD660684214A08FC878F7F5A112A90C6ABC4DBF841FA38776D",
+      "fab_data/fdc_feature.csv": "7BA8E5E1EE75D8196262BEF0A9A2483F1C6A489FDE3BD025F2EB663055FBD95D",
+      "fab_data/hold_history.csv": "EFAC920109933ABA8D5E900287ADAFD8AE666C8B004D7396DCD1D28CC9159357",
+      "fab_data/knowledge_document.csv": "43061AE95F4438F7CD8381AD3854105979FDE0267BA808D2449CE17C20EABE63",
+      "fab_data/lot_master.csv": "A3338E59B043DF02DDB2B7477656996CC7909AFEB76D61F5F83216F1E529435B",
+      "fab_data/metrology_result.csv": "46BB77D56B1EF64BB9AEAA5D4156D0E56CB1EDF3AB98861EF7D8D836D9D8D9EA",
+      "fab_data/ooc_event.csv": "443249D17FBA2EE88062AA704AA5EC9EB579D16F4B0FBEB3B6898A83A3221003",
+      "fab_data/operation_master.csv": "F0F535F4E93CB021A03550BDF7C03F167A6C0D953D084B70D6271F5EF7300AE2",
+      "fab_data/process_history.csv": "8D49843684CF1B24C56072451212AE358B62BDC15013A426AE22610D92F9E387",
+      "fab_data/process_route.csv": "B695BBCF49FDE2F10300CB225838A70646FF8D5E25545C65ECB6FD1E9E18D212",
+      "fab_data/rca_case.csv": "63284ACC47295DC730E8ADA69AB5AFCDE1D9EE0E22BE6702CF4880214EC6DF5E",
+      "fab_data/recipe_history.csv": "1EABAF7C28D71C85263760A32D9BC1A987FAAADDE6202311EF57CC108198B143",
+      "fab_data/recipe_master.csv": "D242CEF6B1C5322F71C4622954A1F69FA17E35BB07C01972ED64ECF0EAF54873",
+      "fab_data/wafer_master.csv": "0A0E49F072016A11B24A8826EDD60E6F2BC1D821677280FEF6ADEE782034493F",
+      "fab_data/wat_result.csv": "1564A01B7E5EAD3C93E8E5EF9E1E1B24C39999135457216EF2700FBA60F9CF2E",
+      "prior_development_and_pilot_mechanisms.md": "14B980935FB88DD3BB684B1502C3CFCD08B48873785363D539DCC31C56C8CD87"
+    },
+    "prompt_hashes": {
+      "core/yield_rca_core/prompts/__init__.py": "686f1d20638526dd186351c27ebbfb37d40ebf2e44032da4b48fe5e858f221f6",
+      "core/yield_rca_core/prompts/causal_adversarial_challenge_v1.md": "3f247dac4f98252d6b9ff586478a4efe2f44addc8e7ef2d5fb69987bd0c536d5",
+      "core/yield_rca_core/prompts/causal_candidate_comparator_v1.md": "2a4691b492577d093b1b7af5bad82b04b187d02dc6cd86f6c9b42cac35ed9e3d",
+      "core/yield_rca_core/prompts/hypothesis_candidate_generator_v1.md": "339fe93f3c374278a9943db50c6bfd48cef49de2b8b2ccd6ee7aec27a67bdf9d",
+      "core/yield_rca_core/prompts/improvement_v1.md": "60194c39baa20afd55e4376e9ea4123845dd77620098e176874db997d2c4b618",
+      "core/yield_rca_core/prompts/intent_planner_v1.md": "36f5ea64b019904b1711aa8b6feba1d8676972ac02dd31562b2cbba97bead06c",
+      "core/yield_rca_core/prompts/next_action_planner_v1.md": "e5b9b6d1205f36138f46f86894e068d6f7647c80df0cd9c2d63eaa32b6f64935",
+      "core/yield_rca_core/prompts/planner_v1.md": "2b9e6cdeda8d1c622697f20c427bc89071787035e52126a8f6190f03199a4075",
+      "core/yield_rca_core/prompts/specialist_analysis_v2.md": "567679dfe5e93d61de0ada90c34048c5f65541636bdae3cd09bddcdbd5f85863",
+      "core/yield_rca_core/prompts/specialist_tool_planner_v1.md": "30ffa89544178741bf91ff7e8509891c9c546e1a13eb20867d88b76130317dba",
+      "core/yield_rca_core/prompts/specialist_v1.md": "102e07eaf4931efb9915a47f15843d91a9378de80853daeb5d9925726a755655",
+      "core/yield_rca_core/prompts/synthetic_knowledge_document_v1.md": "a4e359ed9274314ec5e11e2d861218c419c55c76823ce31a55229aaa2a62745b",
+      "core/yield_rca_core/prompts/synthetic_knowledge_query_v1.md": "08eab7f1c869986df13d462ce231670e6127b10d7e311b7127cf5fbfd4e621ce",
+      "core/yield_rca_core/prompts/synthetic_v2_query_wording_v1.md": "a5a8461a73b59966a2c4754a657c3dd515e2df251f6350bab9f496cbc527c6da"
+    },
+    "selected_case_ids": [
+      "FORMAL_012"
+    ],
+    "replicate": 1,
+    "provider": "dashscope",
+    "model": "qwen-plus",
+    "orchestration_mode": "llm_react",
+    "timeout_seconds": 120.0,
+    "max_http_retries": 1,
+    "logical_call_cap": 20,
+    "action_budget": 8,
+    "tool_budget": 20,
+    "ground_truth_loaded": false,
+    "pricing_snapshot_ref": null,
+    "currency": null,
+    "comparison_limitations": [
+      "Historical single-case reference, not a new A/B or model-quality score.",
+      "development_regression; prior development exposure recorded by original manifest.",
+      "Strict ACCEPT coexists with isolated candidate and semantic validation errors.",
+      "Source snapshot recaptured; historical environment not reconstructed.",
+      "Call-stage, successful HTTP attempts, retry/repair ledger and pricing are absent.",
+      "Small-n quantiles are descriptive only; no performance threshold is established."
+    ]
+  },
+  "case_id": "FORMAL_012",
+  "acceptance_contract": "strict_qwen",
+  "external_scoring_ref": null,
+  "metrics": {
+    "completion_rate": {
+      "availability": "observed",
+      "value": 1.0,
+      "numerator": 1,
+      "denominator": 1,
+      "sample_count": 1,
+      "unit": "fraction",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\run_results.json"
+      ],
+      "missing_reason": null
+    },
+    "strict_accept_rate": {
+      "availability": "observed",
+      "value": 1.0,
+      "numerator": 1,
+      "denominator": 1,
+      "sample_count": 1,
+      "unit": "fraction",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\run_results.json"
+      ],
+      "missing_reason": null
+    },
+    "candidate_recall": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "External scoring unavailable; no private Ground Truth loaded."
+    },
+    "admitted_candidate_recall": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "External scoring unavailable; no private Ground Truth loaded."
+    },
+    "competition_survival": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "External scoring unavailable; no private Ground Truth loaded."
+    },
+    "ranking_survival": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "External scoring unavailable; no private Ground Truth loaded."
+    },
+    "confirmation_survival": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "External scoring unavailable; no private Ground Truth loaded."
+    },
+    "supported_root_cause_recall": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "External scoring unavailable; no private Ground Truth loaded."
+    },
+    "root_cause_hit_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "External scoring unavailable; no private Ground Truth loaded."
+    },
+    "first_pass_json_success_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "json_decode_success_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "first_attempt_operation_success_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "json_decode_failure_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "dto_validation_failure_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "business_validation_failure_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "semantic_validation_error_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "candidate_validation_error_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "invalid_reference_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "valid_evidence_reference_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "invalid_evidence_reference_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "isolated_bad_candidate_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "provider_failure_rate": {
+      "availability": "observed",
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 1,
+      "sample_count": 1,
+      "unit": "fraction",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\run_results.json"
+      ],
+      "missing_reason": null
+    },
+    "fallback_rate": {
+      "availability": "partial",
+      "value": 0.0,
+      "numerator": 0,
+      "denominator": 1,
+      "sample_count": 1,
+      "unit": "fraction",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\run_results.json"
+      ],
+      "missing_reason": "No orchestration/candidate fallback; unified all-stage coverage absent."
+    },
+    "timeout_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "rate_limit_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "invalid_response_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "context_overflow_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "unsupported_capability_rate": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "fraction",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "logical_llm_calls": {
+      "availability": "partial",
+      "value": 12.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "count",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": "Legacy count is usage events; admitted wrapper calls not persisted."
+    },
+    "http_attempts": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "count",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "caller_retries": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "count",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "output_repairs": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "count",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "action_count": {
+      "availability": "observed",
+      "value": 6.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "count",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "tool_count": {
+      "availability": "observed",
+      "value": 7.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "count",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "evidence_count": {
+      "availability": "observed",
+      "value": 119.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "count",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "logical_llm_calls_per_case": {
+      "availability": "partial",
+      "value": 12.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "count_per_case",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": "Legacy count is usage events; admitted wrapper calls not persisted."
+    },
+    "http_attempts_per_case": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "count_per_case",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "caller_retries_per_case": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "count_per_case",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "output_repairs_per_case": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "count_per_case",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "action_count_per_case": {
+      "availability": "observed",
+      "value": 6.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "count_per_case",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "tool_count_per_case": {
+      "availability": "observed",
+      "value": 7.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "count_per_case",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "evidence_count_per_case": {
+      "availability": "observed",
+      "value": 119.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "count_per_case",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "http_attempts_per_logical_call": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "count_per_call",
+      "source_refs": [],
+      "missing_reason": "Not captured with a complete denominator in the historical artifact."
+    },
+    "input_tokens": {
+      "availability": "partial",
+      "value": 120614.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 12,
+      "unit": "tokens",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": "Reported usage only; missing usage and successful-retry billing unknown."
+    },
+    "input_tokens_per_case": {
+      "availability": "partial",
+      "value": 120614.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "tokens_per_case",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": "Reported usage only; missing usage and successful-retry billing unknown."
+    },
+    "output_tokens": {
+      "availability": "partial",
+      "value": 11146.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 12,
+      "unit": "tokens",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": "Reported usage only; missing usage and successful-retry billing unknown."
+    },
+    "output_tokens_per_case": {
+      "availability": "partial",
+      "value": 11146.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "tokens_per_case",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": "Reported usage only; missing usage and successful-retry billing unknown."
+    },
+    "total_tokens": {
+      "availability": "partial",
+      "value": 131760.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 12,
+      "unit": "tokens",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": "Reported usage only; missing usage and successful-retry billing unknown."
+    },
+    "total_tokens_per_case": {
+      "availability": "partial",
+      "value": 131760.0,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "tokens_per_case",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": "Reported usage only; missing usage and successful-retry billing unknown."
+    },
+    "cost": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "currency",
+      "source_refs": [],
+      "missing_reason": "No reliable pricing snapshot or complete billable-attempt usage."
+    },
+    "cost_per_case": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "currency_per_case",
+      "source_refs": [],
+      "missing_reason": "No reliable pricing snapshot or complete billable-attempt usage."
+    },
+    "cost_per_successful_rca": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "currency",
+      "source_refs": [],
+      "missing_reason": "No reliable pricing snapshot or complete billable-attempt usage."
+    },
+    "cost_per_logical_call": {
+      "availability": "unavailable",
+      "value": null,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 0,
+      "unit": "currency",
+      "source_refs": [],
+      "missing_reason": "No reliable pricing snapshot or complete billable-attempt usage."
+    },
+    "call_latency_min": {
+      "availability": "observed",
+      "value": 5672.283,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 12,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "call_latency_median": {
+      "availability": "observed",
+      "value": 15844.008000000002,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 12,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "call_latency_p50": {
+      "availability": "observed",
+      "value": 15844.008000000002,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 12,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "call_latency_p95": {
+      "availability": "observed",
+      "value": 68111.17640000001,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 12,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "call_latency_max": {
+      "availability": "observed",
+      "value": 68994.835,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 12,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "case_latency_min": {
+      "availability": "observed",
+      "value": 287348.367,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "case_latency_median": {
+      "availability": "observed",
+      "value": 287348.367,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "case_latency_p50": {
+      "availability": "observed",
+      "value": 287348.367,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "case_latency_p95": {
+      "availability": "observed",
+      "value": 287348.367,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    },
+    "case_latency_max": {
+      "availability": "observed",
+      "value": 287348.367,
+      "numerator": null,
+      "denominator": null,
+      "sample_count": 1,
+      "unit": "ms",
+      "source_refs": [
+        "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json"
+      ],
+      "missing_reason": null
+    }
+  },
+  "calls": [],
+  "fallback_events": [],
+  "telemetry_coverage": {
+    "calls_complete": false,
+    "fallback_events_complete": false,
+    "dropped_events": null,
+    "limitations": [
+      "Historical usage is not a complete stage/attempt event ledger."
+    ]
+  },
+  "candidate_funnel": [
+    {
+      "stage": "initial_raw",
+      "captured": false,
+      "candidate_ids": [],
+      "source_ref": null,
+      "missing_reason": "Complete stage snapshot and lineage absent."
+    },
+    {
+      "stage": "initial_admitted",
+      "captured": false,
+      "candidate_ids": [],
+      "source_ref": null,
+      "missing_reason": "Complete stage snapshot and lineage absent."
+    },
+    {
+      "stage": "competition",
+      "captured": false,
+      "candidate_ids": [],
+      "source_ref": null,
+      "missing_reason": "Complete stage snapshot and lineage absent."
+    },
+    {
+      "stage": "ranking",
+      "captured": false,
+      "candidate_ids": [],
+      "source_ref": null,
+      "missing_reason": "Complete stage snapshot and lineage absent."
+    },
+    {
+      "stage": "confirmation",
+      "captured": false,
+      "candidate_ids": [],
+      "source_ref": null,
+      "missing_reason": "Complete stage snapshot and lineage absent."
+    },
+    {
+      "stage": "finalizer",
+      "captured": true,
+      "candidate_ids": [],
+      "source_ref": "C:\\Users\\ybt\\Documents\\Codex\\semiconductor-yield-rca-v1-upgrade\\outputs\\transport120_8d9192f_FORMAL012_20260913_213143_0249400\\states\\FORMAL_012.json#/authoritative_rca_result",
+      "missing_reason": null
+    }
+  ],
+  "diagnostics": {
+    "candidate_validation_errors": [
+      "candidates[1] uses non-supporting Evidence as support: ['EV_MES_RECOVERY_CONTROLS']",
+      "candidate competition is incomplete: mechanism_alternative_not_generated; preserve the prior candidate and represent the evidence-bounded competing causal direction or a materially different physical mechanism independently; a Scope-only variant does not satisfy root-cause competition",
+      "candidate semantic relation does not form an independent primary-mechanism alternative: candidate_index=1, relation=unknown"
+    ],
+    "semantic_profile_validation_errors": [
+      "candidate_semantic_profiles[0].distinguishing_predictions[0] non-product predictions cannot declare Lane effects",
+      "candidate_semantic_profiles[1].distinguishing_predictions[0] non-product predictions cannot declare Lane effects",
+      "candidate_semantic_profiles missing surviving candidate indexes: [0, 1]"
+    ],
+    "strict_qwen_rejection_reasons": [],
+    "funnel_note": [
+      "Inconclusive Finalizer: no published root cause or inferred GT match."
+    ]
+  }
+}

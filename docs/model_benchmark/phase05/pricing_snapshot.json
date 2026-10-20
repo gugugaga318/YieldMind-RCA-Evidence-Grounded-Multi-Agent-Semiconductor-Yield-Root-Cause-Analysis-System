@@ -1,0 +1,70 @@
+{
+  "version": "pricing/2026-10-08.v1",
+  "snapshot_timestamp": "2026-10-08T04:24:25.145668+00:00",
+  "effective_date": null,
+  "effective_date_reason": "Official pages show current rates but no effective-from date; observed-as-of snapshot",
+  "sources": [
+    "https://help.aliyun.com/zh/model-studio/qwen-plus",
+    "https://api-docs.deepseek.com/quick_start/pricing/"
+  ],
+  "models": [
+    {
+      "provider": "dashscope",
+      "model": "qwen-plus",
+      "snapshot_id": "dashscope-qwen-plus-20261008-v1",
+      "currency": "CNY",
+      "region": "China Beijing",
+      "mode": "non-thinking realtime; no explicit cache creation",
+      "unit_tokens": 1000000,
+      "alias_version": "qwen-plus-2025-12-01",
+      "tiers": [
+        {
+          "input_max": 128000,
+          "input": 0.8,
+          "output": 2.0,
+          "cache_hit": 0.16
+        },
+        {
+          "input_max": 256000,
+          "input": 2.4,
+          "output": 20.0,
+          "cache_hit": 0.48
+        },
+        {
+          "input_max": 1000000,
+          "input": 4.8,
+          "output": 48.0,
+          "cache_hit": 0.96
+        }
+      ],
+      "source": "https://help.aliyun.com/zh/model-studio/qwen-plus",
+      "discounts": "list price; account promotions not assumed"
+    },
+    {
+      "provider": "deepseek",
+      "model": "deepseek-v4-pro",
+      "snapshot_id": "deepseek-v4-pro-20261008-v1",
+      "currency": "USD",
+      "unit_tokens": 1000000,
+      "alias_version": "DeepSeek-V4-Pro-0813",
+      "rates": {
+        "peak": {
+          "input": 1.32,
+          "output": 3.96,
+          "cache_hit": 0.044
+        },
+        "off_peak": {
+          "input": 0.66,
+          "output": 1.98,
+          "cache_hit": 0.022
+        }
+      },
+      "peak_utc": "Mon-Fri 01:00-04:00 and 06:00-10:00, excluding Chinese public holidays",
+      "tariff_policy": "require explicit verified tariff at request billing time; absent -> range, not point",
+      "source": "https://api-docs.deepseek.com/quick_start/pricing/"
+    }
+  ],
+  "usage_policy": "Unknown cache presence or failed billable HTTP usage -> no precise total; retain rate bounds",
+  "currency_conversion": null,
+  "historical_repricing": false
+}

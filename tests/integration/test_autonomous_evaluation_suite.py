@@ -160,7 +160,7 @@ class AutonomousQwenEvaluationSuiteTest(unittest.TestCase):
         self.assertIn("## Scratch + Cu CMP action audit", report)
 
         tracked_output_dir = (
-            ROOT / "outputs" / "autonomous_qwen_react_evaluation"
+            ROOT / "tests" / "fixtures" / "autonomous_evaluation"
         )
         self.assertEqual(
             json.loads(
@@ -194,7 +194,7 @@ class AutonomousQwenEvaluationSuiteTest(unittest.TestCase):
             self.assertNotIn(str(ROOT), serialized)
 
     def test_runtime_configuration_exposes_orchestration_mode(self) -> None:
-        env_example = (ROOT / ".env.example").read_text(encoding="utf-8")
+        env_example = (ROOT / "docs/configuration.md").read_text(encoding="utf-8")
         compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
 
         self.assertIn("YIELD_RCA_ORCHESTRATION_MODE=fixed", env_example)

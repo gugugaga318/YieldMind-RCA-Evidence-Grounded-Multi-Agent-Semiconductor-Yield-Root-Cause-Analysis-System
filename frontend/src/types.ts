@@ -32,7 +32,42 @@ export type FindingKind =
   | "hypothesis_ranking"
   | "improvement";
 
+export interface ModelSelection {
+  provider: string;
+  model: string;
+}
+
+export interface ModelOptionsResponse {
+  catalog_version: string;
+  default_selection: ModelSelection;
+  providers: {
+    provider: string;
+    display_name: string;
+    configured: boolean;
+    models: {
+      model: string;
+      display_name: string;
+      available: boolean;
+      unavailable_reason?: string | null;
+    }[];
+  }[];
+}
+
+export type ModelCatalogStatus = "loading" | "ready" | "error";
+
+export interface ModelSelectionMetadata {
+  requested_provider: string | null;
+  requested_model: string | null;
+  source: "explicit" | "server_default";
+  resolved_provider: string;
+  resolved_model: string;
+  actual_provider: string | null;
+  actual_model: string | null;
+  identity_match: boolean | null;
+}
+
 export interface CreateRCAJobRequest {
+  model_selection?: ModelSelection;
   investigation_mode: InvestigationMode;
   user_query?: string;
   lot_id?: string;
@@ -112,7 +147,7 @@ export interface CapabilityNotice {
   supported: boolean;
   reason: string;
   available_alternatives: string[];
-  request_source: "user" | "qwen" | "system";
+  request_source: "user" | "qwen" | "model" | "system";
 }
 
 export interface QuestionEvidenceLink {
@@ -240,7 +275,12 @@ export interface AgentFinding {
   warnings: Warning[];
 }
 
-export type CausalClaimStatus = "supported" | "incomplete" | "conflicted" | "unavailable";
+export type CausalClaimStatus =
+  | "supported"
+  | "plausible"
+  | "incomplete"
+  | "conflicted"
+  | "unavailable";
 
 export interface CausalMatrixClaim {
   claim: string;
@@ -256,7 +296,32 @@ export interface CausalEvidenceMatrix {
   claims: Record<string, CausalMatrixClaim>;
   status: CausalClaimStatus;
   invalid_evidence_ids: string[];
+  data_missing_evidence_ids?: string[];
+  data_missing_sources?: DataMissingSourceTrace[];
+  causal_chain?: CausalChainTrace | null;
+  causal_chain_completeness?: string | null;
   mechanism_support_source: string | null;
+}
+
+export interface DataMissingSourceTrace {
+  evidence_id: string;
+  source_type: string;
+  source_id: string;
+  source_table: string | null;
+  source_field: string | null;
+  observation: string;
+  entity_ids: string[];
+  required_for_confirmation?: boolean;
+}
+
+export interface CausalChainTrace {
+  status: string;
+  stages: Record<string, CausalClaimStatus>;
+  evidence_ids: string[];
+  missing_stages: string[];
+  conflicting_stages: string[];
+  data_missing_evidence_ids: string[];
+  reason: string;
 }
 
 export interface RcaCandidateTrace {
@@ -269,6 +334,8 @@ export interface RcaCandidateTrace {
   contradicting_evidence_ids: string[];
   rejection_reasons: string[];
   causal_matrix_status: CausalClaimStatus | null;
+  causal_chain_completeness?: string | null;
+  data_missing_evidence_ids?: string[];
   mechanism_support_source: string | null;
   causal_evidence_matrix: CausalEvidenceMatrix | null;
 }
@@ -277,39 +344,170 @@ export interface CausalEvidenceGap {
   gap_id: string;
   candidate_index: number;
   claim: string;
-  status: CausalClaimStatus;
+  status: string;
   reason: string;
   question_kind: string;
   allowed_actions: string[];
   evidence_ids: string[];
+  gap_type?: string;
+  data_missing_evidence_ids?: string[];
+  unavailable_sources?: DataMissingSourceTrace[];
 }
 
 export interface ImpactLotGateRow {
   lot_id: string;
   included: boolean;
+  candidate_included?: boolean;
+  confirmed?: boolean;
   included_reason: string | null;
   excluded_reason: string | null;
   supporting_evidence_ids: string[];
+  data_missing_evidence_ids?: string[];
+  non_blocking_data_missing_evidence_ids?: string[];
+  data_available?: boolean;
+  checks?: Record<string, boolean>;
+}
+
+export interface CandidateImpactScopeTrace {
+  candidate_index: number;
+  candidate_rank?: number | null;
+  candidate_root_cause: string | null;
+  candidate_scope_status?: string;
+  publication_status?: string;
+  candidate_impact_lots: string[];
+  confirmed_impact_lots: string[];
+  data_missing_evidence_ids: string[];
+  non_blocking_data_missing_evidence_ids: string[];
+}
+
+export interface CausalLaneTrace {
+  lane_id: string;
+  operation: string;
+  operation_name?: string;
+  module?: string;
+  equipment: string;
+  chamber: string;
+  recipe: string;
+  parameter_scope: string[];
+  exposed_lot_ids: string[];
+  time_window: string[];
+  initial_evidence_ids: string[];
+  priority_score: number;
+  investigation_status: string;
+  pruned_reason: string | null;
+}
+
+export interface CandidateChallengeTrace {
+  candidate_id: string;
+  alternative_candidate_id: string | null;
+  evidence_probe_lane_id: string | null;
+  challenge_kind: string;
+  strongest_alternative_lane_id: string | null;
+  supporting_evidence_ids: string[];
+  contradicting_evidence_ids: string[];
+  unexplained_precursor_evidence_ids: string[];
+  distinguishing_gap_ids: string[];
+  distinguishing_questions: string[];
+  challenge_explanation: string;
+  status: string;
+}
+
+export interface CompetitionTrace {
+  active_lane_ids: string[];
+  overflow_lane_ids: string[];
+  represented_lane_ids: string[];
+  unresolved_lane_ids: string[];
+  eliminated_lane_ids: string[];
+  blocked_lane_ids: string[];
+  lane_resolutions: AlternativeLaneResolutionTrace[];
+  alternative_search_status: string;
+  competition_requirement: string;
+  competition_status: string;
+  competition_type: string;
+  competition_axes?: string[];
+  scope_assessment_status?: string;
+  competition_failure_reason: string | null;
+  candidate_lineage: Record<string, unknown>[];
+  challenge_round_count: number;
+  resolution_evidence_ids: string[];
+}
+
+export interface AlternativeLaneResolutionTrace {
+  lane_id: string;
+  status: "retained" | "eliminated" | "unresolved" | "blocked" | "non_discriminative";
+  candidate_id: string | null;
+  evidence_ids: string[];
+  distinguishing_gap_ids: string[];
+  reason: string;
+}
+
+export interface AuthoritativeRCAResult {
+  result_id: string;
+  source_finding_id: string | null;
+  source_hypothesis_id: string | null;
+  conclusion_status: "supported" | "inconclusive" | "insufficient_evidence";
+  root_cause_candidate_id: string | null;
+  root_cause: string | null;
+  confirmation_status: string;
+  competition_status: string;
+  terminal_reason: string;
+  evidence_refs: string[];
+  schema_version: string;
+}
+
+export interface ImpactPublicationResult {
+  rca_result_id: string;
+  publication_status: "confirmed" | "withheld" | "unconfirmed" | "not_evaluated";
+  confirmed_impact_lots: string[];
+  evidence_refs: string[];
+  schema_version: string;
 }
 
 export interface RcaDiagnosisTrace {
-  finding_id: string;
+  finding_id: string | null;
+  result_id?: string | null;
   conclusion_status: string;
+  root_cause_candidate_id?: string | null;
+  confirmation_status?: string | null;
+  competition_status?: string | null;
+  terminal_reason?: string | null;
+  evidence_refs?: string[];
+  causal_chain_completeness?: string | null;
+  data_missing_evidence_ids?: string[];
   root_cause: string | null;
   ranked_candidates: RcaCandidateTrace[];
   evidence_synthesis: Record<string, unknown>;
   causal_evidence_gaps: CausalEvidenceGap[];
   candidate_comparison: Record<string, unknown>;
+  causal_lanes: CausalLaneTrace[];
+  candidate_challenges: CandidateChallengeTrace[];
+  competition_trace: CompetitionTrace | null;
   confirmation_gate: {
     status?: string;
     checks?: Record<string, boolean>;
     reasons?: string[];
     unresolved_gaps?: string[];
+    causal_chain_completeness?: string | null;
+    data_missing_evidence_ids?: string[];
+    blocking_data_missing_evidence_ids?: string[];
+    non_blocking_data_missing_evidence_ids?: string[];
   };
   impact_lot_gate: {
+    scope_status?: string;
+    candidate_scope_status?: string;
+    publication_status?: string;
+    scope_basis?: string;
+    data_missing_evidence_ids?: string[];
+    non_blocking_data_missing_evidence_ids?: string[];
+    observed_impact_lots?: string[];
+    candidate_impact_lots?: string[];
     confirmed_impact_lots?: string[];
+    confirmation_blocked_reason?: string | null;
+    candidate_scopes?: CandidateImpactScopeTrace[];
     rows?: ImpactLotGateRow[];
   };
+  publication_status?: string | null;
+  confirmed_impact_lots?: string[];
 }
 
 export interface Hypothesis {
@@ -386,7 +584,17 @@ export interface PlannerAttemptDiagnostic {
   provider_request_id: string | null;
 }
 
+export interface ResultIdentity {
+  author: "model" | "python_runtime" | "user" | "unknown";
+  provider: string | null;
+  model: string | null;
+  basis: "runtime_config" | "legacy_source" | "python_runtime";
+}
+
 export interface ExecutionMetadata {
+  model_selection?: ModelSelectionMetadata | null;
+  model_identity?: ResultIdentity | null;
+  model_telemetry?: { events: Record<string, unknown>[]; dropped_count: number; complete: boolean } | null;
   agent_mode?: "deterministic" | "fake" | "llm";
   provider?: string | null;
   model?: string | null;
@@ -405,10 +613,17 @@ export interface ExecutionMetadata {
   orchestration_fallback_attempt_count?: number;
   orchestration_fallback_validation_errors?: string[];
   intent_planner_attempt_diagnostics?: PlannerAttemptDiagnostic[];
+  planner_stop_proposed_by?: "qwen" | "model" | "python_runtime";
+  terminal_stop_projection_applied?: boolean;
+  terminal_stop_projection_trace?: "execution_metadata_only";
+  terminal_stop_projected_by?: "python_investigation_finalizer";
+  terminal_state_owner?: "python_investigation_finalizer";
+  superseded_terminal_planner_decision?: PlannerDecision;
   tool_latencies?: ToolLatencyRecord[];
 }
 
 export interface RCAState {
+  result_identities?: Record<string, ResultIdentity>;
   job: {
     job_id: string;
     user_query: string;
@@ -416,6 +631,7 @@ export interface RCAState {
     source_lot_id: string | null;
     product_id: string | null;
     time_window: Record<string, string>;
+    declared_unavailable_sources?: string[];
     status: TaskStatus;
     created_at: string;
   };
@@ -435,6 +651,9 @@ export interface RCAState {
   evidence: Evidence[];
   findings: AgentFinding[];
   hypotheses: Hypothesis[];
+  causal_lanes?: CausalLaneTrace[];
+  candidate_challenges?: CandidateChallengeTrace[];
+  competition_trace?: CompetitionTrace | null;
   warnings: Warning[];
   report: RCAReport | null;
   llm_usage: LLMUsageEvent[];
@@ -456,6 +675,9 @@ export interface RCAState {
   question_update_reviews?: QuestionUpdateReview[];
   authoritative_rca_finding_id?: string | null;
   authoritative_hypothesis_id?: string | null;
+  authoritative_rca_result?: AuthoritativeRCAResult | null;
+  impact_publication_result?: ImpactPublicationResult | null;
+  triage_result?: TriageResult | null;
   rca_diagnosis?: RcaDiagnosisTrace | null;
   run_evaluation?: RunEvaluation | null;
   goal_status?: GoalStatus | null;
@@ -505,7 +727,7 @@ export interface SpecialistTraceViewModel {
   agent: string;
   toolCallCount: number;
   stopReason: string | null;
-  analysisSource: "qwen" | "deterministic_fallback" | null;
+  analysisSource: "qwen" | "model" | "deterministic_fallback" | null;
   fallbackReason: string | null;
   validationRetryCount: number;
   localFallback: boolean;
@@ -594,6 +816,7 @@ export interface RCAReportResponse {
   job_id: string;
   status: TaskStatus;
   report: RCAReport;
+  triage_result?: TriageResult | null;
 }
 
 export interface YieldTrendPoint {
@@ -936,4 +1159,58 @@ export interface KnowledgeApprovalRequest {
   engineer_role: EngineerRole;
   decision: "approve" | "reject";
   comment: string;
+}
+
+
+// Finalizer-owned triage/1.0. These fields never populate confirmed RCA authority.
+export interface TriageScope {
+  entity: string | null; operation: string | null; equipment: string | null;
+  chamber: string | null; recipe: string | null; recipe_version: string | null;
+  scope_kind: "lane" | "recipe" | "chamber" | "equipment" | "operation" | "unresolved";
+  lane_ids: string[]; time_window: string[];
+}
+export interface TriageHypothesis {
+  candidate_id: string; engineering_statement: string; causal_explanation: string;
+  primary_mechanism: string; supporting_evidence_ids: string[]; contradicting_evidence_ids: string[];
+  scope: TriageScope; authority: "suspected_hypothesis"; engineering_sign_off: "not_recorded";
+}
+export type TriageUncertaintyKind = "not_observed" | "not_acquired" | "unavailable" | "conflicting"
+  | "unresolved_alternative" | "unsupported_mechanism" | "insufficient_scope" | "insufficient_temporal_support";
+export interface TriageClaimAssessment {
+  status: "supported" | "plausible" | "incomplete" | "conflicted" | "unavailable";
+  evidence_ids: string[]; explanation: string; source_path: string;
+  observation_status: "observed" | "not_observed" | "not_acquired" | "unavailable" | "unknown";
+}
+export type TriageDimension = "parameter_support" | "mechanism_support" | "entity_consistency"
+  | "operation_consistency" | "recipe_version_consistency" | "scope_consistency"
+  | "temporal_consistency" | "contradiction" | "causal_chain" | "alternative_status";
+export type TriageEvidenceAssessment = { candidate_id: string } & Record<TriageDimension, TriageClaimAssessment | null>;
+export interface TriageNextAction {
+  action_id: string; purpose: "discriminate_hypotheses" | "acquire_missing_evidence";
+  target_candidate_ids: string[]; requested_observation: string; scope: TriageScope;
+  expected_discriminating_outcomes: { candidate_id: string; expected_observation: string; interpretation: string }[];
+  inconclusive_outcome: string; executor: "system_tool" | "human_engineer" | "external_process";
+  approval_required: boolean; recommendation_only: true;
+  executability: "executable" | "requires_approval" | "external_only" | "not_executable" | "unknown";
+  availability: "available" | "unavailable" | "unknown"; availability_reason: string;
+}
+export interface TriageResult {
+  schema_version: "triage/1.0"; result_id: string; source_finding_id: string;
+  primary: TriageHypothesis | null; strongest_alternative: TriageHypothesis | null;
+  comparison: {
+    preference_status: "preference_established" | "preference_not_established" | "tied" | "not_distinguishable";
+    ordering_basis: "evidence_preference" | "stable_presentation_order" | "single" | "none";
+    primary_ordering_reason: string; alternative_retention_reason: string | null;
+    alternative_disposition: "retained" | "no_valid_alternative_identified" | "alternative_not_investigated";
+    discriminating_evidence_ids: string[]; preferred_candidate_id: string | null; causal_winner_established: false;
+  };
+  evidence_assessment: TriageEvidenceAssessment[];
+  remaining_uncertainty: {kind: TriageUncertaintyKind; description: string;
+    candidate_ids: string[]; evidence_ids: string[]; scope: TriageScope}[];
+  next_investigation_action: TriageNextAction | null; no_next_action_reason: string | null;
+  terminal_reason: "budget_exhausted" | "no_high_value_action" | "data_unavailable" | "no_allowed_action"
+    | "critical_contradiction" | "hypotheses_tied" | "engineer_evidence_required"
+    | "single_candidate_unconfirmed" | "insufficient_candidate_evidence";
+  authority: "hypothesis_triage"; writer: "python_finalizer"; execution_completed: true;
+  scientific_question_resolved: false; engineering_sign_off: "not_recorded";
 }

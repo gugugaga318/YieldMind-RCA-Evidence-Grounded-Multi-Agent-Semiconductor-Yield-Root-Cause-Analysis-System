@@ -2701,6 +2701,49 @@ p {
   line-height: 1.4;
 }
 
+.causal-chain-summary,
+.causal-missing-source-note {
+  margin-top: 10px;
+  padding: 9px;
+  color: #43514b;
+  background: #f3f7f5;
+  border: 1px solid #d9e3de;
+  border-radius: 4px;
+  font-size: 9px;
+}
+
+.causal-chain-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.causal-chain-summary p,
+.causal-impact-basis {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.causal-gate-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.causal-missing-source-note strong {
+  display: block;
+  color: #825918;
+}
+
 .causal-evidence-ids {
   display: flex;
   flex-wrap: wrap;
@@ -2782,7 +2825,8 @@ p {
 }
 
 .causal-subpanel,
-.causal-impact-panel {
+.causal-impact-panel,
+.causal-competition-panel {
   min-width: 0;
   padding: 14px;
   background: var(--surface-subtle);
@@ -2792,6 +2836,50 @@ p {
 
 .causal-impact-panel {
   margin-top: 12px;
+}
+
+.causal-competition-panel {
+  margin-top: 12px;
+}
+
+.causal-lane-list,
+.causal-challenge-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.causal-lane-list article,
+.causal-challenge-list article {
+  min-width: 0;
+  padding: 9px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  font-size: 9px;
+}
+
+.causal-lane-list article > div:first-child,
+.causal-challenge-list article > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.causal-lane-list p,
+.causal-challenge-list p {
+  margin: 7px 0;
+  color: #35423c;
+  line-height: 1.45;
+}
+
+.causal-lane-list article > span,
+.causal-challenge-list article > span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
 }
 
 .causal-subheading {
@@ -4337,7 +4425,9 @@ p {
   }
 
   .causal-candidate-grid,
-  .causal-diagnosis-grid {
+  .causal-diagnosis-grid,
+  .causal-lane-list,
+  .causal-challenge-list {
     grid-template-columns: 1fr;
   }
 
@@ -4431,4 +4521,56 @@ p {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+/* Backend-owned per-job model selection and recorded execution identity. */
+.model-selector { border: 0; padding: 0; margin: 8px 0; display: grid; gap: 8px; min-width: 0; }
+.model-selector legend { font-weight: 700; margin-bottom: 12px; }
+.model-selector select { width: 100%; }
+.model-reload, .model-selector-notice button { background: transparent; color: inherit; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px; cursor: pointer; }
+.model-selector-notice { display: grid; gap: 8px; font-size: 13px; padding: 12px 0; }
+.model-identity { margin: 0 0 18px; padding: 14px 18px; background: #fff; border: 1px solid #dce3eb; border-radius: 10px; }
+.model-identity dl { display: flex; flex-wrap: wrap; gap: 16px 32px; margin: 0; }
+.model-identity dl > div { flex: 1 1 220px; min-width: 0; }
+.model-identity dt { color: #52647a; font-size: 12px; margin-bottom: 5px; }
+.model-identity dd { margin: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.model-identity-warning { color: #a12d24; font-size: 13px; margin: 12px 0 0; }
+
+
+/* Copilot triage: equal hypothesis emphasis, explicit uncertainty and handoff. */
+.triage-panel { background: #fff; border: 1px solid #d5dfd9; border-radius: 16px; padding: 24px; margin: 22px 0; color: #253e34; }
+.triage-header h2 { margin: 6px 0 12px; font-size: 26px; }
+.triage-panel p { line-height: 1.6; overflow-wrap: anywhere; }
+.triage-panel small, .triage-scope { color: #58695f; font-size: 12px; overflow-wrap: anywhere; }
+.triage-panel h3 { font-size: 17px; margin: 0 0 12px; }
+.triage-hypotheses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.triage-hypothesis { border: 1px solid #d7dfda; border-radius: 12px; padding: 20px; min-width: 0; }
+.triage-hypothesis .triage-statement { font-size: 17px; font-weight: 600; }
+.triage-comparison { border: 1px solid #ccd7d0; background: #f1f5f2; border-radius: 10px; padding: 16px; margin-top: 20px; }
+.triage-evidence { max-height: 300px; overflow-y: auto; padding-left: 20px; }
+.triage-evidence li { border-bottom: 1px solid #e4e9e5; padding: 9px 0; font-size: 13px; }
+.triage-evidence code, .triage-citations { font-size: 11px; overflow-wrap: anywhere; }
+.triage-evidence p { margin: 6px 0; }
+.triage-panel summary, .triage-diagnostics > summary { cursor: pointer; font-weight: 600; padding: 12px 0; }
+.triage-uncertainty { background: #fff9ef; border-left: 4px solid #b98635; border-radius: 8px; padding: 20px; margin: 20px 0; }
+.triage-uncertainty li { margin: 15px 0; }
+.triage-uncertainty p { margin: 4px 0; }
+.triage-next-action { background: #f1f6f3; border: 1px solid #c8d9cf; border-radius: 12px; padding: 20px; margin: 20px 0; }
+.triage-action-notice { font-weight: 600; }
+.triage-action-facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; }
+.triage-action-facts dd { margin: 0; }
+.triage-table-wrap { overflow-x: auto; }
+.triage-assessment table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.triage-assessment th, .triage-assessment td { padding: 12px; border-bottom: 1px solid #e1e8e2; vertical-align: top; }
+.triage-assessment td small { display: block; margin-top: 6px; }
+.triage-status { white-space: nowrap; padding: 4px 7px; border-radius: 5px; background: #edf0ee; }
+.triage-status.supported { background: #e4f3e9; }
+.triage-status.plausible, .triage-status.incomplete { background: #fcf0d8; }
+.triage-status.conflicted { background: #fce8e5; }
+.triage-confirmation { padding: 18px 0 0; border-top: 1px solid #dce4de; margin-top: 20px; }
+.triage-diagnostics { margin: 24px 0; }
+@media (max-width: 760px) {
+  .triage-panel { padding: 16px; }
+  .triage-hypotheses { grid-template-columns: 1fr; }
+  .triage-hypothesis { padding: 16px; }
 }

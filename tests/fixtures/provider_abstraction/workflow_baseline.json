@@ -1,0 +1,182 @@
+{
+  "base_commit": "8d9192f2769f0c6843f8944a84dd280a301f8ed9",
+  "scenarios": {
+    "native_controlled": {
+      "hashes": {
+        "calls": "e48553eb05000d02a3cdb2cc322129593b1f9c82c28e2ca73f28536144cc6e61",
+        "tool_inputs": "ea4feee82fb9e48895b23ce44580aab69b3e180224bb0a5f7a457c3de5483b0c",
+        "events": "8d2081d21c3e9cc58375f0c927af60aed337f56d39c5ddf19d2c9b5070889b01",
+        "state": "3490c4e074ef7a9592ee9d33901b2154a745a1b51eee11beeff23ba82ef9ba97",
+        "evidence": "142e65c9d6cb3fea2b8ed5df7c32f93c9e3848673421c112c4ec87e1097206a2",
+        "findings": "03c4dfbcf2a114af9d7338cc6acbcd179312ae91d9fb3f641b1ec926259e19ae",
+        "hypotheses": "d88f4670ce3206d50738ec35f6e5fef63c5282336304ba2d1208bcf2d74f895d",
+        "action_history": "46fc127d47566d8c51ba0d59af1b41392a59dc9acda35d13862f37aa9ef09e35",
+        "planner_decisions": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "authoritative_rca_result": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "impact_publication_result": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "execution_metadata": "571d696821074363cd670f0f2367ff493e474fe077a1a28093ac334de88a2904"
+      },
+      "logical_invocations": 5,
+      "usage_events": 5,
+      "tool_inputs": 8,
+      "actions": 5,
+      "evidence": 93,
+      "request_stages": [
+        "planner",
+        "specialist",
+        "specialist",
+        "specialist",
+        "specialist"
+      ],
+      "actual_mode": "controlled_react",
+      "fallback": null,
+      "stop_reason": "goal_satisfied",
+      "http_attempts": 0,
+      "coverage": "golden-case fake callers; wire semantics tested separately"
+    },
+    "llm_normal": {
+      "hashes": {
+        "calls": "a37760d4eeebd9ab664c6021fafd5ed69243efee5676b96143439541f51f285a",
+        "tool_inputs": "5f1ac5f24f4a6daace4e09386233df817acff9294487b3516e4d42eb9c199421",
+        "events": "3500eb979f30fbc3d4186557dcd4996b8382b86f0dce2feb7de3426b2759a179",
+        "state": "2894fd1090e9f1a4c20516d54d83eeba6c06f9aff64d2fff9ba313b4a93f5457",
+        "evidence": "a7e4daddc4e594ac71fe99f6c59e3f3db521d7649ce3f4fad5dd753e4beb98fe",
+        "findings": "820da8f15ed2819ce9e3bb80d08aba5329f9adc70400c8905b8051905fdbec2a",
+        "hypotheses": "4442ea489356240399ea8a18d81366019cccbe6064ba4c5554c608f472e578f7",
+        "action_history": "f0726be2117ca95209c06eb7b76999c552e95a245e2ca1ab2fb1d9997226979c",
+        "planner_decisions": "1a973408f4694bdcee8eded7ab64fd2ce17e74972db34ab78769b629cbdb5b4a",
+        "authoritative_rca_result": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "impact_publication_result": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "execution_metadata": "0d71db9147a8f4139ec314172adb57f76e0a4748f03b6605c91994797ab34671"
+      },
+      "logical_invocations": 17,
+      "usage_events": 17,
+      "tool_inputs": 6,
+      "actions": 5,
+      "evidence": 50,
+      "request_stages": [
+        "intent_planner",
+        "next_action_planner",
+        "specialist_tool_planner",
+        "specialist_analysis",
+        "next_action_planner",
+        "specialist_tool_planner",
+        "specialist_tool_planner",
+        "specialist_analysis",
+        "next_action_planner",
+        "specialist_tool_planner",
+        "specialist_analysis",
+        "next_action_planner",
+        "specialist_tool_planner",
+        "specialist_tool_planner",
+        "specialist_analysis",
+        "next_action_planner",
+        "next_action_planner"
+      ],
+      "actual_mode": "llm_react",
+      "fallback": null,
+      "stop_reason": "goal_satisfied",
+      "http_attempts": 0,
+      "coverage": "golden-case fake callers; wire semantics tested separately"
+    },
+    "next_action_failure": {
+      "hashes": {
+        "calls": "69a8037f6bf1cb9ad4fc224ed99b1dd40c27d4f0b3181e26b74dae05e90b8f55",
+        "tool_inputs": "ea4feee82fb9e48895b23ce44580aab69b3e180224bb0a5f7a457c3de5483b0c",
+        "events": "6f413aa6eaa227f43488d8b5729e8ca7d7444eab34b1cdabd34b8ceba81a98e5",
+        "state": "32833cdff1efd1c663be3684e473368fe9ef6c20866e9c97900bbfe2379897b2",
+        "evidence": "142e65c9d6cb3fea2b8ed5df7c32f93c9e3848673421c112c4ec87e1097206a2",
+        "findings": "03c4dfbcf2a114af9d7338cc6acbcd179312ae91d9fb3f641b1ec926259e19ae",
+        "hypotheses": "d88f4670ce3206d50738ec35f6e5fef63c5282336304ba2d1208bcf2d74f895d",
+        "action_history": "46fc127d47566d8c51ba0d59af1b41392a59dc9acda35d13862f37aa9ef09e35",
+        "planner_decisions": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "authoritative_rca_result": "d277b9e379dbecb2e8edfb5ca522d15be1f041300ba701734d00a7d6f40e9168",
+        "impact_publication_result": "d78621deab42b2cc8d4658a672fbb71de0e87bcd7883569fa1490f0a141b102f",
+        "execution_metadata": "0d49b8f75f25664b64c6769854ab0999e3a535f72738ee89bc0211054e9fdd43"
+      },
+      "logical_invocations": 7,
+      "usage_events": 5,
+      "tool_inputs": 8,
+      "actions": 5,
+      "evidence": 93,
+      "request_stages": [
+        "intent_planner",
+        "next_action_planner",
+        "next_action_planner",
+        "specialist",
+        "specialist",
+        "specialist",
+        "specialist"
+      ],
+      "actual_mode": "controlled_react",
+      "fallback": "qwen_next_action_call_failed",
+      "stop_reason": "no_high_value_action",
+      "http_attempts": 0,
+      "coverage": "golden-case fake callers; wire semantics tested separately"
+    },
+    "intent_invalid": {
+      "hashes": {
+        "calls": "82db376d3e4e194297fdada98fc062f848a0ba8f4f5dbed331ffbb8db746759f",
+        "tool_inputs": "ea4feee82fb9e48895b23ce44580aab69b3e180224bb0a5f7a457c3de5483b0c",
+        "events": "67e51fef04c04754658810bd232c8aac529c97738fe0ce570fb3e79d671e22b5",
+        "state": "f1b3d0723e327f5f71f80154e1a8810376cdef7ad8206129577f9b2302426494",
+        "evidence": "142e65c9d6cb3fea2b8ed5df7c32f93c9e3848673421c112c4ec87e1097206a2",
+        "findings": "03c4dfbcf2a114af9d7338cc6acbcd179312ae91d9fb3f641b1ec926259e19ae",
+        "hypotheses": "d88f4670ce3206d50738ec35f6e5fef63c5282336304ba2d1208bcf2d74f895d",
+        "action_history": "46fc127d47566d8c51ba0d59af1b41392a59dc9acda35d13862f37aa9ef09e35",
+        "planner_decisions": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "authoritative_rca_result": "d277b9e379dbecb2e8edfb5ca522d15be1f041300ba701734d00a7d6f40e9168",
+        "impact_publication_result": "d78621deab42b2cc8d4658a672fbb71de0e87bcd7883569fa1490f0a141b102f",
+        "execution_metadata": "91d2de49ae97c40d49d031244d8c8303a090f219c6fd389b7338520bf3e3cc60"
+      },
+      "logical_invocations": 6,
+      "usage_events": 6,
+      "tool_inputs": 8,
+      "actions": 5,
+      "evidence": 93,
+      "request_stages": [
+        "intent_planner",
+        "intent_planner",
+        "specialist",
+        "specialist",
+        "specialist",
+        "specialist"
+      ],
+      "actual_mode": "controlled_react",
+      "fallback": "qwen_intent_output_invalid",
+      "stop_reason": "no_high_value_action",
+      "http_attempts": 0,
+      "coverage": "golden-case fake callers; wire semantics tested separately"
+    },
+    "llm_stop": {
+      "hashes": {
+        "calls": "b72cadbfea0a1b0c0980247cc37517c98b31b8aad06e2b69370ac8cca60d4436",
+        "tool_inputs": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "events": "e5b117e24d3dad9e2862787a4709fec04c22cebff3826c27fe77b76350fcb53b",
+        "state": "fe043595e7e5a6f98bec4de5a191d350257ceb3c56c480216691a5f33f00743d",
+        "evidence": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "findings": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "hypotheses": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "action_history": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "planner_decisions": "fc28de3d7a61d8418c1ea01dd61eb3057078998a84a84fa2b8d231c11cd886fb",
+        "authoritative_rca_result": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "impact_publication_result": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "execution_metadata": "9c5fdc80621642547410c190fce210c6e0d8f0371ee1f2e6aa99cc760161bedf"
+      },
+      "logical_invocations": 2,
+      "usage_events": 2,
+      "tool_inputs": 0,
+      "actions": 0,
+      "evidence": 0,
+      "request_stages": [
+        "intent_planner",
+        "next_action_planner"
+      ],
+      "actual_mode": "llm_react",
+      "fallback": null,
+      "stop_reason": "data_unavailable",
+      "http_attempts": 0,
+      "coverage": "golden-case fake callers; wire semantics tested separately"
+    }
+  }
+}

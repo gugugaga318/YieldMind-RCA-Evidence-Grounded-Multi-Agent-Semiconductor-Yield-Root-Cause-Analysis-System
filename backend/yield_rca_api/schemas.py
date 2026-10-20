@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
+from yield_rca_core.triage_result import TriageResult
 
 
 class APIModel(BaseModel):
@@ -13,9 +22,53 @@ class APIModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class ModelSelectionRequest(APIModel):
+    provider: str = Field(min_length=1, max_length=40)
+    model: str = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_pair(self) -> ModelSelectionRequest:
+        from yield_rca_api.model_selection import validate_pair
+
+        validate_pair(self.provider, self.model)
+        return self
+
+
+class ModelOptionResponse(APIModel):
+    model: str
+    display_name: str
+    available: bool
+    unavailable_reason: str | None = None
+
+
+class ProviderOptionResponse(APIModel):
+    provider: str
+    display_name: str
+    configured: bool
+    models: list[ModelOptionResponse]
+
+
+class ModelOptionsResponse(APIModel):
+    catalog_version: str
+    providers: list[ProviderOptionResponse]
+    default_selection: dict[str, str]
+
+
+class ModelSelectionMetadataResponse(APIModel):
+    requested_provider: str | None = None
+    requested_model: str | None = None
+    source: Literal["explicit", "server_default"]
+    resolved_provider: str
+    resolved_model: str
+    actual_provider: str | None = None
+    actual_model: str | None = None
+    identity_match: bool | None = None
+
+
 class CreateRCAJobRequest(APIModel):
     """Request to execute one RCA investigation."""
 
+    model_selection: ModelSelectionRequest | None = None
     investigation_mode: Literal["product_window", "lot"] = "product_window"
     user_query: str | None = Field(default=None, min_length=1, max_length=2000)
     lot_id: str | None = Field(default=None, min_length=1, max_length=100)
@@ -174,7 +227,7 @@ class CapabilityNoticeResponse(APIModel):
     supported: bool
     reason: str
     available_alternatives: list[str] = Field(default_factory=list)
-    request_source: Literal["user", "qwen", "system"] = "user"
+    request_source: Literal["user", "qwen", "model", "system"] = "user"
 
 
 class QuestionEvidenceLinkResponse(APIModel):
@@ -222,6 +275,7 @@ class PlannerDecisionResponse(APIModel):
             "goal_satisfied",
             "critical_contradiction",
             "no_allowed_action",
+            "no_high_value_action",
             "budget_exhausted",
             "data_unavailable",
         ]
@@ -312,6 +366,37 @@ class HypothesisResponse(APIModel):
     schema_version: str | None = None
 
 
+class AuthoritativeRCAResultResponse(APIModel):
+    """Finalized RCA authority projected without reinterpreting legacy fields."""
+
+    result_id: str
+    source_finding_id: str | None = None
+    source_hypothesis_id: str | None = None
+    conclusion_status: Literal["supported", "inconclusive", "insufficient_evidence"]
+    root_cause_candidate_id: str | None = None
+    root_cause: str | None = None
+    confirmation_status: str
+    competition_status: str
+    terminal_reason: str
+    evidence_refs: list[str] = Field(default_factory=list)
+    schema_version: str | None = None
+
+
+class ImpactPublicationResultResponse(APIModel):
+    """Publishable Impact-Lot scope bound to one authoritative RCA result."""
+
+    rca_result_id: str
+    publication_status: Literal[
+        "confirmed",
+        "withheld",
+        "unconfirmed",
+        "not_evaluated",
+    ]
+    confirmed_impact_lots: list[str] = Field(default_factory=list)
+    evidence_refs: list[str] = Field(default_factory=list)
+    schema_version: str | None = None
+
+
 class RcaDiagnosisResponse(APIModel):
     """Public projection of the Python-owned RCA diagnosis trace.
 
@@ -322,15 +407,28 @@ class RcaDiagnosisResponse(APIModel):
     authoritative Finding themselves.
     """
 
-    finding_id: str
+    finding_id: str | None = None
+    result_id: str | None = None
     conclusion_status: str
+    root_cause_candidate_id: str | None = None
+    confirmation_status: str | None = None
+    competition_status: str | None = None
+    terminal_reason: str | None = None
+    evidence_refs: list[str] = Field(default_factory=list)
+    causal_chain_completeness: str | None = None
+    data_missing_evidence_ids: list[str] = Field(default_factory=list)
     root_cause: str | None = None
     ranked_candidates: list[dict[str, Any]] = Field(default_factory=list)
     evidence_synthesis: dict[str, Any] = Field(default_factory=dict)
     causal_evidence_gaps: list[dict[str, Any]] = Field(default_factory=list)
     candidate_comparison: dict[str, Any] = Field(default_factory=dict)
+    causal_lanes: list[dict[str, Any]] = Field(default_factory=list)
+    candidate_challenges: list[dict[str, Any]] = Field(default_factory=list)
+    competition_trace: dict[str, Any] | None = None
     confirmation_gate: dict[str, Any] = Field(default_factory=dict)
     impact_lot_gate: dict[str, Any] = Field(default_factory=dict)
+    publication_status: str | None = None
+    confirmed_impact_lots: list[str] = Field(default_factory=list)
 
 
 class ReportResponse(APIModel):
@@ -425,6 +523,20 @@ class PlannerAttemptDiagnosticResponse(APIModel):
         return self
 
 
+class ResultIdentityResponse(APIModel):
+    author: Literal["model", "python_runtime", "user", "unknown"]
+    provider: str | None = None
+    model: str | None = None
+    basis: Literal["runtime_config", "legacy_source", "python_runtime"]
+
+    @model_validator(mode="after")
+    def validate_identity(self):
+        from yield_rca_core.result_identity import ResultIdentity
+
+        ResultIdentity.from_dict(self.model_dump())
+        return self
+
+
 class ExecutionMetadataResponse(APIModel):
     """Extensible runtime metadata with typed Planner handoff diagnostics."""
 
@@ -436,11 +548,26 @@ class ExecutionMetadataResponse(APIModel):
     intent_planner_attempt_diagnostics: list[PlannerAttemptDiagnosticResponse] = Field(
         default_factory=list
     )
+    model_selection: ModelSelectionMetadataResponse | None = None
+    model_identity: ResultIdentityResponse | None = None
+    model_telemetry: dict[str, Any] | None = None
+
+
+class TriageResultResponse(RootModel[TriageResult]):
+    """Typed projection only. No root-cause or top-ranked fallback."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_contract(cls, value: Any) -> TriageResult:
+        if isinstance(value, TriageResult):
+            return value
+        return TriageResult.from_dict(value)
 
 
 class RCAJobStateResponse(APIModel):
     """Complete serialized domain state returned by the job endpoint."""
 
+    result_identities: dict[str, ResultIdentityResponse] = Field(default_factory=dict)
     job: dict[str, Any]
     task_plan: TaskPlanResponse | None = None
     current_task_id: str | None = None
@@ -457,6 +584,8 @@ class RCAJobStateResponse(APIModel):
     causal_lanes: list[dict[str, Any]] = Field(default_factory=list)
     candidate_challenges: list[dict[str, Any]] = Field(default_factory=list)
     competition_trace: dict[str, Any] | None = None
+    investigation_gain_history: list[dict[str, Any]] = Field(default_factory=list)
+    latest_action_value_assessments: list[dict[str, Any]] = Field(default_factory=list)
     causal_chain_completeness: str | None = None
     warnings: list[WarningResponse] = Field(default_factory=list)
     report: ReportResponse | None = None
@@ -471,6 +600,9 @@ class RCAJobStateResponse(APIModel):
     question_update_reviews: list[QuestionUpdateReviewResponse] = Field(default_factory=list)
     authoritative_rca_finding_id: str | None = None
     authoritative_hypothesis_id: str | None = None
+    authoritative_rca_result: AuthoritativeRCAResultResponse | None = None
+    impact_publication_result: ImpactPublicationResultResponse | None = None
+    triage_result: TriageResultResponse | None = None
     rca_diagnosis: RcaDiagnosisResponse | None = None
     run_evaluation: RunEvaluationResponse | None = None
     goal_status: str | None = None
@@ -478,6 +610,15 @@ class RCAJobStateResponse(APIModel):
     evidence_gaps: list[str] = Field(default_factory=list)
     stop_reason: str | None = None
     schema_version: str | None = None
+
+    @model_serializer(mode="wrap")
+    # Deliberately no serializer return annotation: Pydantic would replace the
+    # typed response JSON schema with an untyped dict schema if one were given.
+    def serialize_optional_triage(self, handler: Any):  # type: ignore[no-untyped-def]
+        payload: dict[str, Any] = handler(self)
+        if self.triage_result is None:
+            payload.pop("triage_result", None)
+        return payload
 
 
 class RCAJobQueueMetadataResponse(APIModel):
@@ -519,6 +660,14 @@ class RCAReportResponse(APIModel):
     job_id: str
     status: str
     report: ReportResponse
+    triage_result: TriageResultResponse | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize_optional_triage(self, handler: Any):  # type: ignore[no-untyped-def]
+        payload: dict[str, Any] = handler(self)
+        if self.triage_result is None:
+            payload.pop("triage_result", None)
+        return payload
 
 
 class MemoryApprovalRequest(APIModel):

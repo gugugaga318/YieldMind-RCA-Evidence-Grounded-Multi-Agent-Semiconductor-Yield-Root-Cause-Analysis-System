@@ -9,18 +9,34 @@ never treats a causal explanation string as proof by itself.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from yield_rca_core.causal_chain import (
+    CausalChainAssessment,
+    assess_causal_chain,
+    collect_data_missing_sources,
+)
 from yield_rca_core.causal_hypothesis import (
     CausalClaim,
     CausalClaimStatus,
     CausalHypothesis,
     MechanismSupportSource,
 )
-from yield_rca_core.evidence_models import EntityType, Evidence, EvidenceType
+from yield_rca_core.causal_investigation_models import (
+    CandidateClaimedScopeKind,
+    CandidateScopeRelation,
+    CandidateSemanticProfile,
+    CausalLaneRecord,
+)
+from yield_rca_core.evidence_models import (
+    EntityType,
+    Evidence,
+    EvidenceSourceType,
+    EvidenceType,
+)
 
 _EXPOSURE_TYPES = {
     EvidenceType.LOT_CONTEXT.value,
@@ -118,6 +134,10 @@ _SEMANTIC_STOP_WORDS = {
     "causing",
     "chamber",
     "control",
+    "create",
+    "created",
+    "creates",
+    "creating",
     "current",
     "equipment",
     "evidence",
@@ -127,6 +147,107 @@ _SEMANTIC_STOP_WORDS = {
     "operation",
     "process",
     "signal",
+}
+_GENERIC_CAUSAL_LINK_TOKENS = {
+    "abnormal",
+    "abnormality",
+    "across",
+    "affect",
+    "affected",
+    "affecting",
+    "all",
+    "among",
+    "and",
+    "anomaly",
+    "another",
+    "are",
+    "arising",
+    "both",
+    "can",
+    "cause",
+    "caused",
+    "causes",
+    "causing",
+    "change",
+    "changed",
+    "compatible",
+    "concurrent",
+    "consistent",
+    "control",
+    "critical",
+    "data",
+    "delta",
+    "defect",
+    "defects",
+    "deviation",
+    "deviations",
+    "direct",
+    "directly",
+    "disrupt",
+    "disrupted",
+    "disrupting",
+    "disrupts",
+    "drift",
+    "due",
+    "elevated",
+    "evidence",
+    "excursion",
+    "exposure",
+    "explain",
+    "explained",
+    "explains",
+    "failure",
+    "failures",
+    "for",
+    "high",
+    "increase",
+    "increased",
+    "indicate",
+    "indicated",
+    "indicates",
+    "instability",
+    "into",
+    "lead",
+    "leading",
+    "leads",
+    "likely",
+    "low",
+    "lots",
+    "may",
+    "multiple",
+    "non",
+    "outcome",
+    "pattern",
+    "patterns",
+    "primary",
+    "produce",
+    "produced",
+    "produces",
+    "producing",
+    "reduced",
+    "reported",
+    "record",
+    "records",
+    "result",
+    "resulting",
+    "results",
+    "shared",
+    "signature",
+    "same",
+    "than",
+    "that",
+    "the",
+    "then",
+    "this",
+    "through",
+    "variation",
+    "values",
+    "wafers",
+    "when",
+    "which",
+    "while",
+    "with",
+    "would",
 }
 
 
@@ -244,6 +365,87 @@ def _evidence_text(evidence: Evidence) -> str:
         )
         if value
     )
+
+
+def _explicit_mechanism_intermediate_role(evidence: Evidence) -> str | None:
+    """Return a source-traceable physical-intermediate role, if present."""
+
+    if not evidence.is_typed:
+        return None
+    role = str(
+        evidence.metadata.get(
+            "causal_role",
+            evidence.metadata.get("mechanism_role", ""),
+        )
+    ).strip().casefold()
+    if role in {"mechanism_intermediate", "physical_intermediate"}:
+        return role
+    if evidence.metadata.get("mechanism_intermediate") is True:
+        return "mechanism_intermediate"
+    observation_role = str(
+        evidence.metadata.get("observation_role", "")
+    ).strip().casefold()
+    observation_provenance = evidence.metadata.get(
+        "observation_role_provenance"
+    )
+    if (
+        observation_role == "physical_inspection_observation"
+        and evidence.source_type == "user"
+        and evidence.source_tool == "incident_observation_extractor"
+        and isinstance(observation_provenance, Mapping)
+        and str(observation_provenance.get("source_quote", "")).strip()
+        and any(
+            entity.entity_type == EntityType.DEFECT.value
+            for entity in evidence.entities
+        )
+    ):
+        return observation_role
+    return None
+
+
+def is_relevant_mechanism_intermediate(
+    evidence: Evidence,
+    candidate: CausalHypothesis,
+) -> bool:
+    """Check typed intermediate provenance and semantic relevance to a Candidate."""
+
+    if _explicit_mechanism_intermediate_role(evidence) is None:
+        return False
+    candidate_tokens = _label_tokens(_candidate_text(candidate))
+    evidence_tokens = _label_tokens(_evidence_text(evidence))
+    return len(candidate_tokens & evidence_tokens) >= 2 or any(
+        _candidate_matches_label(candidate, entity.entity_id)
+        for entity in evidence.entities
+        if entity.entity_type
+        in {
+            EntityType.PARAMETER.value,
+            EntityType.DEFECT.value,
+            EntityType.WAT_ITEM.value,
+        }
+    )
+
+
+def _intermediate_can_confirm_causal_bridge(evidence: Evidence) -> bool:
+    """Separate observed occurrence from Evidence that may confirm causation."""
+
+    causal_status = str(evidence.metadata.get("causal_status", "")).casefold()
+    if causal_status in {
+        "confirmed",
+        "approved",
+        "confirmed_cause",
+        "confirmed_causal_intermediate",
+    }:
+        return True
+    if causal_status in {
+        "observed",
+        "occurrence_only",
+        "observed_not_confirmed_cause",
+        "not_confirmed_cause",
+    }:
+        return False
+    # User-reported incident observations preserve what was seen, but absence
+    # of explicit causal confirmation must not turn the report into proof.
+    return evidence.source_type != EvidenceSourceType.USER.value
 
 
 _DIRECTION_ALIASES = {
@@ -567,12 +769,15 @@ class CausalClaimResult:
     support_source: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        serialized_facts = _json_safe(self.facts or {})
+        if not isinstance(serialized_facts, dict):
+            raise TypeError("causal claim facts must serialize as an object")
         return {
             "claim": self.claim,
             "status": self.status,
             "evidence_ids": list(self.evidence_ids),
             "reason": self.reason,
-            "facts": dict(self.facts or {}),
+            "facts": serialized_facts,
             "support_source": self.support_source,
         }
 
@@ -584,6 +789,9 @@ class CausalEvidenceMatrix:
     candidate: CausalHypothesis
     claims: Mapping[str, CausalClaimResult]
     invalid_evidence_ids: tuple[str, ...] = ()
+    data_missing_evidence_ids: tuple[str, ...] = ()
+    data_missing_sources: tuple[Mapping[str, Any], ...] = ()
+    causal_chain: CausalChainAssessment | None = None
 
     @property
     def status(self) -> str:
@@ -616,6 +824,17 @@ class CausalEvidenceMatrix:
     def mechanism_support_source(self) -> str | None:
         return self.claims[CausalClaim.MECHANISM.value].support_source
 
+    @property
+    def causal_chain_completeness(self) -> str:
+        """Return the Python-derived chain status for this candidate."""
+
+        if self.causal_chain is None:
+            return assess_causal_chain(
+                self.claims,
+                data_missing_evidence_ids=self.data_missing_evidence_ids,
+            ).status
+        return self.causal_chain.status
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "root_cause": self.candidate.root_cause,
@@ -624,8 +843,77 @@ class CausalEvidenceMatrix:
             },
             "status": self.status,
             "invalid_evidence_ids": list(self.invalid_evidence_ids),
+            "data_missing_evidence_ids": list(self.data_missing_evidence_ids),
+            "data_missing_sources": [
+                _json_safe(item) for item in self.data_missing_sources
+            ],
+            "causal_chain": (
+                self.causal_chain.to_dict()
+                if self.causal_chain is not None
+                else assess_causal_chain(
+                    self.claims,
+                    data_missing_evidence_ids=self.data_missing_evidence_ids,
+                ).to_dict()
+            ),
+            "causal_chain_completeness": self.causal_chain_completeness,
             "mechanism_support_source": self.mechanism_support_source,
         }
+
+
+def compact_causal_evidence_matrix_for_prompt(
+    matrix: CausalEvidenceMatrix,
+) -> dict[str, Any]:
+    """Return a bounded Matrix projection for model comparison/challenge.
+
+    Full claim facts remain Python-owned in ``RCAState``.  Qwen needs the
+    validation outcome, reasons, support provenance, and Evidence IDs—not the
+    repeated entity/fact arrays already available through compact Evidence
+    cards.
+    """
+
+    chain = (
+        matrix.causal_chain
+        if matrix.causal_chain is not None
+        else assess_causal_chain(
+            matrix.claims,
+            data_missing_evidence_ids=matrix.data_missing_evidence_ids,
+        )
+    )
+    return {
+        "root_cause": matrix.candidate.root_cause,
+        "status": matrix.status,
+        "claims": {
+            claim: {
+                "status": result.status,
+                "reason": result.reason,
+                "evidence_ids": list(result.evidence_ids),
+                "support_source": result.support_source,
+            }
+            for claim, result in matrix.claims.items()
+        },
+        "invalid_evidence_ids": list(matrix.invalid_evidence_ids),
+        "data_missing_evidence_ids": list(matrix.data_missing_evidence_ids),
+        "causal_chain": {
+            "status": chain.status,
+            "stages": dict(chain.stages),
+            "missing_stages": list(chain.missing_stages),
+            "conflicting_stages": list(chain.conflicting_stages),
+            "data_missing_evidence_ids": list(chain.data_missing_evidence_ids),
+            "reason": chain.reason,
+        },
+        "causal_chain_completeness": matrix.causal_chain_completeness,
+        "mechanism_support_source": (
+            matrix.claims[CausalClaim.MECHANISM.value].support_source
+            if CausalClaim.MECHANISM.value in matrix.claims
+            else None
+        ),
+        "projection_audit": {
+            "omitted_claim_fact_groups": sum(
+                1 for result in matrix.claims.values() if result.facts
+            ),
+            "full_matrix_retained_by_python": True,
+        },
+    }
 
 
 def _result(
@@ -635,9 +923,12 @@ def _result(
     reason: str,
     *,
     support_source: MechanismSupportSource | str | None = None,
+    fact_overrides: Mapping[str, Any] | None = None,
 ) -> CausalClaimResult:
     items = list(evidence)
     facts = _facts(items)
+    if fact_overrides:
+        facts.update(fact_overrides)
     if str(claim) == CausalClaim.CONTRADICTION.value:
         facts["contradictions"] = [item.evidence_id for item in items]
     return CausalClaimResult(
@@ -914,6 +1205,124 @@ def _mechanism_claim(
 
     relevant_rules = relevant(rule)
     relevant_knowledge = relevant(knowledge)
+    explicit_intermediates = [
+        item
+        for item in evidence
+        if _explicit_mechanism_intermediate_role(item) is not None
+    ]
+    relevant_intermediates = [
+        item
+        for item in explicit_intermediates
+        if is_relevant_mechanism_intermediate(item, candidate)
+    ]
+    causally_confirmed_intermediates = [
+        item
+        for item in relevant_intermediates
+        if _intermediate_can_confirm_causal_bridge(item)
+    ]
+    occurrence_only_intermediates = [
+        item
+        for item in relevant_intermediates
+        if not _intermediate_can_confirm_causal_bridge(item)
+    ]
+    empirical_discrimination = [
+        item
+        for item in evidence
+        if str(item.metadata.get("causal_support_kind", "")).casefold()
+        in {"intervention", "recovery", "dose_response", "matched_comparison"}
+        and str(item.metadata.get("validation_status", "")).casefold()
+        in {"confirmed", "approved"}
+    ]
+    relevant_empirical_discrimination = relevant(empirical_discrimination)
+    claim_entity_tokens = {
+        token
+        for claim_result in (parameter, outcome)
+        for values in claim_result.facts.get("entity_ids_by_type", {}).values()
+        if isinstance(values, list)
+        for value in values
+        for token in _label_tokens(value)
+    }
+    claim_entity_tokens.update(
+        token
+        for claim_result in (parameter, outcome)
+        for value in claim_result.facts.get("parameter_fields", [])
+        if isinstance(value, str)
+        for token in _label_tokens(value)
+    )
+    proposed_bridge_terms = sorted(
+        token
+        for token in _label_tokens(candidate.causal_explanation)
+        if token not in claim_entity_tokens
+        and token not in _GENERIC_CAUSAL_LINK_TOKENS
+        and not any(character.isdigit() for character in token)
+    )
+    parameter_ids = set(parameter.evidence_ids)
+    outcome_ids = set(outcome.evidence_ids)
+    parameter_items = [item for item in evidence if item.evidence_id in parameter_ids]
+    outcome_items = [item for item in evidence if item.evidence_id in outcome_ids]
+    parameter_lots = {
+        entity.entity_id
+        for item in parameter_items
+        for entity in item.entities
+        if entity.entity_type == EntityType.LOT.value
+    }
+    outcome_lots = {
+        entity.entity_id
+        for item in outcome_items
+        for entity in item.entities
+        if entity.entity_type == EntityType.LOT.value
+    }
+    shared_empirical_lots = sorted(parameter_lots & outcome_lots)
+    mechanism_facts = {
+        "proposed_physical_bridge_terms": proposed_bridge_terms,
+        "mechanism_expression_present": bool(proposed_bridge_terms),
+        "parameter_evidence_ids": sorted(parameter_ids),
+        "outcome_evidence_ids": sorted(outcome_ids),
+        "empirical_shared_lot_ids": shared_empirical_lots,
+        "observed_intermediate_evidence_ids": [
+            item.evidence_id for item in relevant_intermediates
+        ],
+        "causally_confirmed_intermediate_evidence_ids": [
+            item.evidence_id for item in causally_confirmed_intermediates
+        ],
+        "occurrence_only_intermediate_evidence_ids": [
+            item.evidence_id for item in occurrence_only_intermediates
+        ],
+        "observed_intermediate_provenance": {
+            item.evidence_id: {
+                "causal_role": _explicit_mechanism_intermediate_role(item),
+                "causal_status": item.metadata.get("causal_status"),
+                "source_type": item.source_type,
+                "source_id": item.source_id,
+                "source_table": item.source_table,
+                "source_field": item.source_field,
+                "source_agent": item.source_agent,
+                "source_tool": item.source_tool,
+                "causal_role_provenance": _json_safe(
+                    item.metadata.get("causal_role_provenance")
+                ),
+                "observation_role_provenance": _json_safe(
+                    item.metadata.get("observation_role_provenance")
+                ),
+            }
+            for item in relevant_intermediates
+        },
+        "empirical_discrimination_evidence_ids": [
+            item.evidence_id for item in relevant_empirical_discrimination
+        ],
+    }
+    if not proposed_bridge_terms:
+        return _result(
+            CausalClaim.MECHANISM,
+            CausalClaimStatus.INCOMPLETE,
+            [*parameter_items, *outcome_items, *relevant_knowledge, *relevant_rules],
+            (
+                "The candidate restates an abnormal parameter and outcome but does "
+                "not identify an intervening physical process."
+            ),
+            support_source=MechanismSupportSource.LLM_EXPLANATION_ONLY,
+            fact_overrides=mechanism_facts,
+        )
     if relevant_rules:
         return _result(
             CausalClaim.MECHANISM,
@@ -921,6 +1330,7 @@ def _mechanism_claim(
             relevant_rules,
             "An explicit Python-registered mechanism rule supports the relationship.",
             support_source=MechanismSupportSource.RULE,
+            fact_overrides=mechanism_facts,
         )
     if relevant_knowledge:
         return _result(
@@ -932,18 +1342,65 @@ def _mechanism_claim(
                 "prove current-Lot occurrence alone."
             ),
             support_source=MechanismSupportSource.APPROVED_KNOWLEDGE,
+            fact_overrides=mechanism_facts,
+        )
+    if causally_confirmed_intermediates and shared_empirical_lots:
+        return _result(
+            CausalClaim.MECHANISM,
+            CausalClaimStatus.SUPPORTED,
+            causally_confirmed_intermediates,
+            (
+                "Typed current-Lot Evidence explicitly records a causally "
+                "confirmed physical intermediate relevant to the proposed "
+                "mechanism."
+            ),
+            support_source=MechanismSupportSource.OBSERVED_INTERMEDIATE,
+            fact_overrides=mechanism_facts,
+        )
+    if relevant_empirical_discrimination and shared_empirical_lots:
+        return _result(
+            CausalClaim.MECHANISM,
+            CausalClaimStatus.SUPPORTED,
+            relevant_empirical_discrimination,
+            (
+                "Validated intervention, recovery, dose-response, or matched "
+                "comparison Evidence discriminates the proposed mechanism."
+            ),
+            support_source=MechanismSupportSource.EMPIRICAL_DISCRIMINATION,
+            fact_overrides=mechanism_facts,
+        )
+    if occurrence_only_intermediates and shared_empirical_lots:
+        return _result(
+            CausalClaim.MECHANISM,
+            CausalClaimStatus.PLAUSIBLE,
+            occurrence_only_intermediates,
+            (
+                "Typed current-Lot Evidence records a physical intermediate "
+                "relevant to the proposed mechanism, but its provenance limits "
+                "the claim to observed occurrence and does not confirm the "
+                "causal bridge."
+            ),
+            support_source=MechanismSupportSource.OBSERVED_INTERMEDIATE,
+            fact_overrides=mechanism_facts,
         )
     if (
         process
         and parameter.status == CausalClaimStatus.SUPPORTED.value
         and outcome.status == CausalClaimStatus.SUPPORTED.value
+        and shared_empirical_lots
     ):
         return _result(
             CausalClaim.MECHANISM,
-            CausalClaimStatus.SUPPORTED,
-            [*process],
-            "Current-Lot process anomaly and compatible product outcome converge empirically.",
+            CausalClaimStatus.PLAUSIBLE,
+            [*parameter_items, *outcome_items],
+            (
+                "The candidate states an explicit physical bridge and aligned "
+                "parameter/outcome Evidence converges on a shared current-Lot "
+                "scope. This makes the bridge plausible, but co-occurrence does "
+                "not prove the intervening physical process."
+            ),
             support_source=MechanismSupportSource.EMPIRICAL_CONVERGENCE,
+            fact_overrides=mechanism_facts,
         )
     if process or knowledge or rule or outcome.status != CausalClaimStatus.UNAVAILABLE.value:
         return _result(
@@ -956,6 +1413,7 @@ def _mechanism_claim(
                 "Evidence, when present, is not relevant to this candidate."
             ),
             support_source=MechanismSupportSource.LLM_EXPLANATION_ONLY,
+            fact_overrides=mechanism_facts,
         )
     return _result(
         CausalClaim.MECHANISM,
@@ -963,29 +1421,65 @@ def _mechanism_claim(
         (),
         "No current-Lot process or outcome Evidence can test the mechanism.",
         support_source=MechanismSupportSource.LLM_EXPLANATION_ONLY,
+        fact_overrides=mechanism_facts,
     )
 
 
 def build_causal_evidence_matrix(
     candidate: CausalHypothesis | Mapping[str, Any],
     evidence: Iterable[Evidence],
+    *,
+    semantic_profile: CandidateSemanticProfile | Mapping[str, Any] | None = None,
+    causal_lanes: Sequence[CausalLaneRecord | Mapping[str, Any]] = (),
 ) -> CausalEvidenceMatrix:
-    """Build a deterministic matrix for one candidate and typed Evidence set."""
+    """Build a deterministic matrix for one candidate and typed Evidence set.
+
+    ``semantic_profile`` is Qwen's declared Candidate meaning, not Evidence.
+    Python validates cited Evidence against that declaration without deriving or
+    broadening the claimed scope from Evidence coverage.  Omitting the profile
+    preserves the legacy Matrix contract used by controlled and old-State paths.
+    """
 
     normalized = (
         candidate
         if isinstance(candidate, CausalHypothesis)
         else CausalHypothesis.from_mapping(candidate)
     )
-    evidence_by_id = {item.evidence_id: item for item in evidence}
+    evidence_items = list(evidence)
+    normalized_semantic_profile: CandidateSemanticProfile | None = None
+    semantic_profile_error: str | None = None
+    if semantic_profile is not None:
+        try:
+            normalized_semantic_profile = (
+                semantic_profile
+                if isinstance(semantic_profile, CandidateSemanticProfile)
+                else CandidateSemanticProfile.from_dict(dict(semantic_profile))
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            semantic_profile_error = str(exc).strip() or type(exc).__name__
+    evidence_by_id = {item.evidence_id: item for item in evidence_items}
     referenced_ids = set(normalized.supporting_evidence_ids) | set(
         normalized.contradicting_evidence_ids
     )
     invalid_ids = tuple(sorted(referenced_ids - set(evidence_by_id)))
+    non_supporting_types = {
+        EvidenceType.DATA_MISSING.value,
+        EvidenceType.NEGATIVE_SIGNAL.value,
+        EvidenceType.SOP_GUIDANCE.value,
+    }
+    non_supporting_ids = tuple(
+        sorted(
+            evidence_id
+            for evidence_id in normalized.supporting_evidence_ids
+            if evidence_id in evidence_by_id
+            and evidence_by_id[evidence_id].evidence_type in non_supporting_types
+        )
+    )
     supporting = [
         evidence_by_id[item]
         for item in normalized.supporting_evidence_ids
         if item in evidence_by_id
+        and evidence_by_id[item].evidence_type not in non_supporting_types
     ]
     contradicting = [
         evidence_by_id[item]
@@ -1002,7 +1496,13 @@ def build_causal_evidence_matrix(
         )
     claims[CausalClaim.PARAMETER.value] = _parameter_claim(normalized, supporting)
     claims[CausalClaim.OUTCOME.value] = _outcome_claim(normalized, supporting)
-    claims[CausalClaim.SCOPE.value] = _scope_claim(supporting)
+    claims[CausalClaim.SCOPE.value] = _scope_claim(
+        supporting,
+        semantic_profile=normalized_semantic_profile,
+        semantic_profile_error=semantic_profile_error,
+        semantic_profile_supplied=semantic_profile is not None,
+        causal_lanes=causal_lanes,
+    )
     claims[CausalClaim.TEMPORAL.value] = _temporal_claim(supporting)
     claims[CausalClaim.CONTRADICTION.value] = (
         _result(
@@ -1026,14 +1526,488 @@ def build_causal_evidence_matrix(
         parameter=claims[CausalClaim.PARAMETER.value],
         outcome=claims[CausalClaim.OUTCOME.value],
     )
+    missing_sources = collect_data_missing_sources(evidence_items)
+    missing_ids = tuple(source.evidence_id for source in missing_sources)
+    chain = assess_causal_chain(claims, data_missing_evidence_ids=missing_ids)
     return CausalEvidenceMatrix(
         candidate=normalized,
         claims=claims,
-        invalid_evidence_ids=invalid_ids,
+        invalid_evidence_ids=tuple(dict.fromkeys([*invalid_ids, *non_supporting_ids])),
+        data_missing_evidence_ids=missing_ids,
+        data_missing_sources=tuple(source.to_dict() for source in missing_sources),
+        causal_chain=chain,
     )
 
 
-def _scope_claim(evidence: list[Evidence]) -> CausalClaimResult:
+def _scope_lane_payload(
+    lane: CausalLaneRecord | Mapping[str, Any],
+) -> dict[str, Any]:
+    if isinstance(lane, CausalLaneRecord):
+        return lane.to_dict()
+    return dict(lane)
+
+
+def _scope_lane_matches_identity(
+    lane: Mapping[str, Any],
+    identity: Mapping[str, object],
+) -> bool:
+    return all(
+        expected is None
+        or _compact(lane.get(field_name, "")) == _compact(expected)
+        for field_name, expected in identity.items()
+    )
+
+
+def _evidence_scope_values(
+    evidence: Evidence,
+    entity_type: str,
+    *metadata_keys: str,
+) -> set[str]:
+    values = {
+        _compact(entity.entity_id)
+        for entity in evidence.entities
+        if entity.entity_type == entity_type
+    }
+    values.update(
+        _compact(value)
+        for key in metadata_keys
+        for value in (
+            evidence.metadata.get(key),
+        )
+        if isinstance(value, str | int | float) and str(value).strip()
+    )
+    return values
+
+
+def _evidence_covers_scope_lane(
+    evidence: Evidence,
+    lane: Mapping[str, Any],
+) -> bool:
+    lane_id = str(lane.get("lane_id", "")).strip()
+    explicit_lane_id = str(evidence.metadata.get("lane_id", "")).strip()
+    if explicit_lane_id:
+        return explicit_lane_id == lane_id
+
+    entity_mapping = {
+        "operation": (EntityType.OPERATION.value, ("operation", "operation_no")),
+        "equipment": (EntityType.EQUIPMENT.value, ("equipment", "equipment_id")),
+        "chamber": (EntityType.CHAMBER.value, ("chamber", "chamber_id")),
+        "recipe": (EntityType.RECIPE.value, ("recipe", "recipe_id")),
+    }
+    matched_identity_count = 0
+    for field_name, (entity_type, metadata_keys) in entity_mapping.items():
+        expected = _compact(lane.get(field_name, ""))
+        observed = _evidence_scope_values(
+            evidence,
+            entity_type,
+            *metadata_keys,
+        )
+        if not expected or not observed:
+            continue
+        if expected not in observed:
+            return False
+        matched_identity_count += 1
+
+    lane_lots = {
+        str(item).strip()
+        for item in lane.get("exposed_lot_ids", [])
+        if str(item).strip()
+    }
+    evidence_lots = {
+        entity.entity_id
+        for entity in evidence.entities
+        if entity.entity_type == EntityType.LOT.value
+    }
+    lot_overlap = bool(lane_lots & evidence_lots)
+    if evidence.evidence_type in _OUTCOME_TYPES:
+        return lot_overlap or matched_identity_count >= 2
+    return matched_identity_count >= 2 or lot_overlap
+
+
+def _scope_claim(
+    evidence: list[Evidence],
+    *,
+    semantic_profile: CandidateSemanticProfile | None = None,
+    semantic_profile_error: str | None = None,
+    semantic_profile_supplied: bool = False,
+    causal_lanes: Sequence[CausalLaneRecord | Mapping[str, Any]] = (),
+) -> CausalClaimResult:
+    concrete_lane_ids = {
+        str(item.metadata.get("lane_id", "")).strip()
+        for item in evidence
+        if str(item.metadata.get("lane_id", "")).strip()
+    }
+    if semantic_profile_supplied:
+        claimed_scope_identity = {
+            "operation": (
+                semantic_profile.claimed_operation
+                if semantic_profile is not None
+                else None
+            ),
+            "equipment": (
+                semantic_profile.claimed_equipment
+                if semantic_profile is not None
+                else None
+            ),
+            "chamber": (
+                semantic_profile.claimed_chamber
+                if semantic_profile is not None
+                else None
+            ),
+            "recipe": (
+                semantic_profile.claimed_recipe
+                if semantic_profile is not None
+                else None
+            ),
+        }
+        fact_overrides: dict[str, Any] = {
+            "semantic_profile_status": (
+                "invalid" if semantic_profile is None else "validated"
+            ),
+            "scope_relation": (
+                semantic_profile.scope_relation
+                if semantic_profile is not None
+                else CandidateScopeRelation.UNRESOLVED.value
+            ),
+            "claimed_scope_kind": (
+                semantic_profile.claimed_scope_kind
+                if semantic_profile is not None
+                else CandidateClaimedScopeKind.UNRESOLVED.value
+            ),
+            "claimed_scope_identity": claimed_scope_identity,
+            "claimed_lane_ids": (
+                list(semantic_profile.claimed_lane_ids)
+                if semantic_profile is not None
+                else []
+            ),
+            "comparison_lane_ids": (
+                list(semantic_profile.comparison_lane_ids)
+                if semantic_profile is not None
+                else []
+            ),
+            "evidence_lane_ids": sorted(concrete_lane_ids),
+            "missing_claimed_lane_ids": [],
+            "unexpected_evidence_lane_ids": [],
+        }
+        if semantic_profile is None:
+            if semantic_profile_error:
+                fact_overrides["semantic_profile_error"] = semantic_profile_error
+            return _result(
+                CausalClaim.SCOPE,
+                CausalClaimStatus.INCOMPLETE,
+                evidence,
+                (
+                    "Candidate scope semantics are unavailable or invalid; "
+                    "Evidence coverage cannot be promoted into claimed scope."
+                ),
+                fact_overrides=fact_overrides,
+            )
+
+        if (
+            semantic_profile.scope_relation
+            == CandidateScopeRelation.UNRESOLVED.value
+        ):
+            return _result(
+                CausalClaim.SCOPE,
+                CausalClaimStatus.INCOMPLETE,
+                evidence,
+                (
+                    "The Candidate explicitly leaves claimed scope unresolved; "
+                    "Evidence coverage is retained only as comparison context."
+                ),
+                fact_overrides=fact_overrides,
+            )
+
+        if (
+            semantic_profile.claimed_scope_kind
+            != CandidateClaimedScopeKind.LANE.value
+        ):
+            entity_mapping = {
+                "operation": EntityType.OPERATION.value,
+                "equipment": EntityType.EQUIPMENT.value,
+                "chamber": EntityType.CHAMBER.value,
+                "recipe": EntityType.RECIPE.value,
+            }
+            observed_by_field: dict[str, set[str]] = {
+                field_name: {
+                    _compact(entity.entity_id)
+                    for item in evidence
+                    for entity in item.entities
+                    if entity.entity_type == entity_type
+                }
+                for field_name, entity_type in entity_mapping.items()
+            }
+            required_fields = {
+                field_name: str(value)
+                for field_name, value in claimed_scope_identity.items()
+                if value is not None
+            }
+            conflicting_fields = {
+                field_name: sorted(values)
+                for field_name, expected in required_fields.items()
+                if (values := observed_by_field[field_name])
+                and _compact(expected) not in values
+            }
+            missing_fields = sorted(
+                field_name
+                for field_name, expected in required_fields.items()
+                if _compact(expected) not in observed_by_field[field_name]
+            )
+            scoped_operational_lots = {
+                entity.entity_id
+                for item in evidence
+                if item.evidence_type in (_EXPOSURE_TYPES | _PROCESS_TYPES)
+                and all(
+                    not (actual := {
+                        _compact(entity.entity_id)
+                        for entity in item.entities
+                        if entity.entity_type == entity_mapping[field_name]
+                    })
+                    or _compact(expected) in actual
+                    for field_name, expected in required_fields.items()
+                )
+                for entity in item.entities
+                if entity.entity_type == EntityType.LOT.value
+            }
+            outcome_lots = {
+                entity.entity_id
+                for item in evidence
+                if item.evidence_type in _OUTCOME_TYPES
+                for entity in item.entities
+                if entity.entity_type == EntityType.LOT.value
+            }
+            lane_payloads = [
+                _scope_lane_payload(lane) for lane in causal_lanes
+            ]
+            matching_scope_lanes = [
+                lane
+                for lane in lane_payloads
+                if str(lane.get("lifecycle_status", "")).strip() != "merged"
+                and _scope_lane_matches_identity(
+                    lane,
+                    claimed_scope_identity,
+                )
+            ]
+            scope_lane_contexts = {
+                str(lane.get("lane_id", "")): {
+                    key: value
+                    for key, value in {
+                        "lane_id": str(lane.get("lane_id", "")),
+                        "operation": str(lane.get("operation", "")),
+                        "equipment": str(lane.get("equipment", "")),
+                        "chamber": str(lane.get("chamber", "")),
+                        "recipe": str(lane.get("recipe", "")),
+                        "exposed_lot_ids": [
+                            str(item).strip()
+                            for item in lane.get("exposed_lot_ids", [])
+                            if str(item).strip()
+                        ],
+                        "parameters": ",".join(
+                            str(item).strip()
+                            for item in lane.get("parameter_scope", [])
+                            if str(item).strip()
+                        ),
+                        "window_start": (
+                            str(lane.get("time_window", [""])[0])
+                            if isinstance(lane.get("time_window"), list | tuple)
+                            and len(lane.get("time_window", [])) == 2
+                            else ""
+                        ),
+                        "window_end": (
+                            str(lane.get("time_window", ["", ""])[1])
+                            if isinstance(lane.get("time_window"), list | tuple)
+                            and len(lane.get("time_window", [])) == 2
+                            else ""
+                        ),
+                    }.items()
+                    if value not in ("", [], ())
+                }
+                for lane in matching_scope_lanes
+                if str(lane.get("lane_id", "")).strip()
+            }
+            process_covered_lane_ids = sorted(
+                lane_id
+                for lane_id, lane_context in scope_lane_contexts.items()
+                if any(
+                    item.evidence_type in _PROCESS_TYPES
+                    and _evidence_covers_scope_lane(item, lane_context)
+                    for item in evidence
+                )
+            )
+            outcome_covered_lane_ids = sorted(
+                lane_id
+                for lane_id, lane_context in scope_lane_contexts.items()
+                if any(
+                    item.evidence_type in _OUTCOME_TYPES
+                    and _evidence_covers_scope_lane(item, lane_context)
+                    for item in evidence
+                )
+            )
+            effect_lane_ids = sorted(scope_lane_contexts)
+            missing_process_lane_ids = sorted(
+                set(effect_lane_ids) - set(process_covered_lane_ids)
+            )
+            missing_outcome_lane_ids = sorted(
+                set(effect_lane_ids) - set(outcome_covered_lane_ids)
+            )
+            shared_effect_coverage_required = (
+                semantic_profile.scope_relation
+                == CandidateScopeRelation.SHARED_EFFECT.value
+            )
+            if not shared_effect_coverage_required:
+                effect_coverage_status = "not_required"
+            elif not causal_lanes or not effect_lane_ids:
+                effect_coverage_status = "unavailable"
+            elif missing_process_lane_ids or missing_outcome_lane_ids:
+                effect_coverage_status = "partial"
+            else:
+                effect_coverage_status = "complete"
+            fact_overrides.update(
+                {
+                    "scope_identity_status": "grounded",
+                    "scope_effect_coverage_status": effect_coverage_status,
+                    "scope_effect_lane_ids": effect_lane_ids,
+                    "scope_process_covered_lane_ids": process_covered_lane_ids,
+                    "scope_outcome_covered_lane_ids": outcome_covered_lane_ids,
+                    "scope_missing_process_lane_ids": missing_process_lane_ids,
+                    "scope_missing_outcome_lane_ids": missing_outcome_lane_ids,
+                    "scope_lane_contexts": scope_lane_contexts,
+                    "scope_identity_observed_values": {
+                        key: sorted(values)
+                        for key, values in observed_by_field.items()
+                    },
+                    "scope_identity_missing_fields": missing_fields,
+                    "scope_identity_conflicting_fields": conflicting_fields,
+                    "scoped_operational_lot_ids": sorted(
+                        scoped_operational_lots
+                    ),
+                    "scope_outcome_lot_ids": sorted(outcome_lots),
+                    "scope_shared_lot_ids": sorted(
+                        scoped_operational_lots & outcome_lots
+                    ),
+                }
+            )
+            if conflicting_fields:
+                fact_overrides["scope_identity_status"] = "conflicted"
+                return _result(
+                    CausalClaim.SCOPE,
+                    CausalClaimStatus.CONFLICTED,
+                    evidence,
+                    (
+                        "Cited operational Evidence conflicts with the Candidate's "
+                        f"declared scope identity: {conflicting_fields}."
+                    ),
+                    fact_overrides=fact_overrides,
+                )
+            if missing_fields:
+                fact_overrides["scope_identity_status"] = "incomplete"
+                return _result(
+                    CausalClaim.SCOPE,
+                    CausalClaimStatus.INCOMPLETE,
+                    evidence,
+                    (
+                        "Cited typed Evidence does not ground every declared scope "
+                        f"identity field: {missing_fields}."
+                    ),
+                    fact_overrides=fact_overrides,
+                )
+            if (
+                shared_effect_coverage_required
+                and causal_lanes
+                and effect_coverage_status != "complete"
+            ):
+                return _result(
+                    CausalClaim.SCOPE,
+                    CausalClaimStatus.INCOMPLETE,
+                    evidence,
+                    (
+                        "The broad shared-effect identity is grounded, but cited "
+                        "typed Evidence does not close process and outcome "
+                        "coverage for every matching causal Lane: "
+                        f"missing_process={missing_process_lane_ids}, "
+                        f"missing_outcome={missing_outcome_lane_ids}."
+                    ),
+                    fact_overrides=fact_overrides,
+                )
+            if outcome_lots and not (scoped_operational_lots & outcome_lots):
+                return _result(
+                    CausalClaim.SCOPE,
+                    CausalClaimStatus.CONFLICTED,
+                    evidence,
+                    (
+                        "Operational and outcome Evidence do not converge on a Lot "
+                        "inside the declared scope."
+                    ),
+                    fact_overrides=fact_overrides,
+                )
+            return _result(
+                CausalClaim.SCOPE,
+                CausalClaimStatus.SUPPORTED,
+                evidence,
+                (
+                    "Typed Evidence grounds the Candidate's declared "
+                    f"{semantic_profile.claimed_scope_kind} scope identity. "
+                    "Comparison Evidence does not broaden that identity."
+                ),
+                fact_overrides=fact_overrides,
+            )
+
+        claimed_lane_ids = set(semantic_profile.claimed_lane_ids)
+        comparison_lane_ids = set(semantic_profile.comparison_lane_ids)
+        unexpected_lane_ids = concrete_lane_ids - comparison_lane_ids
+        missing_lane_ids = claimed_lane_ids - concrete_lane_ids
+        fact_overrides.update(
+            {
+                "missing_claimed_lane_ids": sorted(missing_lane_ids),
+                "unexpected_evidence_lane_ids": sorted(unexpected_lane_ids),
+            }
+        )
+        if unexpected_lane_ids:
+            return _result(
+                CausalClaim.SCOPE,
+                CausalClaimStatus.CONFLICTED,
+                evidence,
+                (
+                    "Cited supporting Evidence includes causal Lanes outside the "
+                    "Candidate's declared claimed/comparison scope: "
+                    f"{sorted(unexpected_lane_ids)}."
+                ),
+                fact_overrides=fact_overrides,
+            )
+        if missing_lane_ids:
+            return _result(
+                CausalClaim.SCOPE,
+                CausalClaimStatus.INCOMPLETE,
+                evidence,
+                (
+                    "Cited supporting Evidence does not yet cover every declared "
+                    f"claimed Lane: {sorted(missing_lane_ids)}."
+                ),
+                fact_overrides=fact_overrides,
+            )
+        return _result(
+            CausalClaim.SCOPE,
+            CausalClaimStatus.SUPPORTED,
+            evidence,
+            (
+                "Typed Evidence covers the Candidate's declared "
+                f"{semantic_profile.scope_relation} scope. Evidence from other "
+                "declared comparison Lanes remains comparison context and does "
+                "not broaden the claim."
+            ),
+            fact_overrides=fact_overrides,
+        )
+
+    # Legacy controlled/old-State compatibility: without an explicit semantic
+    # profile, preserve the original Evidence-only scope projection.
+    if len(concrete_lane_ids) > 1:
+        return _result(
+            CausalClaim.SCOPE,
+            CausalClaimStatus.CONFLICTED,
+            evidence,
+            "Cited supporting Evidence mixes multiple concrete causal Lanes: "
+            f"{sorted(concrete_lane_ids)}.",
+        )
     lot_sets = [
         {
             entity.entity_id

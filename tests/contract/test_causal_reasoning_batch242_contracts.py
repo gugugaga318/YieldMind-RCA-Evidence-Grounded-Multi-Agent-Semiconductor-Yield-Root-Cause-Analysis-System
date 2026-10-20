@@ -88,6 +88,8 @@ def causal_evidence() -> list[Evidence]:
                 "magnitude": 8.0,
                 "excursion_start": "2026-01-01T00:00:00",
                 "excursion_end": "2026-01-01T01:00:00",
+                "causal_support_kind": "matched_comparison",
+                "validation_status": "CONFIRMED",
             },
             observation="temperature high during OP_4000",
         ),
@@ -105,7 +107,10 @@ def causal_evidence() -> list[Evidence]:
 def candidate() -> CausalHypothesis:
     return CausalHypothesis(
         root_cause="EQ_01 CH_01 OP_4000 temperature control drift",
-        causal_explanation="High temperature produces the observed edge_void outcome.",
+        causal_explanation=(
+            "High temperature disrupts surface-reaction kinetics and creates "
+            "non-uniform film nucleation, producing the observed edge_void outcome."
+        ),
         supporting_evidence_ids=("EV_EXPOSURE", "EV_PROCESS", "EV_OUTCOME"),
     )
 
@@ -263,6 +268,8 @@ class Batch242CausalReasoningContractTest(unittest.TestCase):
         result = compare_candidate_matrices([matrix, matrix])
         self.assertIsNone(result["preferred_candidate_index"])
         self.assertTrue(result["unresolved"])
+        self.assertIsNone(result["selected_gap_id"])
+        self.assertEqual(result["gap_selection_owner"], "adversarial_challenge")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,286 @@
+{
+  "scorer_version": "formal-r2-scorer/1.1",
+  "rubric_hash": "d1f25334aec55abf2871f825bfa7e84fc927fede6b68dfc8268e0a9151750f66",
+  "counts": {
+    "supported": 14,
+    "inconclusive": 6,
+    "insufficient_evidence": 4
+  },
+  "exposure_counts": {
+    "normal_development": 19,
+    "high_exposure": 4,
+    "development_calibration": 1
+  },
+  "cases": [
+    {
+      "case_id": "FORMAL_001",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_002",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "high_exposure",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_003",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_004",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_005",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_006",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_007",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_008",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_009",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "high_exposure",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_010",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_011",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_012",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "development_calibration",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": false,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_013",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_014",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "supported",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_015",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "inconclusive",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_016",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "inconclusive",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_017",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "inconclusive",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_018",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "inconclusive",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_019",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "inconclusive",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_020",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "inconclusive",
+      "exposure_class": "high_exposure",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_021",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "insufficient_evidence",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_022",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "insufficient_evidence",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_023",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "insufficient_evidence",
+      "exposure_class": "high_exposure",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    },
+    {
+      "case_id": "FORMAL_024",
+      "case_revision": "formal_v1_candidate_r2",
+      "expected_outcome": "insufficient_evidence",
+      "exposure_class": "normal_development",
+      "ground_truth_class": "partial_source_with_frozen_rubric",
+      "source_review_status": "PENDING_AGENT_B_AFTER_AGENT_A_PASS",
+      "rubric_review_status": "frozen_for_user_review",
+      "quality_primary_eligible": true,
+      "readiness": "rubric ready for review; unmapped prose requires adjudication"
+    }
+  ],
+  "primary_category_counts": {
+    "supported": 4,
+    "inconclusive": 2,
+    "insufficient_evidence": 2
+  },
+  "gt_answers_omitted": true
+}

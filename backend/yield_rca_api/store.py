@@ -81,6 +81,7 @@ _FORBIDDEN_QUEUE_KEYS = frozenset(
         "authorization",
         "chainofthought",
         "dashscopeapikey",
+        "deepseekapikey",
         "hiddenreasoning",
     }
 )

@@ -1,4 +1,5 @@
 import type {
+  ModelOptionsResponse,
   CancelRCAJobResponse,
   CreateRCAJobRequest,
   KnowledgeApprovalRequest,
@@ -40,6 +41,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+export function getModelOptions(): Promise<ModelOptionsResponse> {
+  return request<ModelOptionsResponse>("/rca/model-options");
 }
 
 export function createRCAJob(payload: CreateRCAJobRequest): Promise<RCAJobCreated> {

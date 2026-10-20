@@ -7,14 +7,19 @@ generated gaps, but it cannot introduce a new candidate or a new Action.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from yield_rca_core.causal_evidence_matrix import CausalEvidenceMatrix
+from yield_rca_core.causal_evidence_matrix import (
+    CausalEvidenceMatrix,
+    compact_causal_evidence_matrix_for_prompt,
+)
 from yield_rca_core.causal_investigation_models import AlternativeSearchStatus
 from yield_rca_core.llm_gateway import LLMClient, LLMOutputValidationError, LLMRequest
 from yield_rca_core.models import AgentKind, ModelValidationError
+from yield_rca_core.result_identity import model_source
 
 _STATUS_SCORE = {
     "supported": 2,
@@ -22,6 +27,7 @@ _STATUS_SCORE = {
     "unavailable": 0,
     "conflicted": -2,
 }
+_MAX_COMPARISON_PAYLOAD_CHARS = 48_000
 
 
 def _matrix_score(matrix: CausalEvidenceMatrix) -> int:
@@ -35,6 +41,27 @@ def _matrix_score(matrix: CausalEvidenceMatrix) -> int:
     if matrix.has_critical_conflict:
         score -= 5
     return score
+
+
+def _matrix_profile(
+    matrix: CausalEvidenceMatrix,
+    *,
+    candidate_index: int,
+) -> dict[str, Any]:
+    """Return the Python-owned facts that are safe to use for ranking."""
+
+    statuses = [result.status for result in matrix.claims.values()]
+    return {
+        "candidate_index": candidate_index,
+        "matrix_score": _matrix_score(matrix),
+        "matrix_status": matrix.status,
+        "supported_claim_count": statuses.count("supported"),
+        "incomplete_claim_count": statuses.count("incomplete"),
+        "conflicted_claim_count": statuses.count("conflicted"),
+        "unavailable_claim_count": statuses.count("unavailable"),
+        "has_critical_conflict": matrix.has_critical_conflict,
+        "invalid_evidence_ids": list(matrix.invalid_evidence_ids),
+    }
 
 
 def compare_candidate_matrices(
@@ -51,22 +78,19 @@ def compare_candidate_matrices(
             "comparison_explanation": "No causal candidates are available.",
             "selected_gap_id": None,
             "scores": [],
+            "matrix_profiles": [],
             "unresolved": False,
             "alternative_search_required": False,
             "source": "python",
         }
-    scores = [_matrix_score(matrix) for matrix in matrices]
+    matrix_profiles = [
+        _matrix_profile(matrix, candidate_index=index)
+        for index, matrix in enumerate(matrices)
+    ]
+    scores = [int(item["matrix_score"]) for item in matrix_profiles]
     best = max(scores)
     winners = [index for index, score in enumerate(scores) if score == best]
     preferred = winners[0] if len(winners) == 1 else None
-    selected_gap = next(
-        (
-            str(item.get("gap_id"))
-            for item in evidence_gaps
-            if preferred is not None and item.get("candidate_index") == preferred
-        ),
-        None,
-    )
     if preferred is None:
         explanation = "Candidates are equally strong or cannot be separated by typed Evidence."
     else:
@@ -82,8 +106,10 @@ def compare_candidate_matrices(
     return {
         "preferred_candidate_index": preferred,
         "comparison_explanation": explanation,
-        "selected_gap_id": selected_gap,
+        "selected_gap_id": None,
+        "gap_selection_owner": "adversarial_challenge",
         "scores": scores,
+        "matrix_profiles": matrix_profiles,
         "unresolved": (
             (preferred is None and len(matrices) > 1)
             or alternative_search_required
@@ -121,26 +147,42 @@ class QwenHypothesisCandidateComparator:
             matrices,
             evidence_gaps=evidence_gaps,
         )
+        request_payload = {
+            "request_id": request_id,
+            "candidates": [
+                {
+                    "root_cause": str(item.get("root_cause", "")),
+                    "causal_explanation": str(
+                        item.get("causal_explanation", "")
+                    ),
+                    "causal_evidence_matrix": (
+                        compact_causal_evidence_matrix_for_prompt(matrix)
+                    ),
+                }
+                for item, matrix in zip(candidates, matrices, strict=True)
+            ],
+            "evidence_gaps": [dict(item) for item in evidence_gaps],
+            "python_comparison": python_comparison,
+        }
+        prompt_payload_char_count = len(
+            json.dumps(
+                request_payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                default=str,
+            )
+        )
+        if prompt_payload_char_count > _MAX_COMPARISON_PAYLOAD_CHARS:
+            raise LLMOutputValidationError(
+                "candidate comparison prompt exceeds the governed payload limit"
+            )
         response = self.llm_client.complete_json(
             LLMRequest(
                 agent=AgentKind.RCA_REASONING.value,
                 prompt_name="causal_candidate_comparator",
                 prompt_version=self.prompt_version,
-                payload={
-                    "request_id": request_id,
-                    "candidates": [
-                        {
-                            "root_cause": str(item.get("root_cause", "")),
-                            "causal_explanation": str(
-                                item.get("causal_explanation", "")
-                            ),
-                            "causal_evidence_matrix": matrix.to_dict(),
-                        }
-                        for item, matrix in zip(candidates, matrices, strict=True)
-                    ],
-                    "evidence_gaps": [dict(item) for item in evidence_gaps],
-                    "python_comparison": python_comparison,
-                },
+                payload=request_payload,
                 temperature=0.0,
             )
         )
@@ -166,15 +208,40 @@ class QwenHypothesisCandidateComparator:
         if not isinstance(explanation, str) or not explanation.strip():
             raise LLMOutputValidationError("comparison_explanation must be non-empty")
         gap_id = data.get("selected_gap_id")
-        valid_gap_ids = {str(item.get("gap_id")) for item in evidence_gaps}
-        if gap_id is not None and str(gap_id) not in valid_gap_ids:
-            raise LLMOutputValidationError("selected_gap_id is not a Python-generated gap")
+        if gap_id is not None:
+            raise LLMOutputValidationError(
+                "selected_gap_id must be null because the adversarial challenge "
+                "owns discriminator Gap selection"
+            )
         return {
             **python_comparison,
             "preferred_candidate_index": index,
             "comparison_explanation": explanation.strip(),
-            "selected_gap_id": str(gap_id) if gap_id is not None else None,
-            "source": "qwen",
+            "selected_gap_id": None,
+            "gap_selection_owner": "adversarial_challenge",
+            "source": model_source(self.llm_client),
+            "prompt_audit": {
+                "prompt_payload_char_count": prompt_payload_char_count,
+                "prompt_evidence_count": len(
+                    {
+                        evidence_id
+                        for matrix in matrices
+                        for result in matrix.claims.values()
+                        for evidence_id in result.evidence_ids
+                    }
+                ),
+                "omitted_entity_count": sum(
+                    int(
+                        compact_causal_evidence_matrix_for_prompt(matrix)[
+                            "projection_audit"
+                        ]["omitted_claim_fact_groups"]
+                    )
+                    for matrix in matrices
+                ),
+                "omitted_metadata_count": 0,
+                "prompt_budget_applied": True,
+                "prompt_payload_char_limit": _MAX_COMPARISON_PAYLOAD_CHARS,
+            },
         }
 
 

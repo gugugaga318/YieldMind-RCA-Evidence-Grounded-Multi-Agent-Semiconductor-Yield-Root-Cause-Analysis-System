@@ -1,0 +1,632 @@
+{
+  "completion_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "existing",
+    "definition": "Completed cases / all selected cases; absent result remains incomplete.",
+    "data_source": "run_results.results[].job_status; manifest.selected_case_ids",
+    "writer": "Workflow; formal runner",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum(completed) / selected case count",
+    "requires_ground_truth": false
+  },
+  "strict_accept_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "existing",
+    "definition": "Accepted cases / all cases selected for the named acceptance contract.",
+    "data_source": "run_results.results[].strict_qwen_accepted; strict_qwen_acceptance_evaluated",
+    "writer": "formal runner._strict_qwen_acceptance_reasons",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum(accepted) / eligible selected cases; not_evaluated is null, not false",
+    "requires_ground_truth": false
+  },
+  "candidate_recall": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "GT cases with a matching root cause in the first raw candidate response / eligible GT cases.",
+    "data_source": "future initial_raw snapshot + separate external scoring",
+    "writer": "future observer + external scorer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "micro case recall; no final-state backfill",
+    "requires_ground_truth": true
+  },
+  "admitted_candidate_recall": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "GT cases with a correct initially admitted candidate / eligible GT cases.",
+    "data_source": "future initial_admitted snapshot + external scoring",
+    "writer": "future observer + external scorer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "micro case recall; distinct from initial raw recall",
+    "requires_ground_truth": true
+  },
+  "competition_survival": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "GT cases retaining a matching candidate at competition / eligible GT cases. Conditional retention uses a separately named report, never changes this denominator.",
+    "data_source": "future competition snapshot + external scoring",
+    "writer": "future observer + external scorer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "micro case rate; missing upstream capture is unknown, not eliminated",
+    "requires_ground_truth": true
+  },
+  "ranking_survival": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "GT cases retaining a matching candidate at ranking / eligible GT cases. Conditional retention uses a separately named report, never changes this denominator.",
+    "data_source": "future ranking snapshot + external scoring",
+    "writer": "future observer + external scorer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "micro case rate; missing upstream capture is unknown, not eliminated",
+    "requires_ground_truth": true
+  },
+  "confirmation_survival": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "GT cases retaining a matching candidate at confirmation / eligible GT cases. Conditional retention uses a separately named report, never changes this denominator.",
+    "data_source": "future confirmation snapshot + external scoring",
+    "writer": "future observer + external scorer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "micro case rate; missing upstream capture is unknown, not eliminated",
+    "requires_ground_truth": true
+  },
+  "supported_root_cause_recall": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Distinct correct supported GT roots / GT roots that should be supported.",
+    "data_source": "final authority + external GT adjudication; legacy scorer has related but different status metrics",
+    "writer": "Finalizer; separate scorer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "micro root-level TP / eligible GT roots",
+    "requires_ground_truth": true
+  },
+  "root_cause_hit_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Cases whose final published root cause matches GT / all cases with identifiable GT root.",
+    "data_source": "authoritative_rca_result + versioned external match decisions",
+    "writer": "Finalizer; separate scorer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "micro case hit rate; completion/strict/supported alone are not a match",
+    "requires_ground_truth": true
+  },
+  "first_pass_json_success_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "JSON successes on initial output attempt with no caller retry / all logical model calls (requested call-based denominator).",
+    "data_source": "future operation_id, output_attempt_index, caller_retry_index + JSON observations",
+    "writer": "Runtime observer + caller context observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum(initial successful JSON calls) / all logical calls; transport failures included",
+    "requires_ground_truth": false
+  },
+  "json_decode_success_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Successful JSON object decodes / logical calls; includes valid repaired responses.",
+    "data_source": "gateway decode; intent diagnostics only partly recorded",
+    "writer": "gateway decoder; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "successful JSON calls / all logical calls",
+    "requires_ground_truth": false
+  },
+  "first_attempt_operation_success_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "Operations whose first logical call decodes JSON / all model operations; companion metric resolving operation-vs-call ambiguity.",
+    "data_source": "future operation and attempt observations",
+    "writer": "caller context + Runtime observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "successful first calls / operation count; do not substitute for call-based KPI",
+    "requires_ground_truth": false
+  },
+  "json_decode_failure_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Invalid JSON/object decode calls / calls reaching content decoder",
+    "data_source": "gateway._parse_json_content",
+    "writer": "existing validation owner; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+    "requires_ground_truth": false
+  },
+  "dto_validation_failure_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Rejected DTO items / attempted DTO items",
+    "data_source": "IntentPlan/PlannerDecision/SpecialistToolDecision.from_dict and other existing parsers",
+    "writer": "existing validation owner; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+    "requires_ground_truth": false
+  },
+  "business_validation_failure_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Rejected business validation attempts / attempted business validations",
+    "data_source": "existing caller validators and Planner diagnostics",
+    "writer": "existing validation owner; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+    "requires_ground_truth": false
+  },
+  "semantic_validation_error_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Rejected semantic profile items / attempted profile items",
+    "data_source": "hypothesis_candidate_generation.semantic_validation_errors",
+    "writer": "existing validation owner; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+    "requires_ground_truth": false
+  },
+  "candidate_validation_error_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Rejected candidate items / attempted candidate items",
+    "data_source": "Candidate generation validation_errors/rejected_candidates",
+    "writer": "existing validation owner; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+    "requires_ground_truth": false
+  },
+  "invalid_reference_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Invalid reference occurrences / all submitted reference occurrences",
+    "data_source": "candidate/challenge/Planner validators",
+    "writer": "existing validation owner; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+    "requires_ground_truth": false
+  },
+  "valid_evidence_reference_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Valid Evidence reference occurrences / all submitted Evidence reference occurrences",
+    "data_source": "typed Evidence registry + validators",
+    "writer": "existing validation owner; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+    "requires_ground_truth": false
+  },
+  "invalid_evidence_reference_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Invalid Evidence reference occurrences / all submitted Evidence reference occurrences",
+    "data_source": "typed Evidence registry + validators",
+    "writer": "existing validation owner; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+    "requires_ground_truth": false
+  },
+  "isolated_bad_candidate_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Rejected-and-isolated raw candidate items / attempted raw candidate items",
+    "data_source": "generator candidate isolation; not all raw items persisted",
+    "writer": "existing validation owner; future observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+    "requires_ground_truth": false
+  },
+  "provider_failure_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "existing",
+    "definition": "Cases with at least one recorded provider failure / selected cases",
+    "data_source": "CappedLLMClient.provider_failures + run_results",
+    "writer": "runner/wrapper or future Adapter/Runtime observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+    "requires_ground_truth": false
+  },
+  "fallback_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Cases with any stage fallback / selected cases",
+    "data_source": "orchestration_fallback_*; candidate fallback_reason; specialist trace",
+    "writer": "runner/wrapper or future Adapter/Runtime observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+    "requires_ground_truth": false
+  },
+  "timeout_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "Timeout logical calls / all logical calls",
+    "data_source": "future normalized failure category; old transport_error insufficient",
+    "writer": "runner/wrapper or future Adapter/Runtime observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+    "requires_ground_truth": false
+  },
+  "rate_limit_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Rate-limited HTTP attempts / all HTTP attempts",
+    "data_source": "status_code=429 on terminal errors only; successful retries missing",
+    "writer": "runner/wrapper or future Adapter/Runtime observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+    "requires_ground_truth": false
+  },
+  "invalid_response_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "partial",
+    "definition": "Invalid provider envelope responses / HTTP responses received",
+    "data_source": "gateway envelope error; not persistently classified",
+    "writer": "runner/wrapper or future Adapter/Runtime observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+    "requires_ground_truth": false
+  },
+  "context_overflow_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "Context-overflow logical calls / all logical calls",
+    "data_source": "future adapter failure normalization",
+    "writer": "runner/wrapper or future Adapter/Runtime observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+    "requires_ground_truth": false
+  },
+  "unsupported_capability_rate": {
+    "unit": "fraction",
+    "availability_at_8d9192f": "missing",
+    "definition": "Rejected workflow capability preflights / attempted preflights",
+    "data_source": "future configuration preflight; has no model call",
+    "writer": "runner/wrapper or future Adapter/Runtime observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+    "requires_ground_truth": false
+  },
+  "logical_llm_calls": {
+    "unit": "count",
+    "availability_at_8d9192f": "partial",
+    "definition": "Calls delegated after cap admission, including failures; cap rejection is not a provider call",
+    "data_source": "CappedLLMClient.call_count (not persisted on success); state.metadata.llm_call_count = usage event count",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+    "requires_ground_truth": false
+  },
+  "http_attempts": {
+    "unit": "count",
+    "availability_at_8d9192f": "partial",
+    "definition": "Actual client.post attempts; successful retries currently absent",
+    "data_source": "LLMCallError.call_attempt_count for final failures only",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+    "requires_ground_truth": false
+  },
+  "caller_retries": {
+    "unit": "count",
+    "availability_at_8d9192f": "missing",
+    "definition": "Additional logical calls caused by transient call retry",
+    "data_source": "Next-action Planner.call_retry_count is local",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+    "requires_ground_truth": false
+  },
+  "output_repairs": {
+    "unit": "count",
+    "availability_at_8d9192f": "partial",
+    "definition": "Additional logical calls made after prior output validation failure",
+    "data_source": "intent_planner_attempt_diagnostics; candidate/challenge attempt_count",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+    "requires_ground_truth": false
+  },
+  "action_count": {
+    "unit": "count",
+    "availability_at_8d9192f": "existing",
+    "definition": "Executed action records per case",
+    "data_source": "state.action_history; result.action_count",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+    "requires_ground_truth": false
+  },
+  "tool_count": {
+    "unit": "count",
+    "availability_at_8d9192f": "existing",
+    "definition": "Actual tool invocations including failed invocations",
+    "data_source": "execution_metadata.tool_call_count/tool_latencies",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+    "requires_ground_truth": false
+  },
+  "evidence_count": {
+    "unit": "count",
+    "availability_at_8d9192f": "existing",
+    "definition": "Typed Evidence records in final case State",
+    "data_source": "state.evidence; result.evidence_count",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+    "requires_ground_truth": false
+  },
+  "logical_llm_calls_per_case": {
+    "unit": "count_per_case",
+    "availability_at_8d9192f": "partial",
+    "definition": "Calls delegated after cap admission, including failures; cap rejection is not a provider call / selected cases.",
+    "data_source": "CappedLLMClient.call_count (not persisted on success); state.metadata.llm_call_count = usage event count",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+    "requires_ground_truth": false
+  },
+  "http_attempts_per_case": {
+    "unit": "count_per_case",
+    "availability_at_8d9192f": "partial",
+    "definition": "Actual client.post attempts; successful retries currently absent / selected cases.",
+    "data_source": "LLMCallError.call_attempt_count for final failures only",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+    "requires_ground_truth": false
+  },
+  "caller_retries_per_case": {
+    "unit": "count_per_case",
+    "availability_at_8d9192f": "missing",
+    "definition": "Additional logical calls caused by transient call retry / selected cases.",
+    "data_source": "Next-action Planner.call_retry_count is local",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+    "requires_ground_truth": false
+  },
+  "output_repairs_per_case": {
+    "unit": "count_per_case",
+    "availability_at_8d9192f": "partial",
+    "definition": "Additional logical calls made after prior output validation failure / selected cases.",
+    "data_source": "intent_planner_attempt_diagnostics; candidate/challenge attempt_count",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+    "requires_ground_truth": false
+  },
+  "action_count_per_case": {
+    "unit": "count_per_case",
+    "availability_at_8d9192f": "existing",
+    "definition": "Executed action records per case / selected cases.",
+    "data_source": "state.action_history; result.action_count",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+    "requires_ground_truth": false
+  },
+  "tool_count_per_case": {
+    "unit": "count_per_case",
+    "availability_at_8d9192f": "existing",
+    "definition": "Actual tool invocations including failed invocations / selected cases.",
+    "data_source": "execution_metadata.tool_call_count/tool_latencies",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+    "requires_ground_truth": false
+  },
+  "evidence_count_per_case": {
+    "unit": "count_per_case",
+    "availability_at_8d9192f": "existing",
+    "definition": "Typed Evidence records in final case State / selected cases.",
+    "data_source": "state.evidence; result.evidence_count",
+    "writer": "CappedLLMClient / gateway / caller / Workflow",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+    "requires_ground_truth": false
+  },
+  "http_attempts_per_logical_call": {
+    "unit": "count_per_call",
+    "availability_at_8d9192f": "partial",
+    "definition": "HTTP attempts / admitted logical calls.",
+    "data_source": "future joined call/attempt events",
+    "writer": "Adapter observer",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum attempts / sum logical calls; zero calls => not_applicable",
+    "requires_ground_truth": false
+  },
+  "input_tokens": {
+    "unit": "tokens",
+    "availability_at_8d9192f": "partial",
+    "definition": "Provider-reported input_tokens; missing usage is unknown, never assumed free.",
+    "data_source": "state.llm_usage[].prompt_tokens",
+    "writer": "gateway LLMUsageEvent; Workflow; API/worker audit sink",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum reported tokens; failed zero-filled legacy events mark coverage partial",
+    "requires_ground_truth": false
+  },
+  "input_tokens_per_case": {
+    "unit": "tokens_per_case",
+    "availability_at_8d9192f": "partial",
+    "definition": "input_tokens / observed cases.",
+    "data_source": "state.llm_usage[].prompt_tokens",
+    "writer": "gateway; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum tokens / cases with token coverage; expose missing cases",
+    "requires_ground_truth": false
+  },
+  "output_tokens": {
+    "unit": "tokens",
+    "availability_at_8d9192f": "partial",
+    "definition": "Provider-reported output_tokens; missing usage is unknown, never assumed free.",
+    "data_source": "state.llm_usage[].completion_tokens",
+    "writer": "gateway LLMUsageEvent; Workflow; API/worker audit sink",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum reported tokens; failed zero-filled legacy events mark coverage partial",
+    "requires_ground_truth": false
+  },
+  "output_tokens_per_case": {
+    "unit": "tokens_per_case",
+    "availability_at_8d9192f": "partial",
+    "definition": "output_tokens / observed cases.",
+    "data_source": "state.llm_usage[].completion_tokens",
+    "writer": "gateway; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum tokens / cases with token coverage; expose missing cases",
+    "requires_ground_truth": false
+  },
+  "total_tokens": {
+    "unit": "tokens",
+    "availability_at_8d9192f": "partial",
+    "definition": "Provider-reported total_tokens; missing usage is unknown, never assumed free.",
+    "data_source": "state.llm_usage[].total_tokens",
+    "writer": "gateway LLMUsageEvent; Workflow; API/worker audit sink",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum reported tokens; failed zero-filled legacy events mark coverage partial",
+    "requires_ground_truth": false
+  },
+  "total_tokens_per_case": {
+    "unit": "tokens_per_case",
+    "availability_at_8d9192f": "partial",
+    "definition": "total_tokens / observed cases.",
+    "data_source": "state.llm_usage[].total_tokens",
+    "writer": "gateway; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "sum tokens / cases with token coverage; expose missing cases",
+    "requires_ground_truth": false
+  },
+  "cost": {
+    "unit": "currency",
+    "availability_at_8d9192f": "missing",
+    "definition": "Total priced call cost including cached/reasoning/billable retry usage where applicable.",
+    "data_source": "versioned provider pricing + all billable usage",
+    "writer": "offline cost calculator (future)",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "same currency/pricing validity; incomplete usage => partial/null; zero successful denominator => not_applicable",
+    "requires_ground_truth": false
+  },
+  "cost_per_case": {
+    "unit": "currency_per_case",
+    "availability_at_8d9192f": "missing",
+    "definition": "Total priced cost / selected cases with complete cost coverage.",
+    "data_source": "versioned provider pricing + all billable usage",
+    "writer": "offline cost calculator (future)",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "same currency/pricing validity; incomplete usage => partial/null; zero successful denominator => not_applicable",
+    "requires_ground_truth": false
+  },
+  "cost_per_successful_rca": {
+    "unit": "currency",
+    "availability_at_8d9192f": "missing",
+    "definition": "Total experiment cost / cases externally scored as final correct and supported; includes failed-case costs in numerator.",
+    "data_source": "versioned provider pricing + all billable usage",
+    "writer": "offline cost calculator (future)",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "same currency/pricing validity; incomplete usage => partial/null; zero successful denominator => not_applicable",
+    "requires_ground_truth": true
+  },
+  "cost_per_logical_call": {
+    "unit": "currency",
+    "availability_at_8d9192f": "missing",
+    "definition": "Total priced cost / admitted logical calls with complete cost coverage.",
+    "data_source": "versioned provider pricing + all billable usage",
+    "writer": "offline cost calculator (future)",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "same currency/pricing validity; incomplete usage => partial/null; zero successful denominator => not_applicable",
+    "requires_ground_truth": false
+  },
+  "call_latency_min": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "min observed call latency; sample count always retained.",
+    "data_source": "state.llm_usage[].latency_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  },
+  "call_latency_median": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "median observed call latency; sample count always retained.",
+    "data_source": "state.llm_usage[].latency_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  },
+  "call_latency_p50": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "p50 observed call latency; sample count always retained.",
+    "data_source": "state.llm_usage[].latency_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  },
+  "call_latency_p95": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "p95 observed call latency; sample count always retained.",
+    "data_source": "state.llm_usage[].latency_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  },
+  "call_latency_max": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "max observed call latency; sample count always retained.",
+    "data_source": "state.llm_usage[].latency_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  },
+  "case_latency_min": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "min observed case latency; sample count always retained.",
+    "data_source": "execution_metadata.workflow_duration_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  },
+  "case_latency_median": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "median observed case latency; sample count always retained.",
+    "data_source": "execution_metadata.workflow_duration_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  },
+  "case_latency_p50": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "p50 observed case latency; sample count always retained.",
+    "data_source": "execution_metadata.workflow_duration_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  },
+  "case_latency_p95": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "p95 observed case latency; sample count always retained.",
+    "data_source": "execution_metadata.workflow_duration_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  },
+  "case_latency_max": {
+    "unit": "ms",
+    "availability_at_8d9192f": "existing",
+    "definition": "max observed case latency; sample count always retained.",
+    "data_source": "execution_metadata.workflow_duration_ms",
+    "writer": "gateway / Workflow; offline aggregator",
+    "reader": "Offline benchmark sidecar / scorecard; never RCA runtime",
+    "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+    "requires_ground_truth": false
+  }
+}

@@ -1,0 +1,732 @@
+{
+  "$defs": {
+    "DiscriminatingOutcome": {
+      "properties": {
+        "candidate_id": {
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "expected_observation": {
+          "title": "Expected Observation",
+          "type": "string"
+        },
+        "interpretation": {
+          "title": "Interpretation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "expected_observation",
+        "interpretation"
+      ],
+      "title": "DiscriminatingOutcome",
+      "type": "object"
+    },
+    "NextInvestigationAction": {
+      "properties": {
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "purpose": {
+          "enum": [
+            "discriminate_hypotheses",
+            "acquire_missing_evidence"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "target_candidate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Target Candidate Ids",
+          "type": "array"
+        },
+        "requested_observation": {
+          "title": "Requested Observation",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/TriageScope"
+        },
+        "expected_discriminating_outcomes": {
+          "items": {
+            "$ref": "#/$defs/DiscriminatingOutcome"
+          },
+          "title": "Expected Discriminating Outcomes",
+          "type": "array"
+        },
+        "inconclusive_outcome": {
+          "title": "Inconclusive Outcome",
+          "type": "string"
+        },
+        "executor": {
+          "enum": [
+            "system_tool",
+            "human_engineer",
+            "external_process"
+          ],
+          "title": "Executor",
+          "type": "string"
+        },
+        "approval_required": {
+          "title": "Approval Required",
+          "type": "boolean"
+        },
+        "executability": {
+          "enum": [
+            "executable",
+            "requires_approval",
+            "external_only",
+            "not_executable",
+            "unknown"
+          ],
+          "title": "Executability",
+          "type": "string"
+        },
+        "availability": {
+          "enum": [
+            "available",
+            "unavailable",
+            "unknown"
+          ],
+          "title": "Availability",
+          "type": "string"
+        },
+        "availability_reason": {
+          "title": "Availability Reason",
+          "type": "string"
+        },
+        "recommendation_only": {
+          "const": true,
+          "default": true,
+          "title": "Recommendation Only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action_id",
+        "purpose",
+        "target_candidate_ids",
+        "requested_observation",
+        "scope",
+        "expected_discriminating_outcomes",
+        "inconclusive_outcome",
+        "executor",
+        "approval_required",
+        "executability",
+        "availability",
+        "availability_reason"
+      ],
+      "title": "NextInvestigationAction",
+      "type": "object"
+    },
+    "TriageClaimAssessment": {
+      "properties": {
+        "status": {
+          "enum": [
+            "supported",
+            "plausible",
+            "incomplete",
+            "conflicted",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        },
+        "source_path": {
+          "title": "Source Path",
+          "type": "string"
+        },
+        "observation_status": {
+          "enum": [
+            "observed",
+            "not_observed",
+            "not_acquired",
+            "unavailable",
+            "unknown"
+          ],
+          "title": "Observation Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "evidence_ids",
+        "explanation",
+        "source_path",
+        "observation_status"
+      ],
+      "title": "TriageClaimAssessment",
+      "type": "object"
+    },
+    "TriageComparison": {
+      "properties": {
+        "preference_status": {
+          "enum": [
+            "preference_established",
+            "preference_not_established",
+            "tied",
+            "not_distinguishable"
+          ],
+          "title": "Preference Status",
+          "type": "string"
+        },
+        "ordering_basis": {
+          "enum": [
+            "evidence_preference",
+            "stable_presentation_order",
+            "single",
+            "none"
+          ],
+          "title": "Ordering Basis",
+          "type": "string"
+        },
+        "primary_ordering_reason": {
+          "title": "Primary Ordering Reason",
+          "type": "string"
+        },
+        "alternative_retention_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Alternative Retention Reason"
+        },
+        "alternative_disposition": {
+          "enum": [
+            "retained",
+            "no_valid_alternative_identified",
+            "alternative_not_investigated"
+          ],
+          "title": "Alternative Disposition",
+          "type": "string"
+        },
+        "discriminating_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Discriminating Evidence Ids",
+          "type": "array"
+        },
+        "preferred_candidate_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Preferred Candidate Id"
+        },
+        "causal_winner_established": {
+          "const": false,
+          "default": false,
+          "title": "Causal Winner Established",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "preference_status",
+        "ordering_basis",
+        "primary_ordering_reason",
+        "alternative_retention_reason",
+        "alternative_disposition",
+        "discriminating_evidence_ids",
+        "preferred_candidate_id"
+      ],
+      "title": "TriageComparison",
+      "type": "object"
+    },
+    "TriageEvidenceAssessment": {
+      "description": "Per-candidate projections of existing matrix/checks. None = not assessed.",
+      "properties": {
+        "candidate_id": {
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "parameter_support": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mechanism_support": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_consistency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operation_consistency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recipe_version_consistency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope_consistency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "temporal_consistency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "contradiction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "causal_chain": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "alternative_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageClaimAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "candidate_id",
+        "parameter_support",
+        "mechanism_support",
+        "entity_consistency",
+        "operation_consistency",
+        "recipe_version_consistency",
+        "scope_consistency",
+        "temporal_consistency",
+        "contradiction",
+        "causal_chain",
+        "alternative_status"
+      ],
+      "title": "TriageEvidenceAssessment",
+      "type": "object"
+    },
+    "TriageHypothesis": {
+      "properties": {
+        "candidate_id": {
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "engineering_statement": {
+          "title": "Engineering Statement",
+          "type": "string"
+        },
+        "causal_explanation": {
+          "title": "Causal Explanation",
+          "type": "string"
+        },
+        "primary_mechanism": {
+          "title": "Primary Mechanism",
+          "type": "string"
+        },
+        "supporting_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supporting Evidence Ids",
+          "type": "array"
+        },
+        "contradicting_evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Contradicting Evidence Ids",
+          "type": "array"
+        },
+        "scope": {
+          "$ref": "#/$defs/TriageScope"
+        },
+        "authority": {
+          "const": "suspected_hypothesis",
+          "default": "suspected_hypothesis",
+          "title": "Authority",
+          "type": "string"
+        },
+        "engineering_sign_off": {
+          "const": "not_recorded",
+          "default": "not_recorded",
+          "title": "Engineering Sign Off",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "engineering_statement",
+        "causal_explanation",
+        "primary_mechanism",
+        "supporting_evidence_ids",
+        "contradicting_evidence_ids",
+        "scope"
+      ],
+      "title": "TriageHypothesis",
+      "type": "object"
+    },
+    "TriageResult": {
+      "properties": {
+        "result_id": {
+          "title": "Result Id",
+          "type": "string"
+        },
+        "source_finding_id": {
+          "title": "Source Finding Id",
+          "type": "string"
+        },
+        "primary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageHypothesis"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "strongest_alternative": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TriageHypothesis"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "comparison": {
+          "$ref": "#/$defs/TriageComparison"
+        },
+        "evidence_assessment": {
+          "items": {
+            "$ref": "#/$defs/TriageEvidenceAssessment"
+          },
+          "title": "Evidence Assessment",
+          "type": "array"
+        },
+        "remaining_uncertainty": {
+          "items": {
+            "$ref": "#/$defs/TriageUncertainty"
+          },
+          "title": "Remaining Uncertainty",
+          "type": "array"
+        },
+        "next_investigation_action": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NextInvestigationAction"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "no_next_action_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "No Next Action Reason"
+        },
+        "terminal_reason": {
+          "enum": [
+            "budget_exhausted",
+            "no_high_value_action",
+            "data_unavailable",
+            "no_allowed_action",
+            "critical_contradiction",
+            "hypotheses_tied",
+            "engineer_evidence_required",
+            "single_candidate_unconfirmed",
+            "insufficient_candidate_evidence"
+          ],
+          "title": "Terminal Reason",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "triage/1.0",
+          "default": "triage/1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "authority": {
+          "const": "hypothesis_triage",
+          "default": "hypothesis_triage",
+          "title": "Authority",
+          "type": "string"
+        },
+        "writer": {
+          "const": "python_finalizer",
+          "default": "python_finalizer",
+          "title": "Writer",
+          "type": "string"
+        },
+        "execution_completed": {
+          "const": true,
+          "default": true,
+          "title": "Execution Completed",
+          "type": "boolean"
+        },
+        "scientific_question_resolved": {
+          "const": false,
+          "default": false,
+          "title": "Scientific Question Resolved",
+          "type": "boolean"
+        },
+        "engineering_sign_off": {
+          "const": "not_recorded",
+          "default": "not_recorded",
+          "title": "Engineering Sign Off",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result_id",
+        "source_finding_id",
+        "primary",
+        "strongest_alternative",
+        "comparison",
+        "evidence_assessment",
+        "remaining_uncertainty",
+        "next_investigation_action",
+        "no_next_action_reason",
+        "terminal_reason"
+      ],
+      "title": "TriageResult",
+      "type": "object"
+    },
+    "TriageScope": {
+      "description": "Declared candidate scope; null/empty means unknown, not negative/all.",
+      "properties": {
+        "entity": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Entity"
+        },
+        "operation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Operation"
+        },
+        "equipment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Equipment"
+        },
+        "chamber": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Chamber"
+        },
+        "recipe": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Recipe"
+        },
+        "recipe_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Recipe Version"
+        },
+        "scope_kind": {
+          "title": "Scope Kind",
+          "type": "string"
+        },
+        "lane_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Lane Ids",
+          "type": "array"
+        },
+        "time_window": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Time Window",
+          "type": "array"
+        }
+      },
+      "required": [
+        "entity",
+        "operation",
+        "equipment",
+        "chamber",
+        "recipe",
+        "recipe_version",
+        "scope_kind",
+        "lane_ids",
+        "time_window"
+      ],
+      "title": "TriageScope",
+      "type": "object"
+    },
+    "TriageUncertainty": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "not_observed",
+            "not_acquired",
+            "unavailable",
+            "conflicting",
+            "unresolved_alternative",
+            "unsupported_mechanism",
+            "insufficient_scope",
+            "insufficient_temporal_support"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "candidate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Ids",
+          "type": "array"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "scope": {
+          "$ref": "#/$defs/TriageScope"
+        }
+      },
+      "required": [
+        "kind",
+        "description",
+        "candidate_ids",
+        "evidence_ids",
+        "scope"
+      ],
+      "title": "TriageUncertainty",
+      "type": "object"
+    }
+  },
+  "$ref": "#/$defs/TriageResult",
+  "description": "Typed projection only. No root-cause or top-ranked fallback.",
+  "title": "TriageResultResponse"
+}

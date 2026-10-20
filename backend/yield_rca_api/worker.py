@@ -20,6 +20,15 @@ from yield_rca_core.workflow_events import capture_workflow_events
 
 from yield_rca_api.audit import AuditEvent, AuditSink
 from yield_rca_api.memory import MemoryApprovalService, MemoryCandidateNotEligibleError
+from yield_rca_api.model_selection import (
+    ModelSelectionError,
+    ModelSelectionService,
+    WorkflowFactory,
+    attach_selection,
+    selection_metadata,
+    verify_execution_identity,
+    workflow_identity,
+)
 from yield_rca_api.observability import RCAMetrics
 from yield_rca_api.store import JobLeaseLostError, RCAJobQueueRecord, RCAJobStore
 
@@ -111,6 +120,8 @@ def _find_nested_error(
 def classify_worker_error(error: BaseException) -> tuple[dict[str, Any], bool]:
     """Classify only transient provider/transport failures as retryable."""
 
+    if isinstance(error, ModelSelectionError):
+        return {"error_code": error.code, "message": error.code, "retryable": False}, False
     llm_error = _find_nested_error(error, LLMCallError)
     if isinstance(llm_error, LLMCallError):
         provider_code = (llm_error.provider_code or "").casefold()
@@ -193,9 +204,15 @@ class RCAQueueWorker:
         runtime_dataset: str,
         settings: WorkerSettings | None = None,
         worker_id: str | None = None,
+        job_workflow_factory: WorkflowFactory | None = None,
     ) -> None:
         self.store = store
         self.workflow = workflow
+        self.job_workflow_factory = job_workflow_factory
+        self.model_selection_service = ModelSelectionService(
+            workflow.llm_settings, orchestration_mode=workflow.orchestration_mode,
+            dataset=runtime_dataset,
+        )
         self.audit_sink = audit_sink
         self.memory_service = memory_service
         self.metrics = metrics
@@ -274,13 +291,28 @@ class RCAQueueWorker:
             )
 
     def _run_workflow(self, record: RCAJobQueueRecord) -> RCAState:
-        self._validate_runtime_config(record)
+        settings = self.model_selection_service.resolve(record.runtime_config, record.request)
+        if self.job_workflow_factory is not None:
+            workflow = self.job_workflow_factory(
+                settings, str(record.runtime_config["orchestration_mode"]),
+            )
+            expected = record.runtime_config
+            if (workflow.llm_settings != settings
+                    or workflow.orchestration_mode != expected["orchestration_mode"]):
+                raise ModelSelectionError("WORKER_RUNTIME_CONFIG_MISMATCH")
+        else:
+            if record.request.get("model_selection") is not None:
+                raise ModelSelectionError("JOB_WORKFLOW_FACTORY_REQUIRED")
+            self._validate_runtime_config(record)
+            workflow = self.workflow
+        identity = workflow_identity(workflow)
+        verify_execution_identity(record.state, record.runtime_config, identity)
         request = record.request
         user_query = str(request["user_query"])
         lot_id = request.get("lot_id")
         investigation_mode = str(request.get("investigation_mode", "product_window"))
         selected_mode, fallback_reason = _select_orchestration_mode(
-            self.workflow,
+            workflow,
             investigation_mode=investigation_mode,
             lot_id=str(lot_id) if lot_id is not None else None,
             user_query=user_query,
@@ -293,23 +325,39 @@ class RCAQueueWorker:
                 payload=payload,
             )
 
-        with capture_workflow_events(record_progress):
-            completed = self.workflow.run(
-                user_query,
-                job_id=record.state.job.job_id,
-                plan_id=f"PLAN_{record.state.job.job_id}",
-                lot_id=str(lot_id) if lot_id is not None else None,
-                orchestration_mode_override=selected_mode,
-            )
+        if "model_selection" in record.runtime_config:
+            record_progress("investigation_model_bound", {
+                "model_selection": selection_metadata(record.runtime_config, identity),
+            })
+        try:
+            with capture_workflow_events(record_progress):
+                completed = workflow.run(
+                    user_query,
+                    job_id=record.state.job.job_id,
+                    plan_id=f"PLAN_{record.state.job.job_id}",
+                    lot_id=str(lot_id) if lot_id is not None else None,
+                    orchestration_mode_override=selected_mode,
+                )
+        except Exception as exc:
+            if "model_selection" not in record.runtime_config:
+                raise
+            partial = exc.state if isinstance(exc, SupervisorExecutionError) else None
+            failed = attach_selection(partial or record.state, record.runtime_config,
+                                      execution_identity=identity, enforce_match=False)
+            if isinstance(exc, SupervisorExecutionError):
+                exc.state = failed
+                raise
+            raise SupervisorExecutionError("Job workflow execution failed", state=failed) from exc
         execution_metadata = {
             **completed.execution_metadata,
-            "orchestration_requested_mode": self.workflow.orchestration_mode,
+            "orchestration_requested_mode": workflow.orchestration_mode,
             "queue_attempt_number": record.attempt_count,
             "queue_worker_id": self.worker_id,
         }
-        if fallback_reason and self.workflow.orchestration_mode == "controlled_react":
+        if fallback_reason and workflow.orchestration_mode == "controlled_react":
             execution_metadata["orchestration_fallback_reason"] = fallback_reason
-        return replace(completed, execution_metadata=execution_metadata)
+        return attach_selection(replace(completed, execution_metadata=execution_metadata),
+                                record.runtime_config, execution_identity=identity)
 
     def run_once(self) -> bool:
         self._record_idle_heartbeat()
@@ -400,7 +448,8 @@ class RCAQueueWorker:
             )
         except Exception as exc:
             error, retryable = classify_worker_error(exc)
-            failed_state = exc.state if isinstance(exc, SupervisorExecutionError) else None
+            failed_state = (exc.state if isinstance(
+                exc, (SupervisorExecutionError, ModelSelectionError)) else None)
             retry_after = self.settings.retry_base_seconds * (2 ** (record.attempt_count - 1))
             try:
                 updated = self.store.fail_attempt(

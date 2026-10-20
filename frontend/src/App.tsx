@@ -18,9 +18,13 @@ import {
   getRCAJob,
   getRCAReport,
   getRuntimeInfo,
+  getModelOptions,
   lookupKnowledge,
   openRCAJobEventStream,
 } from "./api";
+import { jobFromUrl, jobUrl } from "./jobNavigation";
+import { canSubmitModel } from "./modelSelection";
+import { ModelIdentity } from "./components/ModelIdentity";
 import { AsyncJobProgress } from "./components/AsyncJobProgress";
 import { EvidenceChain } from "./components/EvidenceChain";
 import { JobComposer } from "./components/JobComposer";
@@ -29,6 +33,7 @@ import { KnowledgeWorkspace } from "./components/KnowledgeWorkspace";
 import { MemoryApprovalPanel } from "./components/MemoryApprovalPanel";
 import { ReportView } from "./components/ReportView";
 import { RootCausePanel } from "./components/RootCausePanel";
+import { TriagePanel } from "./components/TriagePanel";
 import { RcaDiagnosisTrace } from "./components/RcaDiagnosisTrace";
 import { SpcEvidencePanel } from "./components/SpcEvidencePanel";
 import { RuntimeMetadata } from "./components/RuntimeMetadata";
@@ -44,6 +49,10 @@ import {
   getYieldTrend,
 } from "./selectors";
 import type {
+  ExecutionMetadata,
+  ModelOptionsResponse,
+  ModelSelection,
+  ModelCatalogStatus,
   JobStreamConnection,
   KnowledgeLookupResult,
   KnowledgeQuestionKind,
@@ -80,6 +89,11 @@ function App() {
   const [knowledgeExplicitModuleLimit, setKnowledgeExplicitModuleLimit] =
     useState(false);
   const [lotId, setLotId] = useState("LOT_A_001");
+  const [modelCatalog, setModelCatalog] = useState<ModelOptionsResponse | null>(null);
+  const [catalogStatus, setCatalogStatus] = useState<ModelCatalogStatus>("loading");
+  const [catalogReload, setCatalogReload] = useState(0);
+  const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null);
+  const [jobMetadata, setJobMetadata] = useState<ExecutionMetadata | null>(null);
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo | null>(null);
   const [job, setJob] = useState<RCAJobCreated | null>(null);
   const [queue, setQueue] = useState<RCAJobQueueMetadata | null>(null);
@@ -129,16 +143,27 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    setCatalogStatus("loading");
+    getModelOptions().then(catalog => {
+      if (active) { setModelCatalog(catalog); setCatalogStatus("ready"); }
+    }).catch(() => {
+      if (active) { setModelCatalog(null); setCatalogStatus("error"); }
+    });
+    return () => { active = false; };
+  }, [catalogReload]);
+
   async function loadCompletedArtifacts(jobId: string, jobState: RCAState) {
     if (jobState.report) {
       const reportResponse = await getRCAReport(jobId);
-      setReport(reportResponse.report);
+      if (activeJobIdRef.current === jobId) setReport(reportResponse.report);
     }
     try {
       const memoryResponse = await getJobMemoryCandidate(jobId);
-      setMemoryCandidate(memoryResponse.candidate);
+      if (activeJobIdRef.current === jobId) setMemoryCandidate(memoryResponse.candidate);
     } catch {
-      setMemoryCandidate(null);
+      if (activeJobIdRef.current === jobId) setMemoryCandidate(null);
     }
   }
 
@@ -146,6 +171,7 @@ function App() {
     const response = await getRCAJob(jobId);
     if (activeJobIdRef.current !== jobId) return response;
     setQueue(response.queue);
+    setJobMetadata(response.state.execution_metadata);
     setJob((current) => current && current.job_id === jobId
       ? { ...current, status: response.status }
       : {
@@ -178,15 +204,34 @@ function App() {
   }
 
   useEffect(() => {
-    const storedJobId = localStorage.getItem(ACTIVE_JOB_STORAGE_KEY);
-    if (!storedJobId) return;
-    activeJobIdRef.current = storedJobId;
-    setStreamConnection("connecting");
-    refreshRCAJob(storedJobId).catch(() => {
-      localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
-      activeJobIdRef.current = null;
-      setStreamConnection("closed");
-    });
+    function restoreJob(initial = false) {
+      const jobId = jobFromUrl(window.location.href) ??
+        (initial && !new URL(window.location.href).searchParams.has("job")
+          ? localStorage.getItem(ACTIVE_JOB_STORAGE_KEY) : null);
+      activeJobIdRef.current = jobId;
+      setJob(null);
+      setJobMetadata(null);
+      setQueue(null);
+      setState(null);
+      setReport(null);
+      setMemoryCandidate(null);
+      setJobEvents([]);
+      setError(null);
+      setActiveTab("investigation");
+      setStreamConnection(jobId ? "connecting" : "closed");
+      if (!jobId) return;
+      if (initial) window.history.replaceState(null, "", jobUrl(window.location.href, jobId));
+      void refreshRCAJob(jobId).catch(() => {
+        if (activeJobIdRef.current !== jobId) return;
+        localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
+        setStreamConnection("closed");
+        setError("Unable to load the selected RCA job.");
+      });
+    }
+    restoreJob(true);
+    const navigate = () => restoreJob();
+    window.addEventListener("popstate", navigate);
+    return () => window.removeEventListener("popstate", navigate);
   }, []);
 
   useEffect(() => {
@@ -197,16 +242,17 @@ function App() {
     const source = openRCAJobEventStream(
       jobId,
       (event) => {
+        if (activeJobIdRef.current !== jobId) return;
         setJobEvents((current) => {
           if (current.some((item) => item.sequence === event.sequence)) return current;
           return [...current, event].sort((left, right) => left.sequence - right.sequence);
         });
-        void refreshRCAJob(jobId).catch(() => setStreamConnection("reconnecting"));
+        void refreshRCAJob(jobId).catch(() => { if (activeJobIdRef.current === jobId) setStreamConnection("reconnecting"); });
       },
-      setStreamConnection,
+      (connection) => { if (activeJobIdRef.current === jobId) setStreamConnection(connection); },
     );
     const poll = window.setInterval(() => {
-      void refreshRCAJob(jobId).catch(() => setStreamConnection("reconnecting"));
+      void refreshRCAJob(jobId).catch(() => { if (activeJobIdRef.current === jobId) setStreamConnection("reconnecting"); });
     }, 3000);
     return () => {
       source.close();
@@ -215,6 +261,11 @@ function App() {
   }, [job?.job_id, rcaJobActive]);
 
   async function runInvestigation() {
+    if (loading) return;
+    if (workspaceMode !== "knowledge" && !canSubmitModel(modelCatalog, catalogStatus, modelSelection, runtimeInfo?.agent_mode)) {
+      setError("Choose an available model or reload the model catalog before running RCA.");
+      return;
+    }
     setError(null);
     setState(null);
     setReport(null);
@@ -237,14 +288,16 @@ function App() {
       setSubmitting(true);
       setKnowledgeResult(null);
       const created = await createRCAJob(
-        buildRCAJobRequest(workspaceMode, query, lotId),
+        buildRCAJobRequest(workspaceMode, query, lotId, modelSelection),
       );
+      setJobMetadata(null);
       setJob(created);
       setQueue(null);
       setJobEvents([]);
       setStreamConnection("connecting");
       activeJobIdRef.current = created.job_id;
       localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, created.job_id);
+      window.history.pushState(null, "", jobUrl(window.location.href, created.job_id));
       await refreshRCAJob(created.job_id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "RCA request failed");
@@ -292,6 +345,9 @@ function App() {
 
       <div className="app-body">
         <JobComposer
+          modelSelector={{ catalog: modelCatalog, status: catalogStatus, selection: modelSelection,
+            onChange: setModelSelection, onReload: () => setCatalogReload(value => value + 1),
+            disabled: loading, agentMode: runtimeInfo?.agent_mode }}
           workspaceMode={workspaceMode}
           onWorkspaceModeChange={setWorkspaceMode}
           query={query}
@@ -370,6 +426,12 @@ function App() {
             </div>
           )}
 
+          {workspaceMode !== "knowledge" && job && jobMetadata && (
+            state?.triage_result ? <details className="triage-diagnostics">
+              <summary>Execution model identity</summary>
+              <ModelIdentity metadata={jobMetadata} catalog={modelCatalog} />
+            </details> : <ModelIdentity metadata={jobMetadata} catalog={modelCatalog} />
+          )}
           {knowledgeLoading && <LoadingState knowledge />}
           {workspaceMode !== "knowledge" && job && !state && (
             <AsyncJobProgress
@@ -400,7 +462,7 @@ function App() {
   );
 }
 
-function InvestigationView({
+export function InvestigationView({
   state,
   memoryCandidate,
   onMemoryCandidateChange,
@@ -474,16 +536,7 @@ function InvestigationView({
     },
       ];
 
-  return (
-    <div className="investigation-view">
-      <div className="job-summary-row">
-        <div className="job-summary-copy">
-          <StatusBadge status={state.job.status} />
-          <span>{state.task_plan?.objective ?? state.job.user_query}</span>
-        </div>
-        <code>{state.job.job_id}</code>
-      </div>
-
+  const diagnostics = <>
       <section className="metric-grid" aria-label="Investigation summary">
         {metrics.map(({ label, value, detail, icon: Icon, tone }) => (
           <article
@@ -508,7 +561,7 @@ function InvestigationView({
 
       <div className="analysis-grid">
         {isLotDriven ? <LotImpactPanel state={state} /> : <YieldTrendChart data={yieldTrend} />}
-        <RootCausePanel state={state} />
+        {!state.triage_result && <RootCausePanel state={state} />}
       </div>
 
       <SpcEvidencePanel state={state} />
@@ -516,6 +569,26 @@ function InvestigationView({
       <RcaDiagnosisTrace state={state} />
 
       <EvidenceChain state={state} />
+
+  </>;
+
+  return (
+    <div className="investigation-view">
+      <div className="job-summary-row">
+        <div className="job-summary-copy">
+          <StatusBadge status={state.job.status} />
+          <span>{state.task_plan?.objective ?? state.job.user_query}</span>
+        </div>
+        <code>{state.job.job_id}</code>
+      </div>
+
+      {state.triage_result ? <>
+        <TriagePanel state={state} />
+        <details className="triage-diagnostics"><summary>Investigation diagnostics and raw evidence</summary>
+          <p>Diagnostic rankings and scores do not establish a causal winner.</p>
+          {diagnostics}
+        </details>
+      </> : diagnostics}
 
       {memoryCandidate && (
         <MemoryApprovalPanel

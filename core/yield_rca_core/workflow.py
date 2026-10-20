@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from time import perf_counter
 
@@ -23,12 +23,14 @@ from yield_rca_core.llm_gateway import (
     build_llm_client,
     capture_llm_usage,
 )
+from yield_rca_core.model_telemetry import capture_model_telemetry
 from yield_rca_core.models import InvestigationMode, RCAJob, RCAState
 from yield_rca_core.next_action_planner import QwenNextActionPlanner
 from yield_rca_core.planner_agent import PlannerAgent
 from yield_rca_core.rca_reasoning_agent import RCAReasoningAgent
 from yield_rca_core.report_generator import ReportGenerator
 from yield_rca_core.repositories import CsvFabRepository, FabRepository, PostgresFabRepository
+from yield_rca_core.result_identity import configured_identity
 from yield_rca_core.specialist_agents import DefectWATAgent, FDCAgent, KnowledgeAgent, MESAgent
 from yield_rca_core.specialist_v2 import SpecialistV2Executor
 from yield_rca_core.supervisor import Supervisor
@@ -54,6 +56,7 @@ def _job_from_goal(
     user_query: str,
     job_id: str,
     explicit_lot_id: str | None,
+    declared_unavailable_sources: tuple[str, ...] = (),
 ) -> RCAJob:
     source_lot_id = str(
         explicit_lot_id or known_facts.get("lot_id") or ""
@@ -87,6 +90,7 @@ def _job_from_goal(
         source_lot_id=source_lot_id or None,
         product_id=product_id or None,
         time_window=time_window,
+        declared_unavailable_sources=list(declared_unavailable_sources),
     )
 
 
@@ -109,11 +113,16 @@ class PurePythonRCAWorkflow:
         plan_id: str | None = None,
         lot_id: str | None = None,
         orchestration_mode_override: str | None = None,
+        declared_unavailable_sources: tuple[str, ...] = (),
     ) -> RCAState:
         active_orchestration_mode = orchestration_mode_override or self.orchestration_mode
         OrchestrationMode(active_orchestration_mode)
         started = perf_counter()
-        with capture_llm_usage() as llm_usage, capture_tool_latencies() as tool_latencies:
+        with (
+            capture_llm_usage() as llm_usage,
+            capture_tool_latencies() as tool_latencies,
+            capture_model_telemetry() as model_facts,
+        ):
             if active_orchestration_mode == OrchestrationMode.LLM_REACT.value:
                 if self.intent_planner is None or self.next_action_planner is None:
                     raise ValueError("llm_react requires configured Qwen planners")
@@ -162,11 +171,13 @@ class PurePythonRCAWorkflow:
                         user_query=user_query,
                         job_id=job_id,
                         explicit_lot_id=lot_id,
+                        declared_unavailable_sources=declared_unavailable_sources,
                     )
                     state = self.supervisor.execute_controlled(
                         job,
                         goal,
                         tool_latencies=tool_latencies,
+                        orchestration_requested_mode=active_orchestration_mode,
                     )
                     state = replace(
                         state,
@@ -206,6 +217,7 @@ class PurePythonRCAWorkflow:
                         user_query=user_query,
                         job_id=job_id,
                         explicit_lot_id=lot_id,
+                        declared_unavailable_sources=declared_unavailable_sources,
                     )
                     state = self.supervisor.execute_llm_react(
                         job,
@@ -261,6 +273,9 @@ class PurePythonRCAWorkflow:
                     source_lot_id=str(source_lot_id) if source_lot_id else None,
                     product_id=str(product_id) if product_id else None,
                     time_window=time_window,
+                    declared_unavailable_sources=list(
+                        declared_unavailable_sources
+                    ),
                 )
                 if active_orchestration_mode == OrchestrationMode.CONTROLLED_REACT.value:
                     goal = self.planner.plan_investigation_goal(user_query, lot_id=lot_id)
@@ -314,6 +329,16 @@ class PurePythonRCAWorkflow:
             "hypothesis_engine_mode": "active",
             "orchestration_mode": actual_orchestration_mode,
         }
+        if self.supervisor.llm_client is not None:
+            metadata["model_identity"] = configured_identity(
+                self.supervisor.llm_client
+            ).to_dict()
+        if model_facts.events or model_facts.dropped_count:
+            metadata["model_telemetry"] = {
+                "events": [asdict(event) for event in model_facts.events],
+                "dropped_count": model_facts.dropped_count,
+                "complete": model_facts.complete,
+            }
         final_state = RCAState.from_dict(
             {
                 **state.to_dict(),
@@ -408,6 +433,7 @@ def build_workflow(
             llm_client=shared_llm_client,
             agent_mode=settings.agent_mode,
             direct_single_candidate=settings.agent_mode == "llm",
+            llm_analysis_enabled=settings.agent_mode != "llm",
             find_affected_lots_tool=find_affected_lots_tool,
             get_lot_context_tool=get_lot_context_tool,
             find_impact_lots_tool=find_impact_lots_tool,

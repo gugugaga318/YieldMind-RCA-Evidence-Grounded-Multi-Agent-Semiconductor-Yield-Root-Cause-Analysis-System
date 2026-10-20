@@ -26,9 +26,11 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import StreamingResponse
+from starlette.responses import JSONResponse, StreamingResponse
 from yield_rca_core.hybrid_retrieval import KnowledgeLookupRetriever
 from yield_rca_core.knowledge_ingestion import (
     KnowledgeCandidateNotFoundError,
@@ -45,15 +47,13 @@ from yield_rca_core.knowledge_store import (
     PostgresKnowledgeStore,
     load_builtin_knowledge_store,
 )
-from yield_rca_core.llm_gateway import LLMCallError, LLMOutputValidationError
+from yield_rca_core.llm_gateway import LLMCallError, LLMOutputValidationError, LLMSettings
 from yield_rca_core.models import RCAJob, RCAState, TaskStatus
 from yield_rca_core.question_capability import QUESTION_CAPABILITY_REGISTRY
-from yield_rca_core.repositories import CsvFabRepository
+from yield_rca_core.repositories import CsvFabRepository, PostgresFabRepository
 from yield_rca_core.supervisor import SupervisorExecutionError
 from yield_rca_core.workflow import (
     PurePythonRCAWorkflow,
-    build_csv_workflow,
-    build_postgres_workflow,
 )
 
 from yield_rca_api.audit import (
@@ -72,7 +72,18 @@ from yield_rca_api.memory import (
     MemoryStore,
     PostgresMemoryStore,
 )
+from yield_rca_api.model_selection import (
+    ModelSelectionError,
+    ModelSelectionService,
+    WorkflowFactory,
+    attach_selection,
+    selection_metadata,
+    verify_execution_identity,
+    workflow_factory,
+    workflow_identity,
+)
 from yield_rca_api.observability import RCAMetrics, configure_logging
+from yield_rca_api.presentation import report_for_view
 from yield_rca_api.schemas import (
     CancelRCAJobResponse,
     CreateRCAJobRequest,
@@ -84,11 +95,13 @@ from yield_rca_api.schemas import (
     KnowledgeLookupResponse,
     MemoryApprovalRequest,
     MemoryCandidateResponse,
+    ModelOptionsResponse,
     RCAJobQueueMetadataResponse,
     RCAJobResponse,
     RCAJobStateResponse,
     RCAReportResponse,
     ReportResponse,
+    TriageResultResponse,
 )
 from yield_rca_api.store import (
     TERMINAL_JOB_STATUSES,
@@ -136,6 +149,10 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
     """
 
     payload: dict[str, object] = dict(state.to_dict())
+    viewed_report = report_for_view(state)
+    if viewed_report is not None:
+        payload["report"] = viewed_report.to_dict()
+    payload["result_identities"] = state.result_identities
     raw_links = payload.get("question_evidence_links", [])
     links = (
         [dict(item) for item in raw_links if isinstance(item, dict)]
@@ -174,20 +191,88 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
                 definition.allowed_actions if definition is not None else ()
             )
             question["evidence_links"] = question_links
-    finding = state.authoritative_rca_finding
-    if finding is not None:
-        details = finding.details
+    authoritative_result = state.authoritative_rca_result
+    impact_publication = state.impact_publication_result
+    if authoritative_result is not None:
+        finding = (
+            next(
+                (
+                    item
+                    for item in state.findings
+                    if item.finding_id == authoritative_result.source_finding_id
+                ),
+                None,
+            )
+            if authoritative_result.source_finding_id is not None
+            else None
+        )
+    else:
+        finding = state.authoritative_rca_finding
+    if finding is not None or authoritative_result is not None:
+        details = finding.details if finding is not None else {}
         payload["rca_diagnosis"] = {
-            "finding_id": finding.finding_id,
-            "conclusion_status": str(
-                details.get("conclusion_status")
-                or details.get("status")
-                or "inconclusive"
+            "finding_id": (
+                authoritative_result.source_finding_id
+                if authoritative_result is not None
+                else finding.finding_id if finding is not None else None
             ),
-            "root_cause": (
-                str(details["root_cause"])
-                if details.get("root_cause") is not None
+            "result_id": (
+                authoritative_result.result_id
+                if authoritative_result is not None
                 else None
+            ),
+            "conclusion_status": (
+                authoritative_result.conclusion_status
+                if authoritative_result is not None
+                else str(
+                    details.get("conclusion_status")
+                    or details.get("status")
+                    or "inconclusive"
+                )
+            ),
+            "root_cause_candidate_id": (
+                authoritative_result.root_cause_candidate_id
+                if authoritative_result is not None
+                else None
+            ),
+            "confirmation_status": (
+                authoritative_result.confirmation_status
+                if authoritative_result is not None
+                else None
+            ),
+            "competition_status": (
+                authoritative_result.competition_status
+                if authoritative_result is not None
+                else None
+            ),
+            "terminal_reason": (
+                authoritative_result.terminal_reason
+                if authoritative_result is not None
+                else None
+            ),
+            "evidence_refs": (
+                list(authoritative_result.evidence_refs)
+                if authoritative_result is not None
+                else []
+            ),
+            "causal_chain_completeness": (
+                str(details["causal_chain_completeness"])
+                if details.get("causal_chain_completeness") is not None
+                else None
+            ),
+            "data_missing_evidence_ids": [
+                str(item)
+                for item in details.get("data_missing_evidence_ids", [])
+                if isinstance(item, str)
+            ],
+            "root_cause": (
+                authoritative_result.root_cause
+                if authoritative_result is not None
+                else (
+                    str(details["root_cause"])
+                    if details.get("root_cause") is not None
+                    else None
+                )
             ),
             "ranked_candidates": [
                 dict(item)
@@ -209,6 +294,15 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
                 if isinstance(details.get("candidate_comparison"), dict)
                 else {}
             ),
+            "causal_lanes": [item.to_dict() for item in state.causal_lanes],
+            "candidate_challenges": [
+                item.to_dict() for item in state.candidate_challenges
+            ],
+            "competition_trace": (
+                state.competition_trace.to_dict()
+                if state.competition_trace is not None
+                else None
+            ),
             "confirmation_gate": (
                 dict(details.get("confirmation_gate", {}))
                 if isinstance(details.get("confirmation_gate"), dict)
@@ -218,6 +312,16 @@ def _state_api_payload(state: RCAState) -> dict[str, object]:
                 dict(details.get("impact_lot_gate", {}))
                 if isinstance(details.get("impact_lot_gate"), dict)
                 else {}
+            ),
+            "publication_status": (
+                impact_publication.publication_status
+                if impact_publication is not None
+                else None
+            ),
+            "confirmed_impact_lots": (
+                list(impact_publication.confirmed_impact_lots)
+                if impact_publication is not None
+                else []
             ),
         }
     else:
@@ -313,27 +417,21 @@ def _llm_log_context(error: BaseException) -> dict[str, str]:
     return context
 
 
-def _default_workflow(
-    *,
-    knowledge_retriever: KnowledgeLookupRetriever | None = None,
-) -> PurePythonRCAWorkflow:
+def _default_workflow_factory(
+    *, knowledge_retriever: KnowledgeLookupRetriever | None = None,
+) -> WorkflowFactory:
     database_url = os.getenv("YIELD_RCA_DATABASE_URL", "").strip()
     if database_url:
-        return build_postgres_workflow(
-            database_url,
-            knowledge_retriever=knowledge_retriever,
-        )
-
+        return workflow_factory(PostgresFabRepository(database_url),
+                                knowledge_retriever=knowledge_retriever)
     configured_seed_dir = os.getenv("YIELD_RCA_SEED_DIR", "").strip()
     seed_dir = Path(configured_seed_dir) if configured_seed_dir else DEFAULT_SEED_DIR
     if not seed_dir.is_absolute():
         seed_dir = PROJECT_ROOT / seed_dir
-    return build_csv_workflow(
-        seed_dir.resolve(),
-        knowledge_retriever=knowledge_retriever,
+    return workflow_factory(
+        CsvFabRepository(seed_dir.resolve()), knowledge_retriever=knowledge_retriever,
         knowledge_asset_repository=KnowledgeAssetRepository(
-            CsvFabRepository(DEFAULT_KNOWLEDGE_CORPUS.parent)
-        ),
+            CsvFabRepository(DEFAULT_KNOWLEDGE_CORPUS.parent)),
     )
 
 
@@ -429,11 +527,14 @@ def select_orchestration_mode(
 
 
 def _normalized_job_request(request: CreateRCAJobRequest) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "investigation_mode": request.investigation_mode,
         "user_query": request.resolved_user_query(),
         "lot_id": request.lot_id,
     }
+    if request.model_selection is not None:
+        payload["model_selection"] = request.model_selection.model_dump()
+    return payload
 
 
 def _request_hash(request_payload: dict[str, object]) -> str:
@@ -506,6 +607,7 @@ def create_app(
     metrics: RCAMetrics | None = None,
     runtime_dataset: str | None = None,
     execute_jobs_inline: bool = False,
+    job_workflow_factory: WorkflowFactory | None = None,
 ) -> FastAPI:
     """Create the HTTP adapter; inline execution is an explicit test-only adapter."""
 
@@ -515,9 +617,15 @@ def create_app(
         governed_knowledge_store,
         database_url=database_url,
     )
-    rca_workflow = workflow or _default_workflow(
-        knowledge_retriever=active_knowledge_retriever,
-    )
+    execution_factory = job_workflow_factory
+    if workflow is None:
+        execution_factory = execution_factory or _default_workflow_factory(
+            knowledge_retriever=active_knowledge_retriever,
+        )
+        workflow = execution_factory(
+            LLMSettings.from_env(), os.getenv("YIELD_RCA_ORCHESTRATION_MODE", "fixed"),
+        )
+    rca_workflow = workflow
     job_store = store or _default_job_store()
     event_sink = audit_sink or _default_audit_sink()
     memory_service = MemoryApprovalService(
@@ -530,6 +638,10 @@ def create_app(
     )
     app_metrics = metrics or RCAMetrics()
     dataset_name = runtime_dataset or _default_runtime_dataset()
+    model_selection_service = ModelSelectionService(
+        rca_workflow.llm_settings, orchestration_mode=rca_workflow.orchestration_mode,
+        dataset=dataset_name,
+    )
     configure_logging()
     application = FastAPI(
         title="Semiconductor Yield RCA API",
@@ -581,6 +693,18 @@ def create_app(
                     },
                     exc_info=True,
                 )
+
+    @application.exception_handler(RequestValidationError)
+    async def invalid_request(request: Request, exc: RequestValidationError) -> Response:
+        if request.url.path == "/rca/jobs":
+            # Pydantic's default errors echo input values, including forbidden keys.
+            return JSONResponse(status_code=422, content={"detail": {
+                "error_code": "INVALID_RCA_JOB_REQUEST",
+                "message": "Invalid RCA job request.",
+                "errors": [{"loc": list(e["loc"]), "type": e["type"]}
+                           for e in exc.errors()],
+            }})
+        return await request_validation_exception_handler(request, exc)
 
     @application.middleware("http")
     async def correlation_middleware(
@@ -644,6 +768,10 @@ def create_app(
             media_type=CONTENT_TYPE_LATEST,
         )
 
+    @application.get("/rca/model-options", response_model=ModelOptionsResponse)
+    def model_options() -> ModelOptionsResponse:
+        return ModelOptionsResponse.model_validate(model_selection_service.catalog())
+
     @application.post(
         "/rca/jobs",
         response_model=CreateRCAJobResponse,
@@ -655,19 +783,21 @@ def create_app(
         response: Response,
         idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     ) -> CreateRCAJobResponse:
+        execution_workflow = rca_workflow
+        execution_identity = None
         job_id = f"RCA_{uuid4().hex.upper()}"
         correlation_id = str(http_request.state.correlation_id)
         started = perf_counter()
         user_query = request.resolved_user_query()
         normalized_idempotency_key = _normalize_idempotency_key(idempotency_key)
         request_payload = _normalized_job_request(request)
-        runtime_config = {
-            "agent_mode": rca_workflow.llm_settings.agent_mode,
-            "provider": rca_workflow.llm_settings.provider,
-            "model": rca_workflow.llm_settings.model,
-            "orchestration_mode": rca_workflow.orchestration_mode,
-            "dataset": dataset_name,
-        }
+        try:
+            runtime_config = model_selection_service.freeze(
+                request.model_selection.model_dump() if request.model_selection else None,
+            )
+        except ModelSelectionError as exc:
+            raise HTTPException(status_code=exc.status_code,
+                                detail={"error_code": exc.code, "message": exc.code}) from exc
         pending_state = RCAState(
             job=RCAJob(
                 job_id=job_id,
@@ -681,7 +811,9 @@ def create_app(
                 ),
             ),
             execution_metadata={
-                **runtime_config,
+                **{key: value for key, value in runtime_config.items()
+                   if key != "model_selection"},
+                "model_selection": selection_metadata(runtime_config),
                 "queue": {
                     "priority": 0,
                     "attempt_count": 0,
@@ -716,7 +848,7 @@ def create_app(
                 details={
                     "investigation_mode": request.investigation_mode,
                     "source_lot_id": request.lot_id,
-                    "agent_mode": rca_workflow.llm_settings.agent_mode,
+                    "agent_mode": execution_workflow.llm_settings.agent_mode,
                 },
             )
         )
@@ -737,13 +869,26 @@ def create_app(
         response.status_code = status.HTTP_201_CREATED
 
         try:
+            settings = model_selection_service.resolve(runtime_config, request_payload)
+            if execution_factory is not None:
+                execution_workflow = execution_factory(
+                    settings, runtime_config["orchestration_mode"],
+                )
+            elif request.model_selection is not None:
+                raise ModelSelectionError("JOB_WORKFLOW_FACTORY_REQUIRED", status_code=503)
+            if (execution_workflow.llm_settings != settings
+                    or execution_workflow.orchestration_mode
+                    != runtime_config["orchestration_mode"]):
+                raise ModelSelectionError("WORKER_RUNTIME_CONFIG_MISMATCH")
+            execution_identity = workflow_identity(execution_workflow)
+            verify_execution_identity(pending_state, runtime_config, execution_identity)
             selected_mode, fallback_reason = select_orchestration_mode(
-                rca_workflow,
+                execution_workflow,
                 investigation_mode=request.investigation_mode,
                 lot_id=request.lot_id,
                 user_query=user_query,
             )
-            completed_state = rca_workflow.run(
+            completed_state = execution_workflow.run(
                 user_query,
                 job_id=job_id,
                 plan_id=f"PLAN_{job_id}",
@@ -752,13 +897,16 @@ def create_app(
             )
             execution_metadata = {
                 **completed_state.execution_metadata,
-                "orchestration_requested_mode": rca_workflow.orchestration_mode,
+                "orchestration_requested_mode": execution_workflow.orchestration_mode,
             }
-            if fallback_reason and rca_workflow.orchestration_mode == "controlled_react":
+            if fallback_reason and execution_workflow.orchestration_mode == "controlled_react":
                 execution_metadata["orchestration_fallback_reason"] = fallback_reason
             completed_state = replace(
                 completed_state,
                 execution_metadata=execution_metadata,
+            )
+            completed_state = attach_selection(
+                completed_state, runtime_config, execution_identity=execution_identity,
             )
         except SupervisorExecutionError as exc:
             if _is_llm_failure(exc):
@@ -773,7 +921,10 @@ def create_app(
                     if exc.error_code
                     else status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-            failed_state = exc.state or pending_state
+            failed_state = attach_selection(
+                exc.state or pending_state, runtime_config,
+                execution_identity=execution_identity, enforce_match=False,
+            )
             if failed_state.job.status != TaskStatus.FAILED.value:
                 failed_state = replace(
                     failed_state,
@@ -783,8 +934,8 @@ def create_app(
             app_metrics.observe_state(failed_state, outcome="failed")
             if _is_llm_failure(exc):
                 app_metrics.observe_llm_error(
-                    provider=rca_workflow.llm_settings.provider,
-                    model=rca_workflow.llm_settings.model,
+                    provider=execution_workflow.llm_settings.provider,
+                    model=execution_workflow.llm_settings.model,
                 )
             record_audit(
                 AuditEvent(
@@ -817,16 +968,21 @@ def create_app(
             ) from exc
         except Exception as exc:
             error_code, error_message, http_status = _classify_workflow_error(exc)
-            failed_state = replace(
-                pending_state,
-                job=replace(pending_state.job, status=TaskStatus.FAILED.value),
+            failure_source = (exc.state if isinstance(exc, ModelSelectionError)
+                              and exc.state is not None else pending_state)
+            failed_state = attach_selection(
+                replace(failure_source, job=replace(failure_source.job,
+                                                   status=TaskStatus.FAILED.value)),
+                runtime_config, execution_identity=execution_identity, enforce_match=False,
             )
+            if isinstance(exc, ModelSelectionError):
+                error_code, error_message, http_status = exc.code, exc.code, exc.status_code
             job_store.save(failed_state)
             app_metrics.observe_state(failed_state, outcome="failed")
             if _is_llm_failure(exc):
                 app_metrics.observe_llm_error(
-                    provider=rca_workflow.llm_settings.provider,
-                    model=rca_workflow.llm_settings.model,
+                    provider=execution_workflow.llm_settings.provider,
+                    model=execution_workflow.llm_settings.model,
                 )
             record_audit(
                 AuditEvent(
@@ -1114,10 +1270,16 @@ def create_app(
                 outcome="success",
             )
         )
+        viewed_report = report_for_view(state)
+        assert viewed_report is not None
         return RCAReportResponse(
             job_id=job_id,
             status=state.job.status,
-            report=ReportResponse.model_validate(state.report.to_dict()),
+            report=ReportResponse.model_validate(viewed_report.to_dict()),
+            triage_result=(
+                TriageResultResponse.model_validate(state.triage_result)
+                if state.triage_result is not None else None
+            ),
         )
 
     @application.get(

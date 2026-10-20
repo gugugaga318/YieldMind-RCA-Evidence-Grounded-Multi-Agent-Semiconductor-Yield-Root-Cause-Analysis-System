@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from yield_rca_core.authoritative_result import AuthoritativeRCAResult
 from yield_rca_core.models import (
     AgentFinding,
     AgentKind,
@@ -21,6 +22,8 @@ from yield_rca_core.models import (
     Warning,
 )
 from yield_rca_core.question_capability import QUESTION_CAPABILITY_REGISTRY
+from yield_rca_core.triage_report import confirmation_sections, triage_sections
+from yield_rca_core.warning_policy import reconcile_current_warnings
 
 
 class ReportGenerationError(ValueError):
@@ -64,6 +67,18 @@ def _rca_finding(state: RCAState) -> AgentFinding | None:
     # RCA reasoning is iterative.  RCAState owns the explicit authority
     # pointer; historical Findings remain available for the evidence chain
     # and audit but are never treated as the final result.
+    result = state.authoritative_rca_result
+    if result is not None:
+        if result.source_finding_id is None:
+            return None
+        return next(
+            (
+                item
+                for item in state.findings
+                if item.finding_id == result.source_finding_id
+            ),
+            None,
+        )
     return state.authoritative_rca_finding
 
 
@@ -139,11 +154,16 @@ def _evidence_text(evidence: Evidence) -> str:
 
 
 def _state_warnings(state: RCAState) -> list[Warning]:
-    warnings_by_id = {warning.warning_id: warning for warning in state.warnings}
-    for finding in state.findings:
-        for warning in finding.warnings:
-            warnings_by_id[warning.warning_id] = warning
-    return list(warnings_by_id.values())
+    historical_finding_warnings = [
+        warning
+        for finding in state.findings
+        for warning in finding.warnings
+    ]
+    return reconcile_current_warnings(
+        state.warnings,
+        historical_finding_warnings,
+        current_findings=state.findings,
+    )
 
 
 def _validate_evidence_ids(
@@ -562,10 +582,38 @@ def _spc_section(state: RCAState) -> tuple[list[str], list[str]]:
 
 
 def _root_cause_sections(
+    authoritative_result: AuthoritativeRCAResult | None,
     rca_finding: AgentFinding | None,
 ) -> tuple[list[str], list[str]]:
     lines = ["## Root Cause", ""]
     confidence_lines = ["## Confidence", ""]
+    if authoritative_result is not None:
+        evidence_ids = list(authoritative_result.evidence_refs)
+        root_cause_line = (
+            f"- Root Cause: **{authoritative_result.root_cause}**"
+            if authoritative_result.root_cause is not None
+            else "- Root Cause: Not published by authoritative result."
+        )
+        lines.extend(
+            [
+                f"- RCA Result ID: `{authoritative_result.result_id}`",
+                f"- Status: `{authoritative_result.conclusion_status}`",
+                f"- Conclusion Status: `{authoritative_result.conclusion_status}`",
+                f"- Confirmation Status: `{authoritative_result.confirmation_status}`",
+                f"- Competition Status: `{authoritative_result.competition_status}`",
+                f"- Terminal Reason: `{authoritative_result.terminal_reason}`",
+                root_cause_line,
+                f"- Evidence: {_format_evidence_ids(evidence_ids)}",
+            ]
+        )
+        confidence_lines.extend(
+            [
+                "- Confidence: Not represented in AuthoritativeRCAResult.",
+                f"- Evidence: {_format_evidence_ids(evidence_ids)}",
+            ]
+        )
+        return lines + [""] + confidence_lines, evidence_ids
+
     if rca_finding is None:
         lines.extend(
             [
@@ -579,6 +627,10 @@ def _root_cause_sections(
 
     root_cause = str(rca_finding.details.get("root_cause", "")).strip()
     status = str(rca_finding.details.get("status", "")).strip()
+    conclusion_status = str(
+        rca_finding.details.get("conclusion_status", status)
+    ).strip()
+    chain_status = rca_finding.details.get("causal_chain_completeness")
     if not root_cause or not status:
         raise ReportGenerationError("RCA finding must include root_cause and status")
     evidence_ids = [
@@ -593,6 +645,12 @@ def _root_cause_sections(
     lines.extend(
         [
             f"- Status: `{status}`",
+            f"- Conclusion Status: `{conclusion_status}`",
+            *(
+                [f"- Causal Chain: `{chain_status}`"]
+                if chain_status
+                else []
+            ),
             f"- Root Cause: **{root_cause}**",
             f"- Evidence: {_format_evidence_ids(evidence_ids)}",
         ]
@@ -604,6 +662,42 @@ def _root_cause_sections(
         ]
     )
     return lines + [""] + confidence_lines, evidence_ids
+
+
+def _competition_section(state: RCAState) -> list[str]:
+    trace = state.competition_trace
+    if trace is None:
+        return []
+    lines = [
+        "## Candidate Competition",
+        "",
+        f"- Requirement: `{trace.competition_requirement}`",
+        f"- Candidate Competition Status: `{trace.competition_status}`",
+        f"- Competition Type: `{trace.competition_type}`",
+        "- Competition Axes: "
+        + (
+            ", ".join(f"`{item}`" for item in trace.competition_axes)
+            if trace.competition_axes
+            else "Not evaluated"
+        ),
+        f"- Scope Assessment Status: `{trace.scope_assessment_status}`",
+        f"- Lane Search Status: `{trace.alternative_search_status}`",
+    ]
+    if trace.competition_failure_reason is not None:
+        lines.append(
+            f"- Competition Failure: `{trace.competition_failure_reason}`"
+        )
+    if trace.candidate_lineage:
+        lines.extend(["", "### Candidate Lineage", ""])
+        for item in trace.candidate_lineage:
+            status = str(item.get("lineage_status", "unavailable"))
+            root_cause = str(
+                item.get("root_cause")
+                or item.get("prior_root_cause")
+                or "Not available"
+            )
+            lines.append(f"- `{status}`: {root_cause}")
+    return lines
 
 
 def _action_section(actions: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
@@ -897,11 +991,11 @@ class ReportGenerator:
             generated_warnings.append(
                 ("WARN_REPORT_NO_AFFECTED_LOTS", "Affected lots are not available in RCAState.")
             )
-        if rca_finding is None:
+        if rca_finding is None and state.authoritative_rca_result is None:
             generated_warnings.append(
                 ("WARN_REPORT_NO_RCA_RESULT", "RCA reasoning result is not available in RCAState.")
             )
-        if not actions and improvement_finding is None:
+        if state.triage_result is None and not actions and improvement_finding is None:
             generated_warnings.append(
                 (
                     "WARN_REPORT_NO_RECOMMENDED_ACTIONS",
@@ -915,6 +1009,16 @@ class ReportGenerator:
 
         sections: list[list[str]] = []
         sections.append(_problem_section(state))
+        triage_section, triage_citations = triage_sections(state)
+        if triage_section:
+            sections.append(triage_section)
+            confirmation_section, _ = confirmation_sections(state)
+            sections.append(confirmation_section)
+            sections.append([
+                "## Investigation Diagnostics", "",
+                "The following records are diagnostic context, "
+                "not hypothesis publication authority.",
+            ])
         if state.investigation_goal is not None:
             path_lines = ["## Controlled Investigation Path", ""]
             path_lines.append(f"- Intent: `{state.investigation_goal.intent}`")
@@ -936,9 +1040,19 @@ class ReportGenerator:
         sections.append(chain_section)
         spc_section, spc_citations = _spc_section(state)
         sections.append(spc_section)
-        root_sections, root_citations = _root_cause_sections(rca_finding)
-        sections.append(root_sections)
-        if improvement_finding is not None:
+        if state.triage_result is not None:
+            _, root_citations = confirmation_sections(state)
+        else:
+            root_sections, root_citations = _root_cause_sections(
+                state.authoritative_rca_result, rca_finding,
+            )
+            sections.append(root_sections)
+        competition_section = _competition_section(state)
+        if competition_section:
+            sections.append(competition_section)
+        if state.triage_result is not None:
+            action_citations = []
+        elif improvement_finding is not None:
             improvement_sections, action_citations = _improvement_sections(improvement_finding)
             sections.extend(improvement_sections)
         else:
@@ -948,7 +1062,8 @@ class ReportGenerator:
         sections.append(warning_section)
 
         cited_ids = _deduplicate_strings(
-            semantic_citations
+            triage_citations
+            + semantic_citations
             + affected_citations
             + chain_citations
             + spc_citations
@@ -962,7 +1077,9 @@ class ReportGenerator:
         sections.append(_reference_section(state.evidence, cited_ids))
 
         report_title = self.title
-        if state.job.source_lot_id:
+        if state.triage_result is not None:
+            report_title = "RCA Investigation Triage Report"
+        elif state.job.source_lot_id:
             report_title = f"Lot-driven RCA Report - {state.job.source_lot_id}"
         elif state.job.product_id:
             report_title = f"{report_title} - {state.job.product_id}"

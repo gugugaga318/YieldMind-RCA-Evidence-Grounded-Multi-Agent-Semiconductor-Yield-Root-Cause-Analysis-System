@@ -13,7 +13,6 @@ env/
 .workbuddy/
 
 .env
-!.env.example
 
 dist/
 build/
@@ -38,3 +37,23 @@ scripts/generate_candidate_blind_evaluation.py
 scripts/generate_candidate_blind_evaluation_v2.py
 scripts/generate_blind_pilot_v3.py
 scripts/generate_formal_blind_evaluation_v1.py
+
+# Local-only material is never part of the public release.
+.env*
+.env
+output/
+outputs/
+tmp/
+.agents/
+.codex/
+work/
+credentials/
+secrets/
+resume*
+**/*HANDOFF*
+**/*handoff*
+**/CODEX_*
+*.pem
+*.key
+*.p12
+*.pfx

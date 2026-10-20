@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -9,11 +10,23 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "core"))
 
 from yield_rca_core.causal_investigation_models import (  # noqa: E402
+    AlternativeLaneResolution,
+    AlternativeLaneResolutionStatus,
     AlternativeSearchStatus,
     CandidateChallenge,
+    CandidateCompetitionStatus,
+    CandidateCompetitionType,
+    CandidateDistinguishingPrediction,
+    CandidateLaneEffectExpectation,
+    CandidateScopeRelation,
+    CandidateSemanticProfile,
     CausalChainCompleteness,
     CausalLaneRecord,
+    ChallengeKind,
     ChallengeStatus,
+    CompetitionFailureReason,
+    CompetitionGapReason,
+    CompetitionRequirement,
     CompetitionTrace,
     InvestigationLaneStatus,
 )
@@ -92,6 +105,9 @@ def test_lane_status_and_pruning_reason_are_python_validated() -> None:
 def test_challenge_and_competition_trace_round_trip() -> None:
     challenge = CandidateChallenge(
         candidate_id="CANDIDATE_A",
+        alternative_candidate_id="CANDIDATE_B",
+        evidence_probe_lane_id="LANE_001",
+        challenge_kind=ChallengeKind.SCOPE.value,
         strongest_alternative_lane_id="LANE_001",
         supporting_evidence_ids=("EV_001",),
         contradicting_evidence_ids=(),
@@ -106,8 +122,46 @@ def test_challenge_and_competition_trace_round_trip() -> None:
         represented_lane_ids=("LANE_001",),
         unresolved_lane_ids=("LANE_002",),
         alternative_search_status=AlternativeSearchStatus.UNRESOLVED.value,
+        competition_requirement=CompetitionRequirement.DIRECTION_REQUIRED.value,
+        competition_status=CandidateCompetitionStatus.FAILED.value,
+        competition_type=CandidateCompetitionType.CAUSAL_DIRECTION.value,
+        competition_failure_reason=(
+            CompetitionFailureReason.ALTERNATIVE_DIRECTION_NOT_GENERATED.value
+        ),
+        candidate_semantic_profiles=(
+            CandidateSemanticProfile(
+                candidate_id="CANDIDATE_A",
+                scope_relation=CandidateScopeRelation.FOCAL_ONLY.value,
+                claimed_lane_ids=("LANE_001",),
+                comparison_lane_ids=("LANE_001",),
+                mechanism_claim="Pressure instability changes wafer clamping.",
+                distinguishing_predictions=(
+                    CandidateDistinguishingPrediction(
+                        discriminator_kind="product_outcome",
+                        lane_ids=("LANE_001",),
+                        prediction="The focal Lane produces the compatible defect.",
+                    ),
+                ),
+            ),
+        ),
+        candidate_lineage=(
+            {
+                "candidate_index": 0,
+                "lineage_status": "retained",
+            },
+        ),
         challenge_round_count=1,
         resolution_evidence_ids=("EV_001",),
+        lane_resolutions=(
+            AlternativeLaneResolution(
+                lane_id="LANE_001",
+                status=AlternativeLaneResolutionStatus.RETAINED.value,
+                candidate_id="CANDIDATE_A",
+                evidence_ids=("EV_001",),
+                distinguishing_gap_ids=("mechanism_missing",),
+                reason="The Lane remains viable.",
+            ),
+        ),
     )
     assert CandidateChallenge.from_dict(challenge.to_dict()) == challenge
     assert CompetitionTrace.from_dict(trace.to_dict()) == trace
@@ -115,6 +169,17 @@ def test_challenge_and_competition_trace_round_trip() -> None:
         CompetitionTrace(active_lane_ids=("LANE_001",), overflow_lane_ids=("LANE_001",))
     with pytest.raises(ModelValidationError, match="unresolved and eliminated"):
         CompetitionTrace(unresolved_lane_ids=("LANE_001",), eliminated_lane_ids=("LANE_001",))
+    with pytest.raises(ModelValidationError, match="requires competition_failure_reason"):
+        CompetitionTrace(
+            competition_status=CandidateCompetitionStatus.FAILED.value,
+        )
+
+    pending = CompetitionTrace(
+        competition_requirement=CompetitionRequirement.SCOPE_REQUIRED.value,
+        competition_status=CandidateCompetitionStatus.PENDING.value,
+        competition_gap_reason=CompetitionGapReason.SCOPE_HYPOTHESIS_COLLAPSED.value,
+    )
+    assert CompetitionTrace.from_dict(pending.to_dict()) == pending
 
 
 def test_rca_state_causal_fields_round_trip_and_legacy_compatibility() -> None:
@@ -131,6 +196,15 @@ def test_rca_state_causal_fields_round_trip_and_legacy_compatibility() -> None:
             active_lane_ids=("LANE_001",),
             represented_lane_ids=("LANE_001",),
             alternative_search_status=AlternativeSearchStatus.ALTERNATIVES_ELIMINATED.value,
+            candidate_semantic_profiles=(
+                CandidateSemanticProfile(
+                    candidate_id="CANDIDATE_A",
+                    scope_relation=CandidateScopeRelation.FOCAL_ONLY.value,
+                    claimed_lane_ids=("LANE_001",),
+                    comparison_lane_ids=("LANE_001",),
+                    mechanism_claim="Pressure instability changes wafer clamping.",
+                ),
+            ),
             resolution_evidence_ids=("EV_001",),
         ),
         causal_chain_completeness=CausalChainCompleteness.COMPLETE.value,
@@ -143,6 +217,61 @@ def test_rca_state_causal_fields_round_trip_and_legacy_compatibility() -> None:
     assert legacy.candidate_challenges == []
     assert legacy.competition_trace is None
     assert legacy.causal_chain_completeness is None
+
+
+def test_candidate_lane_effect_expectations_round_trip_and_legacy_state() -> None:
+    legacy_profile = CandidateSemanticProfile.from_dict(
+        {
+            "candidate_id": "CANDIDATE_A",
+            "scope_relation": CandidateScopeRelation.FOCAL_ONLY.value,
+            "claimed_lane_ids": ["LANE_001"],
+            "comparison_lane_ids": ["LANE_001"],
+            "mechanism_claim": "Pressure instability changes wafer clamping.",
+            "distinguishing_predictions": [
+                {
+                    "discriminator_kind": "product_outcome",
+                    "lane_ids": ["LANE_001"],
+                    "prediction": "The focal Lane produces the product failure.",
+                }
+            ],
+        }
+    )
+    legacy_prediction = legacy_profile.distinguishing_predictions[0]
+    assert legacy_prediction.lane_effect_expectations == ()
+
+    state = make_state(
+        causal_lanes=[make_lane()],
+        competition_trace=CompetitionTrace(
+            candidate_semantic_profiles=(legacy_profile,),
+        ),
+    )
+    legacy_state_payload = json.loads(json.dumps(state.to_dict()))
+    del legacy_state_payload["competition_trace"]["candidate_semantic_profiles"][0][
+        "distinguishing_predictions"
+    ][0]["lane_effect_expectations"]
+    restored_state = RCAState.from_dict(legacy_state_payload)
+    restored_profile = restored_state.competition_trace.candidate_semantic_profiles[0]
+    assert restored_profile.distinguishing_predictions[
+        0
+    ].lane_effect_expectations == ()
+    json.dumps(restored_state.to_dict())
+
+    structured_prediction = CandidateDistinguishingPrediction(
+        discriminator_kind="product_outcome",
+        lane_ids=("LANE_001",),
+        prediction="The focal Lane produces HIGH_CONTACT_R.",
+        lane_effect_expectations=(
+            CandidateLaneEffectExpectation(
+                lane_id="LANE_001",
+                effect_key="HIGH_CONTACT_R",
+                effect_state="present",
+            ),
+        ),
+    )
+    structured_payload = json.loads(json.dumps(structured_prediction.to_dict()))
+    assert CandidateDistinguishingPrediction.from_dict(
+        structured_payload
+    ) == structured_prediction
 
 
 def test_rca_state_rejects_invalid_causal_references_and_status() -> None:
@@ -179,6 +308,20 @@ def test_rca_state_rejects_invalid_causal_references_and_status() -> None:
             causal_lanes=[make_lane()],
             competition_trace=CompetitionTrace(active_lane_ids=("LANE_MISSING",)),
         )
+    with pytest.raises(ModelValidationError, match="unknown causal lanes"):
+        make_state(
+            causal_lanes=[make_lane()],
+            competition_trace=CompetitionTrace(
+                candidate_semantic_profiles=(
+                    CandidateSemanticProfile(
+                        candidate_id="CANDIDATE_A",
+                        scope_relation=CandidateScopeRelation.FOCAL_ONLY.value,
+                        claimed_lane_ids=("LANE_MISSING",),
+                        comparison_lane_ids=("LANE_MISSING",),
+                        mechanism_claim="Unknown Lane mechanism.",
+                    ),
+                )
+            ),
+        )
     with pytest.raises(ModelValidationError, match="causal_chain_completeness"):
         make_state(causal_chain_completeness="not_a_status")
-

@@ -21,20 +21,20 @@ class EvaluationV2ReleaseTest(unittest.TestCase):
                 argparse.Namespace(
                     data_results=(
                         ROOT
-                        / "outputs"
+                        / "tests" / "fixtures" / "reference_outputs"
                         / "evaluation_v2_data_quality"
                         / "results.json"
                     ),
                     retrieval_results=(
                         ROOT
-                        / "outputs"
+                        / "tests" / "fixtures" / "reference_outputs"
                         / "evaluation_v2_release"
                         / "retrieval"
                         / "results.json"
                     ),
                     rca_results=(
                         ROOT
-                        / "outputs"
+                        / "tests" / "fixtures" / "reference_outputs"
                         / "evaluation_v2_release"
                         / "rca"
                         / "results.json"

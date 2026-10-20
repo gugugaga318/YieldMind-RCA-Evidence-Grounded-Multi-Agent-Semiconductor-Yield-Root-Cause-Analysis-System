@@ -1,0 +1,996 @@
+{
+  "$defs": {
+    "CallRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "logical_call_id": {
+          "title": "Logical Call Id",
+          "type": "string"
+        },
+        "usage_call_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Usage Call Id"
+        },
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "prompt_name": {
+          "title": "Prompt Name",
+          "type": "string"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "operation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Operation Id"
+        },
+        "caller_retry_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Caller Retry Index"
+        },
+        "output_attempt_index": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Attempt Index"
+        },
+        "http_attempt_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Http Attempt Count"
+        },
+        "http_attempts": {
+          "items": {
+            "$ref": "#/$defs/HTTPAttempt"
+          },
+          "title": "Http Attempts",
+          "type": "array"
+        },
+        "http_attempts_complete": {
+          "title": "Http Attempts Complete",
+          "type": "boolean"
+        },
+        "transport_outcome": {
+          "enum": [
+            "success",
+            "failed",
+            "not_observed"
+          ],
+          "title": "Transport Outcome",
+          "type": "string"
+        },
+        "failure_category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Failure Category"
+        },
+        "stop_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Stop Reason"
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Tokens"
+        },
+        "total_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total Tokens"
+        },
+        "latency_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latency Ms"
+        },
+        "cost": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cost"
+        },
+        "validation": {
+          "items": {
+            "$ref": "#/$defs/ValidationObservation"
+          },
+          "title": "Validation",
+          "type": "array"
+        },
+        "source_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "logical_call_id",
+        "usage_call_id",
+        "agent",
+        "prompt_name",
+        "prompt_version",
+        "provider",
+        "model",
+        "operation_id",
+        "caller_retry_index",
+        "output_attempt_index",
+        "http_attempt_count",
+        "http_attempts",
+        "http_attempts_complete",
+        "transport_outcome",
+        "failure_category",
+        "stop_reason",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "latency_ms",
+        "cost",
+        "validation",
+        "source_refs"
+      ],
+      "title": "CallRecord",
+      "type": "object"
+    },
+    "FallbackEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "logical_call_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Logical Call Id"
+        },
+        "reason_code": {
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "policy_owner": {
+          "title": "Policy Owner",
+          "type": "string"
+        },
+        "source_ref": {
+          "title": "Source Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage",
+        "logical_call_id",
+        "reason_code",
+        "policy_owner",
+        "source_ref"
+      ],
+      "title": "FallbackEvent",
+      "type": "object"
+    },
+    "FunnelPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "enum": [
+            "initial_raw",
+            "initial_admitted",
+            "competition",
+            "ranking",
+            "confirmation",
+            "finalizer"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "captured": {
+          "title": "Captured",
+          "type": "boolean"
+        },
+        "candidate_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Ids",
+          "type": "array"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Ref"
+        },
+        "missing_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Missing Reason"
+        }
+      },
+      "required": [
+        "stage",
+        "captured",
+        "candidate_ids",
+        "source_ref",
+        "missing_reason"
+      ],
+      "title": "FunnelPoint",
+      "type": "object"
+    },
+    "HTTPAttempt": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "status_code": {
+          "anyOf": [
+            {
+              "maximum": 599,
+              "minimum": 100,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Status Code"
+        },
+        "outcome": {
+          "enum": [
+            "success",
+            "http_error",
+            "transport_error"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "normalized_category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Normalized Category"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Request Id"
+        },
+        "latency_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Latency Ms"
+        },
+        "source_ref": {
+          "title": "Source Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "attempt",
+        "status_code",
+        "outcome",
+        "normalized_category",
+        "request_id",
+        "latency_ms",
+        "source_ref"
+      ],
+      "title": "HTTPAttempt",
+      "type": "object"
+    },
+    "Measurement": {
+      "additionalProperties": false,
+      "properties": {
+        "availability": {
+          "enum": [
+            "observed",
+            "partial",
+            "unavailable",
+            "not_applicable"
+          ],
+          "title": "Availability",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "numerator": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Numerator"
+        },
+        "denominator": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Denominator"
+        },
+        "sample_count": {
+          "minimum": 0,
+          "title": "Sample Count",
+          "type": "integer"
+        },
+        "unit": {
+          "enum": [
+            "fraction",
+            "count",
+            "tokens",
+            "ms",
+            "currency",
+            "count_per_case",
+            "tokens_per_case",
+            "currency_per_case",
+            "count_per_call"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "source_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        },
+        "missing_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Missing Reason"
+        }
+      },
+      "required": [
+        "availability",
+        "value",
+        "sample_count",
+        "unit",
+        "source_refs",
+        "missing_reason"
+      ],
+      "title": "Measurement",
+      "type": "object"
+    },
+    "MetricName": {
+      "enum": [
+        "completion_rate",
+        "strict_accept_rate",
+        "candidate_recall",
+        "admitted_candidate_recall",
+        "competition_survival",
+        "ranking_survival",
+        "confirmation_survival",
+        "supported_root_cause_recall",
+        "root_cause_hit_rate",
+        "first_pass_json_success_rate",
+        "json_decode_success_rate",
+        "first_attempt_operation_success_rate",
+        "json_decode_failure_rate",
+        "dto_validation_failure_rate",
+        "business_validation_failure_rate",
+        "semantic_validation_error_rate",
+        "candidate_validation_error_rate",
+        "invalid_reference_rate",
+        "valid_evidence_reference_rate",
+        "invalid_evidence_reference_rate",
+        "isolated_bad_candidate_rate",
+        "provider_failure_rate",
+        "fallback_rate",
+        "timeout_rate",
+        "rate_limit_rate",
+        "invalid_response_rate",
+        "context_overflow_rate",
+        "unsupported_capability_rate",
+        "logical_llm_calls",
+        "http_attempts",
+        "caller_retries",
+        "output_repairs",
+        "action_count",
+        "tool_count",
+        "evidence_count",
+        "logical_llm_calls_per_case",
+        "http_attempts_per_case",
+        "caller_retries_per_case",
+        "output_repairs_per_case",
+        "action_count_per_case",
+        "tool_count_per_case",
+        "evidence_count_per_case",
+        "http_attempts_per_logical_call",
+        "input_tokens",
+        "input_tokens_per_case",
+        "output_tokens",
+        "output_tokens_per_case",
+        "total_tokens",
+        "total_tokens_per_case",
+        "cost",
+        "cost_per_case",
+        "cost_per_successful_rca",
+        "cost_per_logical_call",
+        "call_latency_min",
+        "call_latency_median",
+        "call_latency_p50",
+        "call_latency_p95",
+        "call_latency_max",
+        "case_latency_min",
+        "case_latency_median",
+        "case_latency_p50",
+        "case_latency_p95",
+        "case_latency_max"
+      ],
+      "title": "MetricName",
+      "type": "string"
+    },
+    "RunIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "comparison_kind": {
+          "enum": [
+            "architecture_parity",
+            "model_replacement"
+          ],
+          "title": "Comparison Kind",
+          "type": "string"
+        },
+        "execution_kind": {
+          "enum": [
+            "historical_real",
+            "offline_mock",
+            "offline_replay",
+            "real"
+          ],
+          "title": "Execution Kind",
+          "type": "string"
+        },
+        "code_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Code Commit",
+          "type": "string"
+        },
+        "base_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Base Commit",
+          "type": "string"
+        },
+        "code_worktree_clean": {
+          "title": "Code Worktree Clean",
+          "type": "boolean"
+        },
+        "source_snapshot_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Snapshot Sha256"
+        },
+        "dataset_id": {
+          "title": "Dataset Id",
+          "type": "string"
+        },
+        "public_input_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Public Input Hashes",
+          "type": "object"
+        },
+        "prompt_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Prompt Hashes",
+          "type": "object"
+        },
+        "selected_case_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Selected Case Ids",
+          "type": "array"
+        },
+        "replicate": {
+          "minimum": 1,
+          "title": "Replicate",
+          "type": "integer"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "orchestration_mode": {
+          "title": "Orchestration Mode",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Timeout Seconds",
+          "type": "number"
+        },
+        "max_http_retries": {
+          "minimum": 0,
+          "title": "Max Http Retries",
+          "type": "integer"
+        },
+        "logical_call_cap": {
+          "minimum": 1,
+          "title": "Logical Call Cap",
+          "type": "integer"
+        },
+        "action_budget": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Action Budget"
+        },
+        "tool_budget": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tool Budget"
+        },
+        "ground_truth_loaded": {
+          "const": false,
+          "title": "Ground Truth Loaded",
+          "type": "boolean"
+        },
+        "pricing_snapshot_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pricing Snapshot Ref"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Currency"
+        },
+        "comparison_limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Comparison Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "comparison_kind",
+        "execution_kind",
+        "code_commit",
+        "base_commit",
+        "code_worktree_clean",
+        "source_snapshot_sha256",
+        "dataset_id",
+        "public_input_hashes",
+        "prompt_hashes",
+        "selected_case_ids",
+        "replicate",
+        "provider",
+        "model",
+        "orchestration_mode",
+        "timeout_seconds",
+        "max_http_retries",
+        "logical_call_cap",
+        "action_budget",
+        "tool_budget",
+        "ground_truth_loaded",
+        "pricing_snapshot_ref",
+        "currency",
+        "comparison_limitations"
+      ],
+      "title": "RunIdentity",
+      "type": "object"
+    },
+    "TelemetryCoverage": {
+      "additionalProperties": false,
+      "properties": {
+        "calls_complete": {
+          "title": "Calls Complete",
+          "type": "boolean"
+        },
+        "fallback_events_complete": {
+          "title": "Fallback Events Complete",
+          "type": "boolean"
+        },
+        "dropped_events": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Dropped Events"
+        },
+        "limitations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Limitations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "calls_complete",
+        "fallback_events_complete",
+        "dropped_events",
+        "limitations"
+      ],
+      "title": "TelemetryCoverage",
+      "type": "object"
+    },
+    "ValidationObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "enum": [
+            "json_decode",
+            "dto",
+            "business",
+            "candidate",
+            "semantic",
+            "evidence_reference"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "passed",
+            "failed",
+            "not_observed",
+            "not_applicable"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "attempted_items": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Attempted Items"
+        },
+        "failed_items": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Failed Items"
+        },
+        "reason_codes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reason Codes",
+          "type": "array"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Ref"
+        }
+      },
+      "required": [
+        "stage",
+        "outcome",
+        "attempted_items",
+        "failed_items",
+        "reason_codes",
+        "source_ref"
+      ],
+      "title": "ValidationObservation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "0.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run": {
+      "$ref": "#/$defs/RunIdentity"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "acceptance_contract": {
+      "enum": [
+        "strict_qwen",
+        "provider_contract",
+        "not_evaluated"
+      ],
+      "title": "Acceptance Contract",
+      "type": "string"
+    },
+    "external_scoring_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "External Scoring Ref"
+    },
+    "metrics": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Measurement"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/MetricName"
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "calls": {
+      "items": {
+        "$ref": "#/$defs/CallRecord"
+      },
+      "title": "Calls",
+      "type": "array"
+    },
+    "fallback_events": {
+      "items": {
+        "$ref": "#/$defs/FallbackEvent"
+      },
+      "title": "Fallback Events",
+      "type": "array"
+    },
+    "telemetry_coverage": {
+      "$ref": "#/$defs/TelemetryCoverage"
+    },
+    "candidate_funnel": {
+      "items": {
+        "$ref": "#/$defs/FunnelPoint"
+      },
+      "title": "Candidate Funnel",
+      "type": "array"
+    },
+    "diagnostics": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Diagnostics",
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "run",
+    "case_id",
+    "acceptance_contract",
+    "external_scoring_ref",
+    "metrics",
+    "calls",
+    "fallback_events",
+    "telemetry_coverage",
+    "candidate_funnel",
+    "diagnostics"
+  ],
+  "title": "BenchmarkCase",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

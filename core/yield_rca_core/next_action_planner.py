@@ -14,7 +14,21 @@ from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import Any
 
-from yield_rca_core.evidence_models import Evidence
+from yield_rca_core.causal_competition import select_diverse_lane_ids
+from yield_rca_core.causal_investigation_models import (
+    ActionValueAssessment,
+    InvestigationGainReasonCode,
+    InvestigationGainRecord,
+    InvestigationGainType,
+)
+from yield_rca_core.causal_lane_lifecycle import lane_is_searchable
+from yield_rca_core.evidence_models import Evidence, EvidenceType
+from yield_rca_core.investigation_decision import (
+    action_scope_fingerprint,
+    assess_action_values,
+    derive_investigation_gain_history,
+    high_value_action_assessments,
+)
 from yield_rca_core.investigation_models import (
     MAX_CROSS_DOMAIN_ACTIONS,
     MAX_INITIAL_QUESTIONS,
@@ -66,13 +80,30 @@ from yield_rca_core.question_capability import (
     validate_action_for_questions,
 )
 from yield_rca_core.question_update_review import review_qwen_planner_output
+from yield_rca_core.result_identity import model_source
 
 _OUTPUT_ATTEMPTS = 2
 _CALL_RETRIES = 1
-_MAX_CANDIDATE_GENERATION_ROUNDS = 2
+_UNCONDITIONAL_CANDIDATE_GENERATION_ROUNDS = 2
+_MAX_CANDIDATE_GENERATION_ROUNDS = 3
 _MAX_CONSECUTIVE_NO_GAIN_ACTIONS = 2
+_MAX_PROMPT_LANES = 3
+_MAX_PROMPT_EVIDENCE_IDS = 24
+_MAX_PROMPT_LINK_IDS_PER_RELATION = 6
+_MAX_PROMPT_GAP_BASIS_ITEMS = 8
+_MAX_PROMPT_AUDIT_ITEMS = 8
+_MAX_PROMPT_TEXT_CHARS = 2_000
 _OUTPUT_PARSE_ERROR = "output_parse"
 _CORE_DECISION_VALIDATION_ERROR = "core_decision_validation"
+_LANE_AWARE_ACTION_KINDS = frozenset(
+    {
+        ActionKind.INSPECT_DEFECT_PATTERN.value,
+        ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
+        ActionKind.FIND_SHARED_EXPOSURE.value,
+        ActionKind.INSPECT_FDC_SPC.value,
+        ActionKind.VALIDATE_HISTORICAL_CASE.value,
+    }
+)
 _PLANNER_DECISION_OUTPUT_FIELDS = (
     "decision_id",
     "goal_id",
@@ -285,7 +316,113 @@ def _missing_groups_for_questions(
     }
 
 
-def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
+def _bounded_prompt_text(value: object) -> str:
+    text = str(value)
+    if len(text) <= _MAX_PROMPT_TEXT_CHARS:
+        return text
+    return f"{text[:_MAX_PROMPT_TEXT_CHARS]}... [truncated]"
+
+
+def _prompt_lane_ids_for_gap(
+    gap: Mapping[str, Any],
+    *,
+    active_lane_ids: tuple[str, ...],
+) -> tuple[str, ...]:
+    applicable = {
+        str(item)
+        for item in gap.get("applicable_lane_ids", [])
+        if isinstance(item, str) and item.strip()
+    }
+    selected = [lane_id for lane_id in active_lane_ids if lane_id in applicable]
+    if not selected:
+        selected = list(active_lane_ids)
+    return tuple(selected[:_MAX_PROMPT_LANES])
+
+
+def _compact_causal_gap_for_prompt(
+    gap: Mapping[str, Any],
+    *,
+    active_lane_ids: tuple[str, ...],
+) -> dict[str, Any]:
+    """Bound Lane inventories without changing Python's authoritative Gap."""
+
+    compact = dict(gap)
+    prompt_lane_ids = _prompt_lane_ids_for_gap(
+        gap,
+        active_lane_ids=active_lane_ids,
+    )
+    raw_applicable = [
+        str(item)
+        for item in gap.get("applicable_lane_ids", [])
+        if isinstance(item, str) and item.strip()
+    ]
+    compact["applicable_lane_ids"] = list(prompt_lane_ids)
+    compact["applicable_lane_count"] = len(raw_applicable)
+    compact["applicable_lane_ids_truncated"] = (
+        len(raw_applicable) > len(prompt_lane_ids)
+    )
+    raw_gain_by_lane = gap.get("information_gain_by_lane", {})
+    compact["information_gain_by_lane"] = (
+        {
+            lane_id: float(raw_gain_by_lane[lane_id])
+            for lane_id in prompt_lane_ids
+            if lane_id in raw_gain_by_lane
+            and isinstance(raw_gain_by_lane[lane_id], int | float)
+        }
+        if isinstance(raw_gain_by_lane, Mapping)
+        else {}
+    )
+    compact["information_gain_lane_count"] = (
+        len(raw_gain_by_lane) if isinstance(raw_gain_by_lane, Mapping) else 0
+    )
+    basis = [
+        _bounded_prompt_text(item)
+        for item in gap.get("information_gain_basis", [])
+        if isinstance(item, str) and item.strip()
+    ]
+    compact["information_gain_basis"] = basis[:_MAX_PROMPT_GAP_BASIS_ITEMS]
+    compact["information_gain_basis_count"] = len(basis)
+    evidence_ids = [
+        str(item)
+        for item in gap.get("evidence_ids", [])
+        if isinstance(item, str) and item.strip()
+    ]
+    compact["evidence_ids"] = evidence_ids[:_MAX_PROMPT_EVIDENCE_IDS]
+    compact["evidence_count"] = len(evidence_ids)
+    compact["evidence_ids_truncated"] = (
+        len(evidence_ids) > _MAX_PROMPT_EVIDENCE_IDS
+    )
+    compact["reason"] = _bounded_prompt_text(gap.get("reason", ""))
+    return compact
+
+
+def _compact_audit_mapping_for_prompt(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Bound challenge diagnostics while preserving their decision fields."""
+
+    compact: dict[str, Any] = {}
+    for raw_key, raw_value in value.items():
+        key = str(raw_key)
+        if isinstance(raw_value, str):
+            compact[key] = _bounded_prompt_text(raw_value)
+        elif isinstance(raw_value, list):
+            limit = (
+                _MAX_PROMPT_EVIDENCE_IDS
+                if key.endswith("evidence_ids")
+                else _MAX_PROMPT_AUDIT_ITEMS
+            )
+            compact[key] = raw_value[:limit]
+            compact[f"{key}_count"] = len(raw_value)
+            compact[f"{key}_truncated"] = len(raw_value) > limit
+        else:
+            compact[key] = raw_value
+    return compact
+
+
+def _compact_finding(
+    finding: AgentFinding,
+    *,
+    active_lane_ids: tuple[str, ...] = (),
+) -> dict[str, Any]:
     """Project only decision-relevant Finding fields into Planner context.
 
     Full Specialist details remain in RCAState for audit and downstream tools.
@@ -293,35 +430,62 @@ def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
     exposed the Planner to raw domain payloads it is not authorized to edit.
     """
 
+    evidence_ids = list(finding.evidence_ids)
     compact = {
         "finding_id": finding.finding_id,
         "agent": finding.agent,
         "finding_kind": finding.finding_kind,
-        "summary": finding.summary,
+        "summary": _bounded_prompt_text(finding.summary),
         "confidence": finding.confidence,
-        "evidence_ids": list(finding.evidence_ids),
+        "evidence_ids": evidence_ids[:_MAX_PROMPT_EVIDENCE_IDS],
+        "evidence_count": len(evidence_ids),
+        "evidence_ids_truncated": len(evidence_ids) > _MAX_PROMPT_EVIDENCE_IDS,
     }
     # RCA diagnostics are already Python-compressed and contain only Evidence
     # IDs, claim statuses, and registry-derived Actions.  Expose this small
     # projection so the next Qwen decision can target a real causal gap without
     # replaying the full specialist payload.
     if finding.agent == AgentKind.RCA_REASONING.value:
+        raw_causal_gaps = finding.details.get("causal_evidence_gaps", [])
         compact.update(
             {
-                "causal_evidence_gaps": list(
-                    finding.details.get("causal_evidence_gaps", [])
-                ),
+                "causal_evidence_gaps": [
+                    _compact_causal_gap_for_prompt(
+                        item,
+                        active_lane_ids=active_lane_ids,
+                    )
+                    for item in raw_causal_gaps
+                    if isinstance(item, Mapping)
+                ]
+                if isinstance(raw_causal_gaps, list)
+                else [],
                 "candidate_comparison": dict(
                     finding.details.get("candidate_comparison", {})
                 ),
                 "alternative_search_status": str(
                     finding.details.get("alternative_search_status", "not_searched")
                 ),
-                "candidate_challenges": list(
-                    finding.details.get("candidate_challenges", [])
-                ),
-                "adversarial_challenge_generation": dict(
-                    finding.details.get("adversarial_challenge_generation", {})
+                "candidate_challenges": [
+                    _compact_audit_mapping_for_prompt(item)
+                    for item in finding.details.get("candidate_challenges", [])
+                    if isinstance(item, Mapping)
+                ][:_MAX_PROMPT_AUDIT_ITEMS],
+                "alternative_lane_resolutions": list(
+                    finding.details.get("alternative_lane_resolutions", [])
+                )[:_MAX_PROMPT_AUDIT_ITEMS],
+                "adversarial_challenge_generation": (
+                    _compact_audit_mapping_for_prompt(
+                        finding.details.get(
+                            "adversarial_challenge_generation", {}
+                        )
+                    )
+                    if isinstance(
+                        finding.details.get(
+                            "adversarial_challenge_generation", {}
+                        ),
+                        Mapping,
+                    )
+                    else {}
                 ),
                 "confirmation_gate": dict(
                     finding.details.get("confirmation_gate", {})
@@ -336,54 +500,103 @@ def _compact_finding(finding: AgentFinding) -> dict[str, Any]:
                 for item in raw_lanes
                 if isinstance(item, Mapping) and str(item.get("lane_id", "")).strip()
             ]
-            lanes.sort(
-                key=lambda item: (
-                    -float(item.get("priority_score", 0.0)),
-                    str(item.get("lane_id", "")),
-                )
+            selected_ids = active_lane_ids or select_diverse_lane_ids(
+                lanes,
+                limit=_MAX_PROMPT_LANES,
             )
-            compact["causal_lanes"] = lanes[:3]
+            lanes_by_id = {str(item["lane_id"]): item for item in lanes}
+            selected = [
+                lanes_by_id[lane_id]
+                for lane_id in selected_ids
+                if lane_id in lanes_by_id
+            ]
+            compact["causal_lanes"] = selected
             compact["active_lane_ids"] = [
-                str(item["lane_id"]) for item in lanes[:3]
+                str(item["lane_id"]) for item in selected
             ]
-            compact["overflow_lane_ids"] = [
-                str(item["lane_id"]) for item in lanes[3:]
-            ]
-            compact["overflow_lane_inventory"] = [
-                {
-                    key: item.get(key)
-                    for key in (
-                        "lane_id",
-                        "operation",
-                        "equipment",
-                        "chamber",
-                        "recipe",
-                        "priority_score",
-                        "coverage",
-                    )
-                }
-                for item in lanes[3:]
-            ]
+            compact["overflow_lane_count"] = max(0, len(lanes) - len(selected))
     return compact
 
 
 def _known_causal_lane_ids(findings: list[AgentFinding]) -> tuple[str, ...]:
-    lane_ids: list[str] = []
-    for finding in findings:
-        if finding.agent != AgentKind.MES.value:
-            continue
+    lanes: list[dict[str, Any]] = []
+    mes_findings = [
+        finding for finding in findings if finding.agent == AgentKind.MES.value
+    ]
+    authoritative = [
+        finding
+        for finding in mes_findings
+        if finding.details.get("lane_inventory_authoritative") is True
+    ]
+    source_findings = authoritative[-1:] if authoritative else mes_findings
+    for finding in source_findings:
         raw_lanes = finding.details.get("lane_candidates", [])
         if not isinstance(raw_lanes, list):
             continue
-        for item in raw_lanes:
-            lane_id = (
-                str(item.get("lane_id", "")).strip()
-                if isinstance(item, Mapping)
-                else ""
-            )
-            if lane_id and lane_id not in lane_ids:
-                lane_ids.append(lane_id)
-    return tuple(lane_ids)
+        lanes.extend(
+            dict(item)
+            for item in raw_lanes
+            if isinstance(item, Mapping)
+            and str(item.get("lane_id", "")).strip()
+        )
+    ordered = sorted(
+        {
+            str(item.get("lane_id", "")).strip(): item
+            for item in lanes
+            if str(item.get("lane_id", "")).strip()
+        }.values(),
+        key=lambda item: (
+            -float(item.get("priority_score", 0.0)),
+            str(item.get("lane_id", "")),
+        ),
+    )
+    searchable = [
+        item
+        for item in ordered
+        if lane_is_searchable(item)
+    ]
+    return (
+        select_diverse_lane_ids(searchable, limit=_MAX_PROMPT_LANES)
+        if searchable
+        else ()
+    )
+
+
+def _compact_action_record(record: ActionRecord) -> dict[str, Any]:
+    evidence_ids = list(record.produced_evidence_ids)
+    finding_ids = list(record.produced_finding_ids)
+    return {
+        "action": record.action.to_dict(),
+        "status": record.status,
+        "produced_finding_ids": finding_ids[:4],
+        "produced_finding_count": len(finding_ids),
+        "produced_evidence_ids": evidence_ids[:_MAX_PROMPT_EVIDENCE_IDS],
+        "produced_evidence_count": len(evidence_ids),
+        "evidence_ids_truncated": len(evidence_ids) > _MAX_PROMPT_EVIDENCE_IDS,
+        "decision_summary": record.decision_summary,
+    }
+
+
+def _compact_question_context_for_prompt(
+    question_context: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    compact: list[dict[str, Any]] = []
+    for packet in question_context:
+        linked = packet.get("linked_evidence", {})
+        projected_links: dict[str, list[str]] = {}
+        link_counts: dict[str, int] = {}
+        for relation in ("supports", "contradicts", "context", "unavailable"):
+            values = [str(item) for item in linked.get(relation, [])]
+            projected_links[relation] = values[:_MAX_PROMPT_LINK_IDS_PER_RELATION]
+            link_counts[relation] = len(values)
+        compact.append(
+            {
+                **packet,
+                "linked_evidence": projected_links,
+                "linked_evidence_counts": link_counts,
+            }
+        )
+    return compact
 
 
 def _authoritative_causal_gaps(
@@ -408,6 +621,18 @@ def _authoritative_causal_gaps(
     raw_gaps = finding.details.get("causal_evidence_gaps", [])
     if not isinstance(raw_gaps, list):
         return []
+    raw_challenges = finding.details.get("candidate_challenges", [])
+    challenge_selected_gap_ids = {
+        str(gap_id).strip()
+        for challenge in raw_challenges
+        if isinstance(challenge, Mapping)
+        for gap_id in (
+            challenge.get("distinguishing_gap_ids", [])
+            if isinstance(challenge.get("distinguishing_gap_ids", []), list)
+            else []
+        )
+        if isinstance(gap_id, str) and gap_id.strip()
+    }
     gaps: list[dict[str, Any]] = []
     for raw in raw_gaps:
         if not isinstance(raw, Mapping):
@@ -433,12 +658,54 @@ def _authoritative_causal_gaps(
         )
         if not actions:
             continue
+        raw_target_scope = raw.get("target_scope", {})
+        target_scope = (
+            {
+                str(key): str(value)
+                for key, value in raw_target_scope.items()
+                if isinstance(value, str) and value.strip()
+            }
+            if isinstance(raw_target_scope, Mapping)
+            else {}
+        )
         gaps.append(
             {
                 "gap_id": gap_id,
                 "gap_type": str(raw.get("gap_type", "missing_support")),
+                "gap_origin": str(raw.get("gap_origin", "")),
+                "scope_group_id": str(raw.get("scope_group_id", "")),
+                "discriminator_kind": str(raw.get("discriminator_kind", "")),
+                "lane_binding": str(raw.get("lane_binding", "")),
                 "priority": int(raw.get("priority", 3)),
+                "information_gain": float(raw.get("information_gain", 0.0)),
+                "information_gain_by_lane": {
+                    str(key): float(value)
+                    for key, value in raw.get(
+                        "information_gain_by_lane", {}
+                    ).items()
+                    if isinstance(value, int | float)
+                }
+                if isinstance(raw.get("information_gain_by_lane", {}), Mapping)
+                else {},
+                "information_gain_basis": [
+                    str(item)
+                    for item in raw.get("information_gain_basis", [])
+                    if isinstance(item, str) and item.strip()
+                ],
+                "applicable_lane_ids": [
+                    str(item)
+                    for item in raw.get("applicable_lane_ids", [])
+                    if isinstance(item, str) and item.strip()
+                ],
                 "candidate_index": raw.get("candidate_index"),
+                "candidate_id": str(raw.get("candidate_id", "")),
+                "candidate_ids": [
+                    str(item)
+                    for item in raw.get("candidate_ids", [])
+                    if isinstance(item, str) and item.strip()
+                ]
+                if isinstance(raw.get("candidate_ids", []), list)
+                else [],
                 "claim": str(raw.get("claim", "")),
                 "status": str(raw.get("status", "")),
                 "reason": str(raw.get("reason", "")),
@@ -449,7 +716,55 @@ def _authoritative_causal_gaps(
                     for item in raw.get("evidence_ids", [])
                     if isinstance(item, str) and item.strip()
                 ],
-                "challenge_selected": bool(raw.get("challenge_selected", False)),
+                # Preserve the Python-owned competition semantics generated by
+                # the authoritative RCA Finding.  These fields are inputs to
+                # Action Value assessment, not claims supplied by the Planner.
+                # Dropping them makes a valid mechanism discriminator look
+                # like a generic context query and can terminate an
+                # investigation while a ranking-changing Action still exists.
+                "competition_axis": str(raw.get("competition_axis", "")),
+                "can_change_ranking": bool(
+                    raw.get("can_change_ranking", False)
+                ),
+                "supports_candidate_ids": [
+                    str(item)
+                    for item in raw.get("supports_candidate_ids", [])
+                    if isinstance(item, str) and item.strip()
+                ]
+                if isinstance(raw.get("supports_candidate_ids", []), list)
+                else [],
+                "weakens_candidate_ids": [
+                    str(item)
+                    for item in raw.get("weakens_candidate_ids", [])
+                    if isinstance(item, str) and item.strip()
+                ]
+                if isinstance(raw.get("weakens_candidate_ids", []), list)
+                else [],
+                "expected_evidence_types": [
+                    str(item)
+                    for item in raw.get("expected_evidence_types", [])
+                    if isinstance(item, str) and item.strip()
+                ]
+                if isinstance(raw.get("expected_evidence_types", []), list)
+                else [],
+                # A competition-wide Scope Gap is created before the Qwen
+                # adversarial challenge exists, so its raw flag may still be
+                # false.  The authoritative Challenge is the later semantic
+                # selection event and must make the referenced discriminator
+                # executable for the Planner.
+                "challenge_selected": bool(
+                    raw.get("challenge_selected", False)
+                )
+                or gap_id in challenge_selected_gap_ids,
+                "decision_impact": str(raw.get("decision_impact", "")),
+                "preferred_action": str(raw.get("preferred_action", "")),
+                "refresh_action": str(raw.get("refresh_action", "")),
+                "required_evidence_groups": [
+                    str(item)
+                    for item in raw.get("required_evidence_groups", [])
+                    if isinstance(item, str) and item.strip()
+                ],
+                "target_scope": target_scope,
             }
         )
     return sorted(
@@ -459,6 +774,146 @@ def _authoritative_causal_gaps(
             int(item.get("candidate_index", 0)),
             str(item.get("gap_id", "")),
         ),
+    )
+
+
+def _eligible_causal_gaps(
+    causal_gaps: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return authoritative Gaps that may participate in Action selection."""
+
+    return [
+        gap
+        for gap in causal_gaps
+        if gap.get("gap_type") != "hypothesis_discrimination"
+        or gap.get("challenge_selected") is True
+    ]
+
+
+def _active_causal_gaps(
+    causal_gaps: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return the highest-priority authoritative Gap set.
+
+    This raw projection is suitable for audit and bounded-investigation state.
+    Action projection must first test every eligible Gap against the current
+    registry, prerequisites, Lane binding, and Action history, then prioritize
+    only the Gaps that remain executable.  Otherwise a high-priority but
+    currently unexecutable Gap can mask a lower-priority discriminator.
+    """
+
+    executable_gaps = _eligible_causal_gaps(causal_gaps)
+    if not executable_gaps:
+        return []
+    priority = min(int(gap.get("priority", 3)) for gap in executable_gaps)
+    return [
+        gap
+        for gap in executable_gaps
+        if int(gap.get("priority", 3)) == priority
+    ]
+
+
+def _has_executable_hypothesis_discrimination_gap(
+    causal_gaps: list[dict[str, Any]],
+    causal_gap_ids_by_action: Mapping[str, list[str]],
+) -> bool:
+    """Return whether a challenge-selected discriminator can still run.
+
+    A confirmation-blocking unavailable source must not terminate the workflow
+    while Python has already identified a legal Action that can distinguish an
+    unresolved alternative.  The Action mapping is the state-aware projection,
+    so exhausted stages, missing prerequisites, closed Questions, and budgeted
+    reasoning rounds do not count as executable here.
+    """
+
+    executable_gap_ids = {
+        gap_id
+        for gap_ids in causal_gap_ids_by_action.values()
+        for gap_id in gap_ids
+    }
+    return any(
+        gap.get("gap_type") == "hypothesis_discrimination"
+        and gap.get("challenge_selected") is True
+        and str(gap.get("gap_id", "")) in executable_gap_ids
+        for gap in _eligible_causal_gaps(causal_gaps)
+    )
+
+
+def _record_matches_causal_gap_scope(
+    record: ActionRecord,
+    gap: Mapping[str, Any],
+    *,
+    action_kind: str | None = None,
+) -> bool:
+    """Match a prior Action to the same Gap and Python-owned target scope."""
+
+    if record.status != "completed":
+        return False
+    if action_kind is not None and record.action.kind != action_kind:
+        return False
+    gap_id = str(gap.get("gap_id", "")).strip()
+    if not gap_id or record.action.scope.get("causal_gap_id") != gap_id:
+        return False
+    target_scope = gap.get("target_scope", {})
+    if not isinstance(target_scope, Mapping):
+        return True
+    return all(
+        record.action.scope.get(str(key)) == value
+        for key, value in target_scope.items()
+    )
+
+
+def _actions_for_causal_gap_stage(
+    gap: Mapping[str, Any],
+    action_records: list[ActionRecord],
+) -> frozenset[str]:
+    """Expose observation first and reasoning refresh only after Evidence gain.
+
+    This prevents a broad process-mechanism Question from re-advertising defect,
+    history, and exposure Actions when Python has already identified one exact
+    discriminator for an alternative Lane.
+    """
+
+    allowed = frozenset(str(item) for item in gap.get("allowed_actions", []))
+    preferred = str(gap.get("preferred_action", "")).strip()
+    refresh = str(gap.get("refresh_action", "")).strip()
+    if not preferred or preferred not in allowed:
+        return allowed
+    observation_indexes = [
+        index
+        for index, record in enumerate(action_records)
+        if _record_matches_causal_gap_scope(
+            record,
+            gap,
+            action_kind=preferred,
+        )
+    ]
+    if not observation_indexes:
+        return frozenset({preferred})
+    if refresh and refresh in allowed:
+        latest_observation = observation_indexes[-1]
+        if any(
+            index > latest_observation
+            and _record_matches_causal_gap_scope(
+                record,
+                gap,
+                action_kind=refresh,
+            )
+            for index, record in enumerate(action_records)
+        ):
+            return frozenset()
+        return frozenset({refresh})
+    return frozenset()
+
+
+def _required_unavailable_evidence_ids(
+    evidence: list[Evidence],
+) -> tuple[str, ...]:
+    return tuple(
+        item.evidence_id
+        for item in evidence
+        if item.evidence_type == EvidenceType.DATA_MISSING.value
+        and item.metadata.get("required_for_confirmation") is True
     )
 
 
@@ -485,6 +940,154 @@ def _action_has_new_relevant_evidence(
             QuestionEvidenceRelation.CONTRADICTS.value,
         }
         for link in links
+    )
+
+
+def _reasoning_refresh_has_unconsumed_gap_evidence(
+    action: InvestigationAction,
+    *,
+    target_questions: list[InvestigationQuestion],
+    action_records: list[ActionRecord],
+    links: list[QuestionEvidenceLink],
+) -> bool:
+    """Allow one reasoning refresh after a scoped observation adds Evidence.
+
+    Reasoning composes existing Evidence and normally does not create a new raw
+    Evidence ID.  Applying the collection-action no-gain rule to it would block
+    the exact refresh needed to consume a completed causal-gap observation.
+    """
+
+    if action.kind != ActionKind.RUN_RCA_REASONING.value:
+        return False
+    gap_id = str(action.scope.get("causal_gap_id", "")).strip()
+    if not gap_id:
+        return False
+    observations = [
+        (index, record)
+        for index, record in enumerate(action_records)
+        if record.status == "completed"
+        and record.action.kind != ActionKind.RUN_RCA_REASONING.value
+        and record.action.scope.get("causal_gap_id") == gap_id
+    ]
+    if not observations:
+        return False
+    latest_observation_index, latest_observation = observations[-1]
+    if any(
+        index > latest_observation_index
+        and record.status == "completed"
+        and record.action.kind == ActionKind.RUN_RCA_REASONING.value
+        and record.action.scope.get("causal_gap_id") == gap_id
+        for index, record in enumerate(action_records)
+    ):
+        return False
+    earlier_records = action_records[:latest_observation_index]
+    earlier_evidence_ids = {
+        evidence_id
+        for record in earlier_records
+        for evidence_id in record.produced_evidence_ids
+    }
+    new_ids = set(latest_observation.produced_evidence_ids) - earlier_evidence_ids
+    if not new_ids:
+        return False
+    if not links:
+        # A Python-bound causal Gap already establishes relevance for legacy
+        # callers that predate persisted QuestionEvidenceLink records.
+        return True
+    target_question_ids = {question.question_id for question in target_questions}
+    return any(
+        link.action_id == latest_observation.action.action_id
+        and link.question_id in target_question_ids
+        and link.evidence_id in new_ids
+        and link.relation
+        in {
+            QuestionEvidenceRelation.SUPPORTS.value,
+            QuestionEvidenceRelation.CONTRADICTS.value,
+        }
+        for link in links
+    )
+
+
+def _reasoning_round_is_allowed(
+    action_kind: str,
+    *,
+    gap: Mapping[str, Any] | None,
+    findings: list[AgentFinding],
+    action_records: list[ActionRecord],
+    links: list[QuestionEvidenceLink],
+) -> bool:
+    """Permit round three only to consume new discriminative Evidence.
+
+    The first two RCA rounds retain the existing behavior.  A third round is
+    exposed only after a completed observation for a Python-generated
+    hypothesis-discrimination Gap produced relevant Evidence that no earlier
+    RCA Finding could have consumed.  This keeps the extra round bounded and
+    prevents a generic ``run_rca_reasoning`` loop.
+    """
+
+    if action_kind != ActionKind.RUN_RCA_REASONING.value:
+        return True
+    reasoning_rounds = sum(
+        record.status == "completed"
+        and record.action.kind == ActionKind.RUN_RCA_REASONING.value
+        for record in action_records
+    )
+    if reasoning_rounds < _UNCONDITIONAL_CANDIDATE_GENERATION_ROUNDS:
+        return True
+    if reasoning_rounds >= _MAX_CANDIDATE_GENERATION_ROUNDS:
+        return False
+    if gap is None or gap.get("gap_type") != "hypothesis_discrimination":
+        return False
+    if not str(gap.get("gap_id", "")).strip():
+        return False
+    observations = [
+        record
+        for record in action_records
+        if record.action.kind != ActionKind.RUN_RCA_REASONING.value
+        and _record_matches_causal_gap_scope(record, gap)
+    ]
+    if not observations:
+        return False
+    latest_observation = observations[-1]
+    consumed_evidence_ids = {
+        evidence_id
+        for finding in findings
+        if finding.agent == AgentKind.RCA_REASONING.value
+        for evidence_id in finding.evidence_ids
+    }
+    unconsumed_ids = (
+        set(latest_observation.produced_evidence_ids) - consumed_evidence_ids
+    )
+    if not unconsumed_ids:
+        return False
+    if not links:
+        # The authoritative typed Gap already establishes relevance for legacy
+        # states that predate persisted QuestionEvidenceLink records.
+        return True
+    return any(
+        link.action_id == latest_observation.action.action_id
+        and link.evidence_id in unconsumed_ids
+        and link.relation
+        in {
+            QuestionEvidenceRelation.SUPPORTS.value,
+            QuestionEvidenceRelation.CONTRADICTS.value,
+        }
+        for link in links
+    )
+
+
+def _conditional_third_round_available(
+    *,
+    action_records: list[ActionRecord],
+    causal_gap_ids_by_action: Mapping[str, list[str]],
+) -> bool:
+    reasoning_round_count = sum(
+        record.status == "completed"
+        and record.action.kind == ActionKind.RUN_RCA_REASONING.value
+        for record in action_records
+    )
+    return (
+        reasoning_round_count == _UNCONDITIONAL_CANDIDATE_GENERATION_ROUNDS
+        and ActionKind.RUN_RCA_REASONING.value in causal_gap_ids_by_action
     )
 
 
@@ -522,6 +1125,7 @@ def _strict_outcome(
     *,
     decision_proposed_by: str = "qwen",
     question_updates_source: str | None = None,
+    action_value_assessments: list[ActionValueAssessment] | None = None,
 ) -> PlannerDecisionOutcome:
     """Project the legacy strict path into the new outcome contract."""
 
@@ -550,6 +1154,7 @@ def _strict_outcome(
             if decision.question_updates
             else None
         ),
+        action_value_assessments=list(action_value_assessments or []),
     )
 
 
@@ -633,6 +1238,67 @@ def _commit_python_goal_satisfied_transition(
     )
 
 
+def _protect_authoritative_causal_gap_questions(
+    outcome: PlannerDecisionOutcome,
+    *,
+    questions: list[InvestigationQuestion],
+    causal_gaps: list[dict[str, Any]],
+) -> PlannerDecisionOutcome:
+    """Reject Qwen terminal updates for Questions with authoritative Gaps.
+
+    QuestionUpdate review is intentionally isolated from the core Planner
+    decision.  A legal Action must not be retried merely because Qwen also tried
+    to close a Question whose causal investigation is still Python-governed.
+    """
+
+    protected_kinds = {
+        str(gap.get("question_kind", ""))
+        for gap in causal_gaps
+        if str(gap.get("question_kind", "")).strip()
+    }
+    protected_question_ids = {
+        question.question_id
+        for question in questions
+        if question.question_kind in protected_kinds
+    }
+    rejected_ids = {
+        update.question_id
+        for update in outcome.decision.question_updates
+        if update.question_id in protected_question_ids
+    }
+    if not rejected_ids:
+        return outcome
+    kept_updates = [
+        update
+        for update in outcome.decision.question_updates
+        if update.question_id not in rejected_ids
+    ]
+    reviews = [
+        replace(
+            review,
+            disposition=QuestionUpdateDisposition.REJECTED.value,
+            reason_code=(
+                QuestionUpdateReasonCode.INSUFFICIENT_EVIDENCE_COVERAGE.value
+            ),
+            reason=(
+                f"QuestionUpdate {review.question_id} was rejected because the "
+                "current authoritative RCA Finding still contains a causal "
+                "Evidence Gap for that Question. Python retains the open state."
+            ),
+        )
+        if review.question_id in rejected_ids
+        and review.disposition == QuestionUpdateDisposition.ACCEPTED.value
+        else review
+        for review in outcome.question_update_reviews
+    ]
+    return replace(
+        outcome,
+        decision=replace(outcome.decision, question_updates=kept_updates),
+        question_update_reviews=reviews,
+        question_updates_source="qwen" if kept_updates else None,
+    )
+
+
 @dataclass(frozen=True)
 class QwenNextActionPlanner:
     """Select one legal next Agent action or stop after the latest observation."""
@@ -684,6 +1350,7 @@ class QwenNextActionPlanner:
         prior_decisions: list[PlannerDecision] | None = None,
         critical_contradictions: list[str] | None = None,
         authoritative_rca_finding_id: str | None = None,
+        investigation_gain_history: list[InvestigationGainRecord] | None = None,
     ) -> PlannerDecision:
         """Preserve the strict compatibility path until Supervisor integration."""
 
@@ -701,6 +1368,7 @@ class QwenNextActionPlanner:
             prior_decisions=prior_decisions,
             critical_contradictions=critical_contradictions,
             authoritative_rca_finding_id=authoritative_rca_finding_id,
+            investigation_gain_history=investigation_gain_history,
             review_question_updates=False,
         ).decision
 
@@ -720,6 +1388,7 @@ class QwenNextActionPlanner:
         prior_decisions: list[PlannerDecision] | None = None,
         critical_contradictions: list[str] | None = None,
         authoritative_rca_finding_id: str | None = None,
+        investigation_gain_history: list[InvestigationGainRecord] | None = None,
     ) -> PlannerDecisionOutcome:
         """Return a core decision with independently reviewed update claims."""
 
@@ -737,6 +1406,7 @@ class QwenNextActionPlanner:
             prior_decisions=prior_decisions,
             critical_contradictions=critical_contradictions,
             authoritative_rca_finding_id=authoritative_rca_finding_id,
+            investigation_gain_history=investigation_gain_history,
             review_question_updates=True,
         )
 
@@ -756,6 +1426,7 @@ class QwenNextActionPlanner:
         prior_decisions: list[PlannerDecision] | None,
         critical_contradictions: list[str] | None,
         authoritative_rca_finding_id: str | None,
+        investigation_gain_history: list[InvestigationGainRecord] | None,
         review_question_updates: bool,
     ) -> PlannerDecisionOutcome:
         """Ask Qwen for one core decision, retrying only invalid core output."""
@@ -767,6 +1438,7 @@ class QwenNextActionPlanner:
         normalized_question_evidence_links = list(question_evidence_links or [])
         normalized_capability_notices = list(capability_notices or [])
         normalized_prior_decisions = list(prior_decisions or [])
+        normalized_gain_history = list(investigation_gain_history or [])
         contradictions = list(critical_contradictions or [])
         causal_gaps = _authoritative_causal_gaps(
             findings,
@@ -786,11 +1458,33 @@ class QwenNextActionPlanner:
             if authoritative_finding is not None
             else "not_searched"
         )
+        competition_requirement = str(
+            authoritative_finding.details.get(
+                "competition_requirement",
+                "not_evaluated",
+            )
+            if authoritative_finding is not None
+            else "not_evaluated"
+        )
+        competition_axes = list(
+            authoritative_finding.details.get("competition_axes", [])
+            if authoritative_finding is not None
+            and isinstance(
+                authoritative_finding.details.get("competition_axes", []),
+                list,
+            )
+            else []
+        )
         candidate_challenges = list(
             authoritative_finding.details.get("candidate_challenges", [])
             if authoritative_finding is not None
             and isinstance(authoritative_finding.details.get("candidate_challenges", []), list)
             else []
+        )
+        candidate_competition_failed = (
+            authoritative_finding is not None
+            and str(authoritative_finding.details.get("competition_status", ""))
+            == "failed"
         )
         self._validate_runtime_inputs(
             goal=goal,
@@ -812,8 +1506,196 @@ class QwenNextActionPlanner:
             findings=findings,
             action_records=action_records,
         )
+        open_questions = [
+            question
+            for question in questions
+            if question.status == EvidenceGapStatus.OPEN.value
+        ]
+        question_context = self._question_context(
+            questions=open_questions,
+            links=normalized_question_evidence_links,
+            action_records=action_records,
+        )
+        legal_action_targets = self._legal_action_targets(
+            questions=open_questions,
+            question_context=question_context,
+            findings=findings,
+            action_records=action_records,
+            causal_gaps=causal_gaps,
+            question_evidence_links=normalized_question_evidence_links,
+        )
+        causal_gap_ids_by_action = self._legal_causal_gap_ids_by_action(
+            questions=open_questions,
+            findings=findings,
+            action_records=action_records,
+            causal_gaps=causal_gaps,
+            question_evidence_links=normalized_question_evidence_links,
+        )
+        if investigation_gain_history is None:
+            normalized_gain_history = list(
+                derive_investigation_gain_history(
+                    action_records=action_records,
+                    evidence=normalized_evidence,
+                    links=normalized_question_evidence_links,
+                )
+            )
+        gap_by_id = {
+            str(gap.get("gap_id", "")): gap
+            for gap in causal_gaps
+            if str(gap.get("gap_id", "")).strip()
+        }
+        action_value_options: list[dict[str, Any]] = []
+        for action_kind, gap_ids in causal_gap_ids_by_action.items():
+            definition = self.registry[action_kind]
+            for gap_id in gap_ids:
+                gap = gap_by_id.get(gap_id, {})
+                target_scope = gap.get("target_scope", {})
+                scope = dict(goal.known_facts or {"goal_id": goal.goal_id})
+                if isinstance(target_scope, Mapping):
+                    scope.update(dict(target_scope))
+                scope["causal_gap_id"] = gap_id
+                candidate_id = str(gap.get("candidate_id", "")).strip()
+                discriminator_kind = str(
+                    gap.get("discriminator_kind", "")
+                ).strip()
+                if candidate_id:
+                    scope["candidate_id"] = candidate_id
+                if discriminator_kind:
+                    scope["discriminator_kind"] = discriminator_kind
+                action_value_options.append(
+                    {
+                        "option_id": f"{action_kind}:{gap_id}",
+                        "action_kind": action_kind,
+                        "source": definition.agent,
+                        "scope": scope,
+                        "gap": gap,
+                    }
+                )
+        action_value_assessments = list(
+            assess_action_values(
+                options=action_value_options,
+                action_records=action_records,
+                gain_history=normalized_gain_history,
+                remaining_tool_budget=max(0, goal.max_tool_calls - tool_call_count),
+                evidence=normalized_evidence,
+                competition_requirement=competition_requirement,
+                competition_axes=competition_axes,
+            )
+        )
+        high_value_assessments = list(
+            high_value_action_assessments(action_value_assessments)
+        )
+        if high_value_assessments:
+            active_priority = min(
+                int(gap_by_id[item.gap_id].get("priority", 3))
+                for item in high_value_assessments
+                if item.gap_id in gap_by_id
+            )
+            high_value_assessments = [
+                item
+                for item in high_value_assessments
+                if item.gap_id in gap_by_id
+                and int(gap_by_id[item.gap_id].get("priority", 3))
+                == active_priority
+            ]
+        decision_critical_unavailable_gain = any(
+            gain.gain_type == InvestigationGainType.STATE_GAIN.value
+            and gain.reason_code
+            == InvestigationGainReasonCode.UNAVAILABLE_SOURCE.value
+            and gain.gap_id is not None
+            and gain.gap_id in gap_by_id
+            for gain in normalized_gain_history
+        )
+        had_causal_action_options = bool(causal_gap_ids_by_action)
+        if had_causal_action_options:
+            high_gap_ids_by_action: dict[str, list[str]] = {}
+            for assessment in high_value_assessments:
+                if assessment.gap_id is not None:
+                    high_gap_ids_by_action.setdefault(
+                        assessment.action_kind,
+                        [],
+                    ).append(assessment.gap_id)
+            causal_gap_ids_by_action = {
+                action_kind: list(dict.fromkeys(gap_ids))
+                for action_kind, gap_ids in high_gap_ids_by_action.items()
+            }
+            legal_action_targets = {
+                action_kind: target_ids
+                for action_kind, target_ids in legal_action_targets.items()
+                if action_kind in causal_gap_ids_by_action
+            }
         if (
-            len(action_records) >= min(goal.max_steps, MAX_CROSS_DOMAIN_ACTIONS)
+            candidate_competition_failed
+            and not causal_gap_ids_by_action.get(
+                ActionKind.RUN_RCA_REASONING.value,
+            )
+        ):
+            # A Candidate-provider/validation failure is not itself new
+            # ranking Evidence.  The broad Question capability can otherwise
+            # re-advertise generic RCA Reasoning with the exact scope that just
+            # failed.  Only a Python-owned, high-value causal Gap may authorize
+            # a bounded competition-repair round.
+            legal_action_targets = {
+                action_kind: target_ids
+                for action_kind, target_ids in legal_action_targets.items()
+                if action_kind != ActionKind.RUN_RCA_REASONING.value
+            }
+        executable_discrimination_gap = (
+            _has_executable_hypothesis_discrimination_gap(
+                causal_gaps,
+                causal_gap_ids_by_action,
+            )
+        )
+        required_unavailable_ids = _required_unavailable_evidence_ids(
+            normalized_evidence
+        )
+        if (
+            authoritative_finding is not None
+            and required_unavailable_ids
+            and authoritative_finding.details.get("conclusion_status")
+            == "insufficient_evidence"
+            and not executable_discrimination_gap
+        ):
+            return _strict_outcome(
+                PlannerDecision(
+                    decision_id=self._next_baseline_decision_id(
+                        goal=goal,
+                        prior_decisions=normalized_prior_decisions,
+                    ),
+                    goal_id=goal.goal_id,
+                    decision_type=DecisionType.STOP.value,
+                    reason=(
+                        "Python stopped after the authoritative RCA Evidence Gate "
+                        "confirmed that a required, non-recoverable source is "
+                        "unavailable: "
+                        + ", ".join(required_unavailable_ids)
+                    ),
+                    goal_status=GoalStatus.BLOCKED.value,
+                    proposed_conclusion_level=ConclusionLevel.INCONCLUSIVE.value,
+                    stop_reason=StopReason.DATA_UNAVAILABLE.value,
+                    question_updates=self._terminal_question_updates(
+                        open_questions=open_questions,
+                        findings=findings,
+                        available_evidence_ids=available_evidence_ids,
+                        question_evidence_links=normalized_question_evidence_links,
+                    ),
+                ),
+                decision_proposed_by="python_runtime",
+                question_updates_source="python_evidence_gate",
+                action_value_assessments=action_value_assessments,
+            )
+        conditional_third_round_available = _conditional_third_round_available(
+            action_records=action_records,
+            causal_gap_ids_by_action=causal_gap_ids_by_action,
+        )
+        if (
+            (
+                len(action_records) >= min(
+                    goal.max_steps,
+                    MAX_CROSS_DOMAIN_ACTIONS,
+                )
+                and not conditional_third_round_available
+            )
             or tool_call_count >= goal.max_tool_calls
         ):
             open_questions = [
@@ -845,19 +1727,22 @@ class QwenNextActionPlanner:
                 ),
                 decision_proposed_by="python_runtime",
                 question_updates_source="python_evidence_gate",
+                action_value_assessments=action_value_assessments,
             )
-        if (
-            _consecutive_no_gain_count(
-                action_records,
-                normalized_question_evidence_links,
+        if had_causal_action_options and not high_value_assessments:
+            relevant_gap_ids = {
+                assessment.gap_id
+                for assessment in action_value_assessments
+                if assessment.gap_id is not None
+            }
+            unavailable_gain = any(
+                gain.gain_type == InvestigationGainType.STATE_GAIN.value
+                and gain.reason_code
+                == InvestigationGainReasonCode.UNAVAILABLE_SOURCE.value
+                and gain.gap_id is not None
+                and gain.gap_id in relevant_gap_ids
+                for gain in normalized_gain_history
             )
-            >= _MAX_CONSECUTIVE_NO_GAIN_ACTIONS
-        ):
-            open_questions = [
-                question
-                for question in questions
-                if question.status == EvidenceGapStatus.OPEN.value
-            ]
             return _strict_outcome(
                 PlannerDecision(
                     decision_id=self._next_baseline_decision_id(
@@ -867,21 +1752,24 @@ class QwenNextActionPlanner:
                     goal_id=goal.goal_id,
                     decision_type=DecisionType.STOP.value,
                     reason=(
-                        "Python stopped the investigation after two consecutive "
-                        "Actions produced no new supporting or contradicting Evidence."
+                        "Python found no remaining high-value Action after a "
+                        "decision-critical Evidence source became unavailable."
+                        if unavailable_gain
+                        else "Python found no remaining Action that can change "
+                        "Candidate ranking or the Confirmation Gate."
                     ),
                     goal_status=GoalStatus.BLOCKED.value,
                     proposed_conclusion_level=ConclusionLevel.INCONCLUSIVE.value,
-                    stop_reason=StopReason.NO_ALLOWED_ACTION.value,
-                    question_updates=self._terminal_question_updates(
-                        open_questions=open_questions,
-                        findings=findings,
-                        available_evidence_ids=available_evidence_ids,
-                        question_evidence_links=normalized_question_evidence_links,
+                    stop_reason=(
+                        StopReason.DATA_UNAVAILABLE.value
+                        if unavailable_gain
+                        else StopReason.NO_HIGH_VALUE_ACTION.value
                     ),
+                    # InvestigationFinalizer owns the terminal Question projection.
+                    question_updates=[],
                 ),
                 decision_proposed_by="python_runtime",
-                question_updates_source="python_evidence_gate",
+                action_value_assessments=action_value_assessments,
             )
         baseline = self._baseline_decision(
             goal=goal,
@@ -894,30 +1782,17 @@ class QwenNextActionPlanner:
             prior_decisions=normalized_prior_decisions,
             critical_contradictions=contradictions,
         )
-        open_questions = [
-            question
-            for question in questions
-            if question.status == EvidenceGapStatus.OPEN.value
-        ]
-        question_context = self._question_context(
-            questions=open_questions,
-            links=normalized_question_evidence_links,
-            action_records=action_records,
-        )
-        legal_action_targets = self._legal_action_targets(
-            questions=open_questions,
-            question_context=question_context,
-            findings=findings,
-            action_records=action_records,
-            causal_gaps=causal_gaps,
-        )
-        causal_gap_ids_by_action = self._legal_causal_gap_ids_by_action(
-            questions=open_questions,
-            findings=findings,
-            action_records=action_records,
-            causal_gaps=causal_gaps,
-        )
-        if causal_gaps and not legal_action_targets:
+        active_causal_gaps = _active_causal_gaps(causal_gaps)
+        bounded_causal_investigation = any(
+            gap.get("challenge_selected") is True
+            or bool(gap.get("target_scope"))
+            or any(
+                record.action.scope.get("causal_gap_id") == gap.get("gap_id")
+                for record in action_records
+            )
+            for gap in active_causal_gaps
+        ) or candidate_competition_failed
+        if bounded_causal_investigation and not legal_action_targets:
             return _strict_outcome(
                 PlannerDecision(
                     decision_id=self._next_baseline_decision_id(
@@ -927,21 +1802,96 @@ class QwenNextActionPlanner:
                     goal_id=goal.goal_id,
                     decision_type=DecisionType.STOP.value,
                     reason=(
-                        "No untried registered Action remains for the authoritative "
-                        "causal Evidence Gaps; the result stays inconclusive."
+                        "Candidate competition failed without an executable "
+                        "Python-bound discriminator; the failure stays isolated "
+                        "from Planner/orchestration fallback and the result remains "
+                        "inconclusive."
+                        if candidate_competition_failed
+                        else (
+                            "A decision-critical source is unavailable and no "
+                            "high-value registered Action remains."
+                            if decision_critical_unavailable_gain
+                            else "No high-value registered Action remains for "
+                            "the authoritative causal Evidence Gaps; the result "
+                            "stays inconclusive."
+                        )
                     ),
                     goal_status=GoalStatus.BLOCKED.value,
                     proposed_conclusion_level=ConclusionLevel.INCONCLUSIVE.value,
-                    stop_reason=StopReason.NO_ALLOWED_ACTION.value,
-                    question_updates=self._terminal_question_updates(
-                        open_questions=open_questions,
-                        findings=findings,
-                        available_evidence_ids=available_evidence_ids,
-                        question_evidence_links=normalized_question_evidence_links,
+                    stop_reason=(
+                        StopReason.DATA_UNAVAILABLE.value
+                        if decision_critical_unavailable_gain
+                        else StopReason.NO_HIGH_VALUE_ACTION.value
                     ),
+                    # InvestigationFinalizer owns the terminal Question projection.
+                    question_updates=[],
                 ),
                 decision_proposed_by="python_runtime",
-                question_updates_source="python_evidence_gate",
+                action_value_assessments=action_value_assessments,
+            )
+        if (
+            candidate_competition_failed
+            and set(legal_action_targets) == {ActionKind.RUN_RCA_REASONING.value}
+            and bool(
+                causal_gap_ids_by_action.get(
+                    ActionKind.RUN_RCA_REASONING.value,
+                )
+            )
+        ):
+            action_kind = ActionKind.RUN_RCA_REASONING.value
+            definition = self.registry[action_kind]
+            decision = PlannerDecision(
+                decision_id=self._next_baseline_decision_id(
+                    goal=goal,
+                    prior_decisions=normalized_prior_decisions,
+                ),
+                goal_id=goal.goal_id,
+                decision_type=DecisionType.ACT.value,
+                reason=(
+                    "Python selected the only legal bounded action: one final "
+                    "RCA Reasoning refresh may repair the isolated candidate "
+                    "competition failure without changing orchestration mode."
+                ),
+                goal_status=GoalStatus.IN_PROGRESS.value,
+                proposed_conclusion_level=ConclusionLevel.CANDIDATE.value,
+                next_action=InvestigationAction(
+                    action_id=(
+                        f"{goal.goal_id}:candidate-competition-repair:"
+                        f"{len(action_records) + 1}"
+                    ),
+                    kind=action_kind,
+                    agent=definition.agent,
+                    reason="Retry the bounded Qwen candidate competition once.",
+                    inputs=dict(goal.known_facts),
+                    scope=dict(goal.known_facts or {"goal_id": goal.goal_id}),
+                ),
+                target_question_ids=legal_action_targets[action_kind],
+            )
+            decision = self._bind_causal_gap_scope(
+                decision,
+                causal_gap_ids_by_action=causal_gap_ids_by_action,
+                causal_gaps=causal_gaps,
+            )
+            self._validate_candidate(
+                decision,
+                goal=goal,
+                questions=questions,
+                findings=findings,
+                action_records=action_records,
+                tool_call_count=tool_call_count,
+                available_evidence_ids=available_evidence_ids,
+                question_evidence_links=normalized_question_evidence_links,
+                prior_decisions=normalized_prior_decisions,
+                legal_action_targets=legal_action_targets,
+                causal_gap_ids_by_action=causal_gap_ids_by_action,
+                causal_gaps=causal_gaps,
+                critical_contradictions=contradictions,
+                investigation_gain_history=normalized_gain_history,
+            )
+            return _strict_outcome(
+                decision,
+                decision_proposed_by="python_runtime",
+                action_value_assessments=action_value_assessments,
             )
         if causal_gap_ids_by_action and len(legal_action_targets) == 1:
             action_kind = next(iter(legal_action_targets))
@@ -952,6 +1902,26 @@ class QwenNextActionPlanner:
                 action_index = len(action_records) + 1
                 scope = dict(goal.known_facts or {"goal_id": goal.goal_id})
                 scope["causal_gap_id"] = gap_ids[0]
+                selected_gap = next(
+                    (
+                        gap
+                        for gap in causal_gaps
+                        if gap.get("gap_id") == gap_ids[0]
+                    ),
+                    None,
+                )
+                if selected_gap is not None:
+                    scope.update(dict(selected_gap.get("target_scope", {})))
+                    selected_candidate_id = str(
+                        selected_gap.get("candidate_id", "")
+                    ).strip()
+                    selected_discriminator = str(
+                        selected_gap.get("discriminator_kind", "")
+                    ).strip()
+                    if selected_candidate_id:
+                        scope["candidate_id"] = selected_candidate_id
+                    if selected_discriminator:
+                        scope["discriminator_kind"] = selected_discriminator
                 decision = PlannerDecision(
                     decision_id=self._next_baseline_decision_id(
                         goal=goal,
@@ -975,60 +1945,47 @@ class QwenNextActionPlanner:
                     ),
                     target_question_ids=target_question_ids,
                 )
-                try:
-                    self._validate_candidate(
-                        decision,
-                        goal=goal,
-                        questions=questions,
-                        findings=findings,
-                        action_records=action_records,
-                        tool_call_count=tool_call_count,
-                        available_evidence_ids=available_evidence_ids,
-                        question_evidence_links=normalized_question_evidence_links,
-                        prior_decisions=normalized_prior_decisions,
-                        legal_action_targets=legal_action_targets,
-                        causal_gap_ids_by_action=causal_gap_ids_by_action,
-                    )
-                except InvestigationValidationError as exc:
-                    if "no_expected_evidence_gain" not in str(exc):
-                        raise
-                    return _strict_outcome(
-                        PlannerDecision(
-                            decision_id=self._next_baseline_decision_id(
-                                goal=goal,
-                                prior_decisions=normalized_prior_decisions,
-                            ),
-                            goal_id=goal.goal_id,
-                            decision_type=DecisionType.STOP.value,
-                            reason=(
-                                "The only legal causal-gap Action repeats a "
-                                "direction that produced no new relevant Evidence."
-                            ),
-                            goal_status=GoalStatus.BLOCKED.value,
-                            proposed_conclusion_level=(
-                                ConclusionLevel.INCONCLUSIVE.value
-                            ),
-                            stop_reason=StopReason.NO_ALLOWED_ACTION.value,
-                            question_updates=self._terminal_question_updates(
-                                open_questions=open_questions,
-                                findings=findings,
-                                available_evidence_ids=available_evidence_ids,
-                                question_evidence_links=(
-                                    normalized_question_evidence_links
-                                ),
-                            ),
-                        ),
-                        decision_proposed_by="python_runtime",
-                        question_updates_source="python_evidence_gate",
-                    )
+                self._validate_candidate(
+                    decision,
+                    goal=goal,
+                    questions=questions,
+                    findings=findings,
+                    action_records=action_records,
+                    tool_call_count=tool_call_count,
+                    available_evidence_ids=available_evidence_ids,
+                    question_evidence_links=normalized_question_evidence_links,
+                    prior_decisions=normalized_prior_decisions,
+                    legal_action_targets=legal_action_targets,
+                    causal_gap_ids_by_action=causal_gap_ids_by_action,
+                    causal_gaps=causal_gaps,
+                    critical_contradictions=contradictions,
+                    investigation_gain_history=normalized_gain_history,
+                )
                 return _strict_outcome(
                     decision,
                     decision_proposed_by="python_runtime",
+                    action_value_assessments=action_value_assessments,
                 )
         advertised_actions = frozenset(legal_action_targets)
+        prompt_lane_ids = _known_causal_lane_ids(findings)
+        prompt_causal_gaps = [
+            _compact_causal_gap_for_prompt(
+                gap,
+                active_lane_ids=prompt_lane_ids,
+            )
+            for gap in causal_gaps
+        ]
+        prompt_candidate_challenges = [
+            _compact_audit_mapping_for_prompt(item)
+            for item in candidate_challenges
+            if isinstance(item, Mapping)
+        ][:_MAX_PROMPT_AUDIT_ITEMS]
+        prompt_question_context = _compact_question_context_for_prompt(
+            question_context
+        )
         relevant_evidence_ids = {
             evidence_id
-            for packet in question_context
+            for packet in prompt_question_context
             for evidence_id in (
                 packet["linked_evidence"]["supports"]
                 + packet["linked_evidence"]["contradicts"]
@@ -1049,6 +2006,7 @@ class QwenNextActionPlanner:
         complete_python_terminal_transition = (
             bool(open_question_ids)
             and set(terminal_question_ids) == set(open_question_ids)
+            and not causal_gap_ids_by_action
         )
         goal_satisfied_stop_contract = {
             "currently_open_question_ids": open_question_ids,
@@ -1060,11 +2018,23 @@ class QwenNextActionPlanner:
                 if complete_python_terminal_transition
                 else []
             ),
+            "executable_causal_gap_ids": (
+                sorted(
+                    {
+                        gap_id
+                        for gap_ids in causal_gap_ids_by_action.values()
+                        for gap_id in gap_ids
+                    }
+                )
+                if causal_gap_ids_by_action
+                else []
+            ),
             "boundary": (
                 "A goal_satisfied stop is invalid while any listed Question "
                 "remains open unless Python has a complete Evidence-Gate-owned "
-                "terminal transition. Qwen chooses the stop boundary but must "
-                "not reproduce Python-owned Question state."
+                "terminal transition, or while an executable causal Evidence Gap "
+                "remains. Qwen chooses the stop boundary but must not reproduce "
+                "Python-owned Question state."
             ),
         }
 
@@ -1087,21 +2057,19 @@ class QwenNextActionPlanner:
                         _PLANNER_INPUT_ONLY_FIELDS
                     ),
                     "legal_target_question_ids_by_action": legal_action_targets,
-                    "known_causal_lane_ids": list(_known_causal_lane_ids(findings)),
-                    "lane_aware_action_kinds": [
-                        ActionKind.INSPECT_DEFECT_PATTERN.value,
-                        ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
-                        ActionKind.INSPECT_FDC_SPC.value,
-                        ActionKind.VALIDATE_HISTORICAL_CASE.value,
-                    ],
+                    "known_causal_lane_ids": list(prompt_lane_ids),
+                    "lane_aware_action_kinds": sorted(_LANE_AWARE_ACTION_KINDS),
                     "lane_selection_rule": (
                         "When multiple causal lanes are discovered, every lane-aware "
                         "Action must copy exactly one known lane_id into next_action.scope."
                     ),
-                    "causal_evidence_gaps": causal_gaps,
+                    "causal_evidence_gaps": prompt_causal_gaps,
                     "alternative_search_status": alternative_search_status,
-                    "candidate_challenges": candidate_challenges,
+                    "candidate_challenges": prompt_candidate_challenges,
                     "legal_causal_gap_ids_by_action": causal_gap_ids_by_action,
+                    "action_value_assessments": [
+                        item.to_dict() for item in high_value_assessments
+                    ],
                     "question_action_capabilities": {
                         question.question_id: [
                             action_kind
@@ -1141,22 +2109,28 @@ class QwenNextActionPlanner:
                 payload={
                     "goal": goal.to_dict(),
                     "questions": [question.to_dict() for question in questions],
-                    "findings": [_compact_finding(finding) for finding in findings],
+                    "findings": [
+                        _compact_finding(
+                            finding,
+                            active_lane_ids=prompt_lane_ids,
+                        )
+                        for finding in findings
+                    ],
                     "evidence": [
                         _compact_evidence(item)
                         for item in normalized_evidence
                         if item.evidence_id in relevant_evidence_ids
                     ],
-                    "question_context": question_context,
+                    "question_context": prompt_question_context,
                     "capability_notices": [
                         notice.to_dict() for notice in normalized_capability_notices
                     ],
-                    "available_evidence_ids": sorted(available_evidence_ids),
+                    "available_evidence_ids": sorted(relevant_evidence_ids),
                     "hypotheses": [
                         hypothesis.to_dict() for hypothesis in normalized_hypotheses
                     ],
                     "action_history": [
-                        record.to_dict() for record in action_records
+                        _compact_action_record(record) for record in action_records
                     ],
                     "prior_decision_ids": [
                         decision.decision_id
@@ -1171,6 +2145,9 @@ class QwenNextActionPlanner:
                         ),
                         "tool_call_count": tool_call_count,
                         "max_tool_calls": goal.max_tool_calls,
+                        "evidence_gated_final_reasoning_refresh_available": (
+                            conditional_third_round_available
+                        ),
                     },
                     "allowed_actions": [
                         {
@@ -1192,21 +2169,19 @@ class QwenNextActionPlanner:
                         for question in open_questions
                     },
                     "legal_target_question_ids_by_action": legal_action_targets,
-                    "known_causal_lane_ids": list(_known_causal_lane_ids(findings)),
-                    "lane_aware_action_kinds": [
-                        ActionKind.INSPECT_DEFECT_PATTERN.value,
-                        ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
-                        ActionKind.INSPECT_FDC_SPC.value,
-                        ActionKind.VALIDATE_HISTORICAL_CASE.value,
-                    ],
+                    "known_causal_lane_ids": list(prompt_lane_ids),
+                    "lane_aware_action_kinds": sorted(_LANE_AWARE_ACTION_KINDS),
                     "lane_selection_rule": (
                         "When multiple causal lanes are discovered, every lane-aware "
                         "Action must copy exactly one known lane_id into next_action.scope."
                     ),
-                    "causal_evidence_gaps": causal_gaps,
+                    "causal_evidence_gaps": prompt_causal_gaps,
                     "alternative_search_status": alternative_search_status,
-                    "candidate_challenges": candidate_challenges,
+                    "candidate_challenges": prompt_candidate_challenges,
                     "legal_causal_gap_ids_by_action": causal_gap_ids_by_action,
+                    "action_value_assessments": [
+                        item.to_dict() for item in high_value_assessments
+                    ],
                     "deterministic_planner_decision": replace(
                         baseline,
                         question_updates=[],
@@ -1277,10 +2252,17 @@ class QwenNextActionPlanner:
                         )
                     )
                 )
+                if review_question_updates:
+                    outcome = _protect_authoritative_causal_gap_questions(
+                        outcome,
+                        questions=questions,
+                        causal_gaps=causal_gaps,
+                    )
                 candidate = outcome.decision
                 candidate = self._bind_causal_gap_scope(
                     candidate,
                     causal_gap_ids_by_action=causal_gap_ids_by_action,
+                    causal_gaps=causal_gaps,
                 )
                 if candidate is not outcome.decision:
                     outcome = replace(outcome, decision=candidate)
@@ -1303,13 +2285,29 @@ class QwenNextActionPlanner:
                     prior_decisions=normalized_prior_decisions,
                     legal_action_targets=legal_action_targets,
                     causal_gap_ids_by_action=causal_gap_ids_by_action,
+                    causal_gaps=causal_gaps,
+                    critical_contradictions=contradictions,
+                    investigation_gain_history=normalized_gain_history,
                 )
                 if review_question_updates:
                     _validate_reviewed_stop_boundary(
                         outcome,
                         questions=questions,
                     )
-                return outcome
+                return replace(
+                    outcome,
+                    action_value_assessments=action_value_assessments,
+                    decision_proposed_by=(
+                        model_source(self.llm_client)
+                        if outcome.decision_proposed_by == "qwen"
+                        else outcome.decision_proposed_by
+                    ),
+                    question_updates_source=(
+                        model_source(self.llm_client)
+                        if outcome.question_updates_source == "qwen"
+                        else outcome.question_updates_source
+                    ),
+                )
             except (
                 InvestigationValidationError,
                 LLMOutputValidationError,
@@ -1706,6 +2704,9 @@ class QwenNextActionPlanner:
         prior_decisions: list[PlannerDecision],
         legal_action_targets: dict[str, list[str]],
         causal_gap_ids_by_action: dict[str, list[str]],
+        causal_gaps: list[dict[str, Any]],
+        critical_contradictions: list[str],
+        investigation_gain_history: list[InvestigationGainRecord],
     ) -> None:
         if candidate.goal_id != goal.goal_id:
             raise InvestigationValidationError("Qwen changed the active goal_id")
@@ -1785,14 +2786,63 @@ class QwenNextActionPlanner:
                     "an action can target only an open investigation question"
                 )
 
+        conditional_third_round_available = _conditional_third_round_available(
+            action_records=action_records,
+            causal_gap_ids_by_action=causal_gap_ids_by_action,
+        )
         budget_exhausted = (
-            len(action_records) >= min(goal.max_steps, MAX_CROSS_DOMAIN_ACTIONS)
+            (
+                len(action_records) >= min(
+                    goal.max_steps,
+                    MAX_CROSS_DOMAIN_ACTIONS,
+                )
+                and not conditional_third_round_available
+            )
             or tool_call_count >= goal.max_tool_calls
         )
         if candidate.decision_type == DecisionType.STOP.value:
             if candidate.target_question_ids:
                 raise InvestigationValidationError(
                     "a stop decision cannot target an open question"
+                )
+            expected_goal_status = {
+                StopReason.GOAL_SATISFIED.value: GoalStatus.SATISFIED.value,
+                StopReason.CRITICAL_CONTRADICTION.value: GoalStatus.BLOCKED.value,
+                StopReason.NO_ALLOWED_ACTION.value: GoalStatus.BLOCKED.value,
+                StopReason.BUDGET_EXHAUSTED.value: GoalStatus.BUDGET_EXHAUSTED.value,
+                StopReason.DATA_UNAVAILABLE.value: GoalStatus.BLOCKED.value,
+                StopReason.NO_HIGH_VALUE_ACTION.value: GoalStatus.BLOCKED.value,
+            }[str(candidate.stop_reason)]
+            if candidate.goal_status != expected_goal_status:
+                raise InvestigationValidationError(
+                    "stop_reason_goal_status_mismatch: "
+                    f"{candidate.stop_reason} requires goal_status="
+                    f"{expected_goal_status}"
+                )
+            if (
+                candidate.stop_reason == StopReason.GOAL_SATISFIED.value
+                and causal_gaps
+                and causal_gap_ids_by_action
+            ):
+                raise InvestigationValidationError(
+                    "goal_satisfied stop cannot bypass executable causal Evidence "
+                    "Gaps; select a legal causal-gap Action before stopping"
+                )
+            if (
+                candidate.stop_reason == StopReason.NO_ALLOWED_ACTION.value
+                and legal_action_targets
+            ):
+                raise InvestigationValidationError(
+                    "no_allowed_action stop is invalid while Python still exposes "
+                    "a legal Action"
+                )
+            if (
+                candidate.stop_reason == StopReason.CRITICAL_CONTRADICTION.value
+                and not critical_contradictions
+            ):
+                raise InvestigationValidationError(
+                    "critical_contradiction stop requires a Python-supplied "
+                    "critical contradiction"
                 )
             if budget_exhausted and (
                 candidate.goal_status != GoalStatus.BUDGET_EXHAUSTED.value
@@ -1818,13 +2868,7 @@ class QwenNextActionPlanner:
         if action is None:
             raise InvestigationValidationError("an act decision requires next_action")
         known_lane_ids = _known_causal_lane_ids(findings)
-        lane_aware_actions = {
-            ActionKind.INSPECT_DEFECT_PATTERN.value,
-            ActionKind.VALIDATE_SHARED_DEFECT_PATTERN.value,
-            ActionKind.INSPECT_FDC_SPC.value,
-            ActionKind.VALIDATE_HISTORICAL_CASE.value,
-        }
-        if len(known_lane_ids) > 1 and action.kind in lane_aware_actions:
+        if len(known_lane_ids) > 1 and action.kind in _LANE_AWARE_ACTION_KINDS:
             selected_lane_id = str(
                 action.scope.get("lane_id") or action.inputs.get("lane_id") or ""
             ).strip()
@@ -1848,10 +2892,40 @@ class QwenNextActionPlanner:
         causal_gap_id = str(action.scope.get("causal_gap_id", "")).strip()
         allowed_gap_ids = set(causal_gap_ids_by_action.get(action.kind, []))
         gap_bound = bool(causal_gap_id and causal_gap_id in allowed_gap_ids)
+        if len(allowed_gap_ids) > 1 and not causal_gap_id:
+            raise InvestigationValidationError(
+                "causal_gap_selection_required: the selected Action can fill "
+                "multiple legal causal Evidence Gaps, so Qwen must explicitly "
+                "select one causal_gap_id"
+            )
         if causal_gap_id and not gap_bound:
             raise InvestigationValidationError(
                 "next_action.scope.causal_gap_id is not legal for the selected Action"
             )
+        if gap_bound:
+            selected_gap = next(
+                (
+                    gap
+                    for gap in causal_gaps
+                    if gap.get("gap_id") == causal_gap_id
+                ),
+                None,
+            )
+            expected_scope = (
+                dict(selected_gap.get("target_scope", {}))
+                if selected_gap is not None
+                else {}
+            )
+            scope_mismatch = {
+                key: value
+                for key, value in expected_scope.items()
+                if action.scope.get(key) != value
+            }
+            if scope_mismatch:
+                raise InvestigationValidationError(
+                    "causal_gap_scope_mismatch: the selected Action must retain "
+                    f"Python-owned target scope {scope_mismatch}"
+                )
         # This is deliberately atomic: one incompatible target rejects the
         # complete Decision instead of silently dropping that target.
         validate_action_for_questions(
@@ -1861,10 +2935,7 @@ class QwenNextActionPlanner:
         )
         self._validate_no_gain_boundary(
             action=action,
-            target_questions=targeted_questions,
-            action_records=action_records,
-            prior_decisions=prior_decisions,
-            links=question_evidence_links,
+            investigation_gain_history=investigation_gain_history,
         )
         definition = self.registry.get(action.kind)
         if definition is None:
@@ -1980,6 +3051,7 @@ class QwenNextActionPlanner:
         findings: list[AgentFinding],
         action_records: list[ActionRecord],
         causal_gaps: list[dict[str, Any]],
+        question_evidence_links: list[QuestionEvidenceLink],
     ) -> dict[str, list[str]]:
         """Project the state-aware Question/Action matrix owned by Python.
 
@@ -1994,48 +3066,49 @@ class QwenNextActionPlanner:
             str(packet["question_id"]): packet for packet in question_context
         }
         finding_agents = {finding.agent for finding in findings}
+        known_lane_ids = _known_causal_lane_ids(findings)
         completed_kinds = {
             record.action.kind
             for record in action_records
             if record.status == "completed"
         }
-        reasoning_rounds = sum(
-            record.status == "completed"
-            and record.action.kind == ActionKind.RUN_RCA_REASONING.value
-            for record in action_records
-        )
         targets_by_action: dict[str, list[str]] = {}
-        for question in questions:
-            capability = capability_for_question(question)
-            packet = context_by_id[question.question_id]
-            missing = set(packet["missing_evidence_groups"])
-            for action_kind in sorted(capability.allowed_actions):
-                definition = self.registry.get(action_kind)
-                if definition is None:
-                    continue
-                if not set(definition.required_finding_agents) <= finding_agents:
-                    continue
-                if (
-                    action_kind == ActionKind.FIND_SHARED_EXPOSURE.value
-                    and action_kind in completed_kinds
-                ):
-                    continue
-                if (
-                    action_kind == ActionKind.RUN_RCA_REASONING.value
-                    and reasoning_rounds >= _MAX_CANDIDATE_GENERATION_ROUNDS
-                ):
-                    continue
-                contribution = capability.contribution_for(action_kind)
-                if missing:
-                    if not (missing & contribution):
+        eligible_gaps = _eligible_causal_gaps(causal_gaps)
+        if not eligible_gaps:
+            for question in questions:
+                capability = capability_for_question(question)
+                packet = context_by_id[question.question_id]
+                missing = set(packet["missing_evidence_groups"])
+                for action_kind in sorted(capability.allowed_actions):
+                    definition = self.registry.get(action_kind)
+                    if definition is None:
                         continue
-                elif "hypothesis_synthesis" not in contribution:
-                    continue
-                targets_by_action.setdefault(action_kind, []).append(
-                    question.question_id
-                )
-        for gap in causal_gaps:
-            gap_id = str(gap["gap_id"])
+                    if not set(definition.required_finding_agents) <= finding_agents:
+                        continue
+                    if (
+                        action_kind == ActionKind.FIND_SHARED_EXPOSURE.value
+                        and action_kind in completed_kinds
+                    ):
+                        continue
+                    if not _reasoning_round_is_allowed(
+                        action_kind,
+                        gap=None,
+                        findings=findings,
+                        action_records=action_records,
+                        links=question_evidence_links,
+                    ):
+                        continue
+                    contribution = capability.contribution_for(action_kind)
+                    if missing:
+                        if not (missing & contribution):
+                            continue
+                    elif "hypothesis_synthesis" not in contribution:
+                        continue
+                    targets_by_action.setdefault(action_kind, []).append(
+                        question.question_id
+                    )
+        gap_action_targets: list[tuple[str, list[str]]] = []
+        for gap in eligible_gaps:
             question_kind = str(gap["question_kind"])
             targets = [
                 question.question_id
@@ -2044,25 +3117,42 @@ class QwenNextActionPlanner:
             ]
             if not targets:
                 continue
-            for action_kind in gap["allowed_actions"]:
+            for action_kind in _actions_for_causal_gap_stage(gap, action_records):
+                if (
+                    len(known_lane_ids) > 1
+                    and action_kind in _LANE_AWARE_ACTION_KINDS
+                    and not str(
+                        gap.get("target_scope", {}).get("lane_id", "")
+                    ).strip()
+                ):
+                    continue
                 definition = self.registry.get(str(action_kind))
                 if definition is None:
                     continue
                 if not set(definition.required_finding_agents) <= finding_agents:
                     continue
-                if (
-                    action_kind == ActionKind.RUN_RCA_REASONING.value
-                    and reasoning_rounds >= _MAX_CANDIDATE_GENERATION_ROUNDS
+                if not _reasoning_round_is_allowed(
+                    action_kind,
+                    gap=gap,
+                    findings=findings,
+                    action_records=action_records,
+                    links=question_evidence_links,
                 ):
                     continue
                 if any(
-                    record.status == "completed"
-                    and record.action.kind == action_kind
-                    and record.action.scope.get("causal_gap_id") == gap_id
+                    _record_matches_causal_gap_scope(
+                        record,
+                        gap,
+                        action_kind=action_kind,
+                    )
                     for record in action_records
                 ):
                     continue
-                targets_by_action.setdefault(str(action_kind), []).extend(targets)
+                gap_action_targets.append(
+                    (str(action_kind), targets)
+                )
+        for action_kind, targets in gap_action_targets:
+            targets_by_action.setdefault(action_kind, []).extend(targets)
         return {
             action_kind: list(dict.fromkeys(target_ids))
             for action_kind, target_ids in sorted(targets_by_action.items())
@@ -2075,39 +3165,54 @@ class QwenNextActionPlanner:
         findings: list[AgentFinding],
         action_records: list[ActionRecord],
         causal_gaps: list[dict[str, Any]],
+        question_evidence_links: list[QuestionEvidenceLink],
     ) -> dict[str, list[str]]:
         finding_agents = {finding.agent for finding in findings}
-        reasoning_rounds = sum(
-            record.status == "completed"
-            and record.action.kind == ActionKind.RUN_RCA_REASONING.value
-            for record in action_records
-        )
+        known_lane_ids = _known_causal_lane_ids(findings)
         open_kinds = {question.question_kind for question in questions}
-        result: dict[str, list[str]] = {}
-        for gap in causal_gaps:
+        executable_gap_actions: list[tuple[str, str]] = []
+        for gap in _eligible_causal_gaps(causal_gaps):
             gap_id = str(gap["gap_id"])
             if str(gap["question_kind"]) not in open_kinds:
                 continue
-            for raw_action in gap["allowed_actions"]:
+            for raw_action in _actions_for_causal_gap_stage(gap, action_records):
                 action_kind = str(raw_action)
+                if (
+                    len(known_lane_ids) > 1
+                    and action_kind in _LANE_AWARE_ACTION_KINDS
+                    and not str(
+                        gap.get("target_scope", {}).get("lane_id", "")
+                    ).strip()
+                ):
+                    continue
                 definition = self.registry.get(action_kind)
                 if definition is None:
                     continue
                 if not set(definition.required_finding_agents) <= finding_agents:
                     continue
-                if (
-                    action_kind == ActionKind.RUN_RCA_REASONING.value
-                    and reasoning_rounds >= _MAX_CANDIDATE_GENERATION_ROUNDS
+                if not _reasoning_round_is_allowed(
+                    action_kind,
+                    gap=gap,
+                    findings=findings,
+                    action_records=action_records,
+                    links=question_evidence_links,
                 ):
                     continue
                 if any(
-                    record.status == "completed"
-                    and record.action.kind == action_kind
-                    and record.action.scope.get("causal_gap_id") == gap_id
+                    _record_matches_causal_gap_scope(
+                        record,
+                        gap,
+                        action_kind=action_kind,
+                    )
                     for record in action_records
                 ):
                     continue
-                result.setdefault(action_kind, []).append(gap_id)
+                executable_gap_actions.append(
+                    (action_kind, gap_id)
+                )
+        result: dict[str, list[str]] = {}
+        for action_kind, gap_id in executable_gap_actions:
+            result.setdefault(action_kind, []).append(gap_id)
         return {
             action_kind: list(dict.fromkeys(gap_ids))
             for action_kind, gap_ids in sorted(result.items())
@@ -2118,6 +3223,7 @@ class QwenNextActionPlanner:
         decision: PlannerDecision,
         *,
         causal_gap_ids_by_action: dict[str, list[str]],
+        causal_gaps: list[dict[str, Any]],
     ) -> PlannerDecision:
         if decision.decision_type != DecisionType.ACT.value or decision.next_action is None:
             return decision
@@ -2126,9 +3232,34 @@ class QwenNextActionPlanner:
             return decision
         scope = dict(decision.next_action.scope)
         proposed_gap_id = str(scope.get("causal_gap_id", "")).strip()
-        scope["causal_gap_id"] = (
-            proposed_gap_id if proposed_gap_id in gap_ids else gap_ids[0]
+        if len(gap_ids) == 1:
+            selected_gap_id = gap_ids[0]
+        elif proposed_gap_id in gap_ids:
+            selected_gap_id = proposed_gap_id
+        else:
+            # Multiple legal Gaps represent a real investigation choice owned
+            # by Qwen. Preserve a missing or invalid proposal so the strict
+            # validator rejects it instead of silently choosing the first.
+            return decision
+        scope["causal_gap_id"] = selected_gap_id
+        selected_gap = next(
+            (
+                gap
+                for gap in causal_gaps
+                if gap.get("gap_id") == selected_gap_id
+            ),
+            None,
         )
+        if selected_gap is not None:
+            scope.update(dict(selected_gap.get("target_scope", {})))
+            candidate_id = str(selected_gap.get("candidate_id", "")).strip()
+            discriminator_kind = str(
+                selected_gap.get("discriminator_kind", "")
+            ).strip()
+            if candidate_id:
+                scope["candidate_id"] = candidate_id
+            if discriminator_kind:
+                scope["discriminator_kind"] = discriminator_kind
         return replace(
             decision,
             next_action=replace(decision.next_action, scope=scope),
@@ -2210,49 +3341,89 @@ class QwenNextActionPlanner:
     def _validate_no_gain_boundary(
         *,
         action: InvestigationAction,
-        target_questions: list[InvestigationQuestion],
-        action_records: list[ActionRecord],
-        prior_decisions: list[PlannerDecision],
-        links: list[QuestionEvidenceLink],
+        investigation_gain_history: list[InvestigationGainRecord] | None = None,
+        target_questions: list[InvestigationQuestion] | None = None,
+        action_records: list[ActionRecord] | None = None,
+        prior_decisions: list[PlannerDecision] | None = None,
+        links: list[QuestionEvidenceLink] | None = None,
     ) -> None:
-        if not target_questions or not action_records or not prior_decisions:
-            return
-        decisions_by_action_id = {
-            decision.next_action.action_id: decision
-            for decision in prior_decisions
-            if decision.decision_type == DecisionType.ACT.value
-            and decision.next_action is not None
-        }
-        for question in target_questions:
-            prior_same_direction = [
-                record
-                for record in action_records
-                if record.status == "completed"
-                and record.action.kind == action.kind
-                and record.action.deduplication_key != action.deduplication_key
-                and record.action.action_id in decisions_by_action_id
-                and question.question_id
-                in decisions_by_action_id[record.action.action_id].target_question_ids
-                and action_scope_matches_question(record.action, question)
-            ]
-            if not prior_same_direction:
-                continue
-            latest = prior_same_direction[-1]
-            earlier_records = action_records[: action_records.index(latest)]
-            if _action_has_new_relevant_evidence(
-                latest,
-                earlier_records=earlier_records,
-                links=[
-                    link
-                    for link in links
-                    if link.question_id == question.question_id
-                ],
+        """Reject repeated work while preserving the pre-Patch-3 private API.
+
+        Production planning always supplies persisted Investigation Gain and
+        uses the exact Action fingerprint below.  The older arguments remain
+        available for downstream contract callers, but they do not participate
+        in the Patch 3 Planner path.
+        """
+
+        if investigation_gain_history is None:
+            legacy_questions = list(target_questions or [])
+            legacy_records = list(action_records or [])
+            legacy_decisions = list(prior_decisions or [])
+            legacy_links = list(links or [])
+            if not legacy_questions or not legacy_records or not legacy_decisions:
+                return
+            if _reasoning_refresh_has_unconsumed_gap_evidence(
+                action,
+                target_questions=legacy_questions,
+                action_records=legacy_records,
+                links=legacy_links,
             ):
-                continue
+                return
+            decisions_by_action_id = {
+                decision.next_action.action_id: decision
+                for decision in legacy_decisions
+                if decision.decision_type == DecisionType.ACT.value
+                and decision.next_action is not None
+            }
+            for question in legacy_questions:
+                prior_same_direction = [
+                    record
+                    for record in legacy_records
+                    if record.status == "completed"
+                    and record.action.kind == action.kind
+                    and record.action.deduplication_key != action.deduplication_key
+                    and record.action.action_id in decisions_by_action_id
+                    and question.question_id
+                    in decisions_by_action_id[
+                        record.action.action_id
+                    ].target_question_ids
+                    and action_scope_matches_question(record.action, question)
+                ]
+                if not prior_same_direction:
+                    continue
+                latest = prior_same_direction[-1]
+                earlier_records = legacy_records[: legacy_records.index(latest)]
+                if _action_has_new_relevant_evidence(
+                    latest,
+                    earlier_records=earlier_records,
+                    links=[
+                        link
+                        for link in legacy_links
+                        if link.question_id == question.question_id
+                    ],
+                ):
+                    continue
+                raise InvestigationValidationError(
+                    "no_expected_evidence_gain: the same Question, Action family, "
+                    "and compatible scope produced no relevant Evidence gain on the "
+                    "previous attempt; Qwen must switch direction or stop"
+                )
+            return
+
+        fingerprint = action_scope_fingerprint(
+            action.kind,
+            action.scope,
+            source=action.agent,
+        )
+        if any(
+            gain.action_kind == action.kind
+            and gain.scope_fingerprint == fingerprint
+            for gain in investigation_gain_history
+        ):
             raise InvestigationValidationError(
-                "no_expected_evidence_gain: the same Question, Action family, "
-                "and compatible scope produced no relevant Evidence gain on the "
-                "previous attempt; Qwen must switch direction or stop"
+                "exact_action_scope_already_attempted: Candidate, Lane, Gap, "
+                "discriminator, Action, source, and scope must identify a new "
+                "investigation option"
             )
 
 

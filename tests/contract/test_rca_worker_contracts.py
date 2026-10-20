@@ -8,7 +8,7 @@ STORE = (ROOT / "backend/yield_rca_api/store.py").read_text(encoding="utf-8")
 WORKER = (ROOT / "backend/yield_rca_api/worker.py").read_text(encoding="utf-8")
 COMPOSE = (ROOT / "compose.yaml").read_text(encoding="utf-8")
 DOCKERFILE = (ROOT / "docker/backend.Dockerfile").read_text(encoding="utf-8")
-ENV_EXAMPLE = (ROOT / ".env.example").read_text(encoding="utf-8")
+ENV_EXAMPLE = (ROOT / "docs/configuration.md").read_text(encoding="utf-8")
 
 
 class RCAWorkerContractTest(unittest.TestCase):

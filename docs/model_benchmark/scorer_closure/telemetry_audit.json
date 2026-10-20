@@ -1,0 +1,937 @@
+{
+  "source_commit": "cdbc07fc37c8544c56ae7b9090166edaff838c37",
+  "scope": "63 capability definitions; actual per-record coverage exported separately.",
+  "counts": {
+    "available": 29,
+    "partial": 34,
+    "missing": 0,
+    "not_applicable": 0
+  },
+  "metrics": {
+    "completion_rate": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "fraction",
+      "source": "run_results.results[].job_status; manifest.selected_case_ids",
+      "evidence_files": [
+        "scripts/run_formal_blind_rca.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Coverage conditional on saved result/State; missing run result never excluded from planned completion denominator.",
+      "definition": "Completed cases / all selected cases; absent result remains incomplete.",
+      "aggregation": "sum(completed) / selected case count",
+      "phase0_status": "available"
+    },
+    "strict_accept_rate": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "fraction",
+      "source": "run_results.results[].strict_qwen_accepted; strict_qwen_acceptance_evaluated",
+      "evidence_files": [
+        "scripts/run_formal_blind_rca.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Coverage conditional on saved result/State; missing run result never excluded from planned completion denominator.",
+      "definition": "Accepted cases / all cases selected for the named acceptance contract.",
+      "aggregation": "sum(accepted) / eligible selected cases; not_evaluated is null, not false",
+      "phase0_status": "available"
+    },
+    "candidate_recall": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "tools/benchmark_observer.py + tools/benchmark_scoring.py",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Captured boundaries; unknown semantics need review. GT approval pending.",
+      "definition": "GT cases with a matching root cause in the first raw candidate response / eligible GT cases.",
+      "aggregation": "micro case recall; no final-state backfill",
+      "phase0_status": "missing"
+    },
+    "admitted_candidate_recall": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "tools/benchmark_observer.py + tools/benchmark_scoring.py",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Captured boundaries; unknown semantics need review. GT approval pending.",
+      "definition": "GT cases with a correct initially admitted candidate / eligible GT cases.",
+      "aggregation": "micro case recall; distinct from initial raw recall",
+      "phase0_status": "missing"
+    },
+    "competition_survival": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "tools/benchmark_observer.py + tools/benchmark_scoring.py",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Captured boundaries; unknown semantics need review. GT approval pending.",
+      "definition": "GT cases retaining a matching candidate at competition / eligible GT cases. Conditional retention uses a separately named report, never changes this denominator.",
+      "aggregation": "micro case rate; missing upstream capture is unknown, not eliminated",
+      "phase0_status": "missing"
+    },
+    "ranking_survival": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "tools/benchmark_observer.py + tools/benchmark_scoring.py",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Captured boundaries; unknown semantics need review. GT approval pending.",
+      "definition": "GT cases retaining a matching candidate at ranking / eligible GT cases. Conditional retention uses a separately named report, never changes this denominator.",
+      "aggregation": "micro case rate; missing upstream capture is unknown, not eliminated",
+      "phase0_status": "missing"
+    },
+    "confirmation_survival": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "tools/benchmark_observer.py + tools/benchmark_scoring.py",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Captured boundaries; unknown semantics need review. GT approval pending.",
+      "definition": "GT cases retaining a matching candidate at confirmation / eligible GT cases. Conditional retention uses a separately named report, never changes this denominator.",
+      "aggregation": "micro case rate; missing upstream capture is unknown, not eliminated",
+      "phase0_status": "missing"
+    },
+    "supported_root_cause_recall": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "final authority + external GT adjudication; legacy scorer has related but different status metrics",
+      "evidence_files": [
+        "scripts/score_formal_blind_rca.py",
+        "core/yield_rca_core/causal_investigation_models.py"
+      ],
+      "limitation": "Final authority exists; legacy exact-string/substring scorer lacks reviewed canonical identity/scope/time mapping. No trusted automated hit yet.",
+      "definition": "Distinct correct supported GT roots / GT roots that should be supported.",
+      "aggregation": "micro root-level TP / eligible GT roots",
+      "phase0_status": "partially_available"
+    },
+    "root_cause_hit_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "authoritative_rca_result + versioned external match decisions",
+      "evidence_files": [
+        "scripts/score_formal_blind_rca.py",
+        "core/yield_rca_core/causal_investigation_models.py"
+      ],
+      "limitation": "Final authority exists; legacy exact-string/substring scorer lacks reviewed canonical identity/scope/time mapping. No trusted automated hit yet.",
+      "definition": "Cases whose final published root cause matches GT / all cases with identifiable GT root.",
+      "aggregation": "micro case hit rate; completion/strict/supported alone are not a match",
+      "phase0_status": "partially_available"
+    },
+    "first_pass_json_success_rate": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "tools/benchmark_observer.py:repair_metrics",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Observed operation lineage only; requires complete dedicated-thread capture.",
+      "definition": "JSON successes on initial output attempt with no caller retry / all logical model calls (requested call-based denominator).",
+      "aggregation": "sum(initial successful JSON calls) / all logical calls; transport failures included",
+      "phase0_status": "missing"
+    },
+    "json_decode_success_rate": {
+      "status": "available",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "execution_metadata.model_telemetry; Runtime logical_call/model_result + Adapter http_attempt",
+      "evidence_files": [
+        "core/yield_rca_core/model_runtime.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "tools/model_benchmark_telemetry.py"
+      ],
+      "limitation": "Requires complete capture + no dropped/orphan events; existing runner may lose outer telemetry on unhandled exception.",
+      "definition": "Successful JSON object decodes / logical calls; includes valid repaired responses.",
+      "aggregation": "successful JSON calls / all logical calls",
+      "phase0_status": "available"
+    },
+    "first_attempt_operation_success_rate": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "tools/benchmark_observer.py:repair_metrics",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Observed operation lineage only; requires complete dedicated-thread capture.",
+      "definition": "Operations whose first logical call decodes JSON / all model operations; companion metric resolving operation-vs-call ambiguity.",
+      "aggregation": "successful first calls / operation count; do not substitute for call-based KPI",
+      "phase0_status": "missing"
+    },
+    "json_decode_failure_rate": {
+      "status": "available",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "execution_metadata.model_telemetry; Runtime logical_call/model_result + Adapter http_attempt",
+      "evidence_files": [
+        "core/yield_rca_core/model_runtime.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "tools/model_benchmark_telemetry.py"
+      ],
+      "limitation": "Requires complete capture + no dropped/orphan events; existing runner may lose outer telemetry on unhandled exception.",
+      "definition": "Invalid JSON/object decode calls / calls reaching content decoder",
+      "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+      "phase0_status": "available"
+    },
+    "dto_validation_failure_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "IntentPlan/PlannerDecision/SpecialistToolDecision.from_dict and other existing parsers",
+      "evidence_files": [
+        "core/yield_rca_core/hypothesis_candidate_generator.py",
+        "core/yield_rca_core/challenge_diagnostics.py"
+      ],
+      "limitation": "Lists and opt-in rejection facts exist, but all attempted-item/reference denominators and all-stage taxonomy are incomplete. Message count is not failed-item count.",
+      "definition": "Rejected DTO items / attempted DTO items",
+      "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+      "phase0_status": "partially_available"
+    },
+    "business_validation_failure_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "existing caller validators and Planner diagnostics",
+      "evidence_files": [
+        "core/yield_rca_core/hypothesis_candidate_generator.py",
+        "core/yield_rca_core/challenge_diagnostics.py"
+      ],
+      "limitation": "Lists and opt-in rejection facts exist, but all attempted-item/reference denominators and all-stage taxonomy are incomplete. Message count is not failed-item count.",
+      "definition": "Rejected business validation attempts / attempted business validations",
+      "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+      "phase0_status": "partially_available"
+    },
+    "semantic_validation_error_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "hypothesis_candidate_generation.semantic_validation_errors",
+      "evidence_files": [
+        "core/yield_rca_core/hypothesis_candidate_generator.py",
+        "core/yield_rca_core/challenge_diagnostics.py"
+      ],
+      "limitation": "Lists and opt-in rejection facts exist, but all attempted-item/reference denominators and all-stage taxonomy are incomplete. Message count is not failed-item count.",
+      "definition": "Rejected semantic profile items / attempted profile items",
+      "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+      "phase0_status": "partially_available"
+    },
+    "candidate_validation_error_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "Candidate generation validation_errors/rejected_candidates",
+      "evidence_files": [
+        "core/yield_rca_core/hypothesis_candidate_generator.py",
+        "core/yield_rca_core/challenge_diagnostics.py"
+      ],
+      "limitation": "Lists and opt-in rejection facts exist, but all attempted-item/reference denominators and all-stage taxonomy are incomplete. Message count is not failed-item count.",
+      "definition": "Rejected candidate items / attempted candidate items",
+      "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+      "phase0_status": "partially_available"
+    },
+    "invalid_reference_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "candidate/challenge/Planner validators",
+      "evidence_files": [
+        "core/yield_rca_core/hypothesis_candidate_generator.py",
+        "core/yield_rca_core/challenge_diagnostics.py"
+      ],
+      "limitation": "Lists and opt-in rejection facts exist, but all attempted-item/reference denominators and all-stage taxonomy are incomplete. Message count is not failed-item count.",
+      "definition": "Invalid reference occurrences / all submitted reference occurrences",
+      "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+      "phase0_status": "partially_available"
+    },
+    "valid_evidence_reference_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "typed Evidence registry + validators",
+      "evidence_files": [
+        "core/yield_rca_core/hypothesis_candidate_generator.py",
+        "core/yield_rca_core/challenge_diagnostics.py"
+      ],
+      "limitation": "Lists and opt-in rejection facts exist, but all attempted-item/reference denominators and all-stage taxonomy are incomplete. Message count is not failed-item count.",
+      "definition": "Valid Evidence reference occurrences / all submitted Evidence reference occurrences",
+      "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+      "phase0_status": "partially_available"
+    },
+    "invalid_evidence_reference_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "typed Evidence registry + validators",
+      "evidence_files": [
+        "core/yield_rca_core/hypothesis_candidate_generator.py",
+        "core/yield_rca_core/challenge_diagnostics.py"
+      ],
+      "limitation": "Lists and opt-in rejection facts exist, but all attempted-item/reference denominators and all-stage taxonomy are incomplete. Message count is not failed-item count.",
+      "definition": "Invalid Evidence reference occurrences / all submitted Evidence reference occurrences",
+      "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+      "phase0_status": "partially_available"
+    },
+    "isolated_bad_candidate_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "generator candidate isolation; not all raw items persisted",
+      "evidence_files": [
+        "core/yield_rca_core/hypothesis_candidate_generator.py",
+        "core/yield_rca_core/challenge_diagnostics.py"
+      ],
+      "limitation": "Lists and opt-in rejection facts exist, but all attempted-item/reference denominators and all-stage taxonomy are incomplete. Message count is not failed-item count.",
+      "definition": "Rejected-and-isolated raw candidate items / attempted raw candidate items",
+      "aggregation": "sum raw failed/valid items / sum eligible items; no counting error strings as items",
+      "phase0_status": "partially_available"
+    },
+    "provider_failure_rate": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "fraction",
+      "source": "CappedLLMClient.provider_failures + run_results",
+      "evidence_files": [
+        "scripts/run_formal_blind_rca.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Coverage conditional on saved result/State; missing run result never excluded from planned completion denominator.",
+      "definition": "Cases with at least one recorded provider failure / selected cases",
+      "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+      "phase0_status": "available"
+    },
+    "fallback_rate": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "orchestration_fallback_*; candidate fallback_reason; specialist trace",
+      "evidence_files": [
+        "core/yield_rca_core/causal_adversarial.py",
+        "core/yield_rca_core/challenge_diagnostics.py",
+        "core/yield_rca_core/next_action_planner.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Challenge attempts now exact; other caller counters/fallback flags are not a complete per-operation ledger. Count real calls, not planned repair or messages.",
+      "definition": "Cases with any stage fallback / selected cases",
+      "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+      "phase0_status": "partially_available"
+    },
+    "timeout_rate": {
+      "status": "available",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "http_attempt.error_category/status_code; model_result.error_category",
+      "evidence_files": [
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use HTTP event timeout, not Qwen terminal generic transport_error; rates require observed eligible denominator.",
+      "definition": "Timeout logical calls / all logical calls",
+      "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+      "phase0_status": "available"
+    },
+    "rate_limit_rate": {
+      "status": "available",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "http_attempt.error_category/status_code; model_result.error_category",
+      "evidence_files": [
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use HTTP event timeout, not Qwen terminal generic transport_error; rates require observed eligible denominator.",
+      "definition": "Rate-limited HTTP attempts / all HTTP attempts",
+      "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+      "phase0_status": "available"
+    },
+    "invalid_response_rate": {
+      "status": "available",
+      "previous_status": "partial",
+      "unit": "fraction",
+      "source": "http_attempt.error_category/status_code; model_result.error_category",
+      "evidence_files": [
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use HTTP event timeout, not Qwen terminal generic transport_error; rates require observed eligible denominator.",
+      "definition": "Invalid provider envelope responses / HTTP responses received",
+      "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+      "phase0_status": "available"
+    },
+    "context_overflow_rate": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "future adapter failure normalization",
+      "evidence_files": [
+        "core/yield_rca_core/providers/deepseek.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/causal_adversarial.py"
+      ],
+      "limitation": "DeepSeek category + Challenge preflight facts exist; Qwen HTTP error normalization and preflight denominator are not uniformly complete.",
+      "definition": "Context-overflow logical calls / all logical calls",
+      "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+      "phase0_status": "partially_available"
+    },
+    "unsupported_capability_rate": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "fraction",
+      "source": "future configuration preflight; has no model call",
+      "evidence_files": [
+        "core/yield_rca_core/llm_gateway.py",
+        "backend/yield_rca_api/model_selection.py"
+      ],
+      "limitation": "Capability checks exist before model calls, but no universal persisted preflight outcome ledger.",
+      "definition": "Rejected workflow capability preflights / attempted preflights",
+      "aggregation": "sum numerator / eligible denominator; stage breakdown retains same unit",
+      "phase0_status": "partially_available"
+    },
+    "logical_llm_calls": {
+      "status": "available",
+      "previous_status": "partial",
+      "unit": "count",
+      "source": "execution_metadata.model_telemetry; Runtime logical_call/model_result + Adapter http_attempt",
+      "evidence_files": [
+        "core/yield_rca_core/model_runtime.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "tools/model_benchmark_telemetry.py"
+      ],
+      "limitation": "Requires complete capture + no dropped/orphan events; existing runner may lose outer telemetry on unhandled exception.",
+      "definition": "Calls delegated after cap admission, including failures; cap rejection is not a provider call",
+      "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+      "phase0_status": "available"
+    },
+    "http_attempts": {
+      "status": "available",
+      "previous_status": "partial",
+      "unit": "count",
+      "source": "execution_metadata.model_telemetry; Runtime logical_call/model_result + Adapter http_attempt",
+      "evidence_files": [
+        "core/yield_rca_core/model_runtime.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "tools/model_benchmark_telemetry.py"
+      ],
+      "limitation": "Requires complete capture + no dropped/orphan events; existing runner may lose outer telemetry on unhandled exception.",
+      "definition": "Actual client.post attempts; successful retries currently absent",
+      "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+      "phase0_status": "available"
+    },
+    "caller_retries": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "count",
+      "source": "tools/benchmark_observer.py:repair_metrics",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Observed operation lineage only; requires complete dedicated-thread capture.",
+      "definition": "Additional logical calls caused by transient call retry",
+      "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+      "phase0_status": "missing"
+    },
+    "output_repairs": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "count",
+      "source": "tools/benchmark_observer.py:repair_metrics",
+      "evidence_files": [
+        "core/yield_rca_core/causal_adversarial.py",
+        "core/yield_rca_core/challenge_diagnostics.py",
+        "core/yield_rca_core/next_action_planner.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Observed initial/repair/retry lineage; unobserved paths remain unknown.",
+      "definition": "Additional logical calls made after prior output validation failure",
+      "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+      "phase0_status": "partially_available"
+    },
+    "action_count": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "count",
+      "source": "state.action_history; result.action_count",
+      "evidence_files": [
+        "scripts/run_formal_blind_rca.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Coverage conditional on saved result/State; missing run result never excluded from planned completion denominator.",
+      "definition": "Executed action records per case",
+      "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+      "phase0_status": "available"
+    },
+    "tool_count": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "count",
+      "source": "execution_metadata.tool_call_count/tool_latencies",
+      "evidence_files": [
+        "scripts/run_formal_blind_rca.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Coverage conditional on saved result/State; missing run result never excluded from planned completion denominator.",
+      "definition": "Actual tool invocations including failed invocations",
+      "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+      "phase0_status": "available"
+    },
+    "evidence_count": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "count",
+      "source": "state.evidence; result.evidence_count",
+      "evidence_files": [
+        "scripts/run_formal_blind_rca.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Coverage conditional on saved result/State; missing run result never excluded from planned completion denominator.",
+      "definition": "Typed Evidence records in final case State",
+      "aggregation": "per-case count; aggregate sum; never infer attempts from usage rows",
+      "phase0_status": "available"
+    },
+    "logical_llm_calls_per_case": {
+      "status": "available",
+      "previous_status": "partial",
+      "unit": "count_per_case",
+      "source": "execution_metadata.model_telemetry; Runtime logical_call/model_result + Adapter http_attempt",
+      "evidence_files": [
+        "core/yield_rca_core/model_runtime.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "tools/model_benchmark_telemetry.py"
+      ],
+      "limitation": "Requires complete capture + no dropped/orphan events; existing runner may lose outer telemetry on unhandled exception.",
+      "definition": "Calls delegated after cap admission, including failures; cap rejection is not a provider call / selected cases.",
+      "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+      "phase0_status": "available"
+    },
+    "http_attempts_per_case": {
+      "status": "available",
+      "previous_status": "partial",
+      "unit": "count_per_case",
+      "source": "execution_metadata.model_telemetry; Runtime logical_call/model_result + Adapter http_attempt",
+      "evidence_files": [
+        "core/yield_rca_core/model_runtime.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "tools/model_benchmark_telemetry.py"
+      ],
+      "limitation": "Requires complete capture + no dropped/orphan events; existing runner may lose outer telemetry on unhandled exception.",
+      "definition": "Actual client.post attempts; successful retries currently absent / selected cases.",
+      "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+      "phase0_status": "available"
+    },
+    "caller_retries_per_case": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "count_per_case",
+      "source": "tools/benchmark_observer.py:repair_metrics",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Observed operation lineage only; requires complete dedicated-thread capture.",
+      "definition": "Additional logical calls caused by transient call retry / selected cases.",
+      "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+      "phase0_status": "missing"
+    },
+    "output_repairs_per_case": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "count_per_case",
+      "source": "tools/benchmark_observer.py:repair_metrics",
+      "evidence_files": [
+        "core/yield_rca_core/causal_adversarial.py",
+        "core/yield_rca_core/challenge_diagnostics.py",
+        "core/yield_rca_core/next_action_planner.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Observed initial/repair/retry lineage; unobserved paths remain unknown.",
+      "definition": "Additional logical calls made after prior output validation failure / selected cases.",
+      "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+      "phase0_status": "partially_available"
+    },
+    "action_count_per_case": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "count_per_case",
+      "source": "state.action_history; result.action_count",
+      "evidence_files": [
+        "scripts/run_formal_blind_rca.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Coverage conditional on saved result/State; missing run result never excluded from planned completion denominator.",
+      "definition": "Executed action records per case / selected cases.",
+      "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+      "phase0_status": "available"
+    },
+    "tool_count_per_case": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "count_per_case",
+      "source": "execution_metadata.tool_call_count/tool_latencies",
+      "evidence_files": [
+        "scripts/run_formal_blind_rca.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Coverage conditional on saved result/State; missing run result never excluded from planned completion denominator.",
+      "definition": "Actual tool invocations including failed invocations / selected cases.",
+      "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+      "phase0_status": "available"
+    },
+    "evidence_count_per_case": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "count_per_case",
+      "source": "state.evidence; result.evidence_count",
+      "evidence_files": [
+        "scripts/run_formal_blind_rca.py",
+        "core/yield_rca_core/workflow.py"
+      ],
+      "limitation": "Coverage conditional on saved result/State; missing run result never excluded from planned completion denominator.",
+      "definition": "Typed Evidence records in final case State / selected cases.",
+      "aggregation": "sum observed case counts / observed cases; report coverage against all selected cases",
+      "phase0_status": "available"
+    },
+    "http_attempts_per_logical_call": {
+      "status": "available",
+      "previous_status": "partial",
+      "unit": "count_per_call",
+      "source": "execution_metadata.model_telemetry; Runtime logical_call/model_result + Adapter http_attempt",
+      "evidence_files": [
+        "core/yield_rca_core/model_runtime.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py",
+        "tools/model_benchmark_telemetry.py"
+      ],
+      "limitation": "Requires complete capture + no dropped/orphan events; existing runner may lose outer telemetry on unhandled exception.",
+      "definition": "HTTP attempts / admitted logical calls.",
+      "aggregation": "sum attempts / sum logical calls; zero calls => not_applicable",
+      "phase0_status": "available"
+    },
+    "input_tokens": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "tokens",
+      "source": "model_result.usage.reported_fields",
+      "evidence_files": [
+        "core/yield_rca_core/model_contracts.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py"
+      ],
+      "limitation": "Reliable when reported; missing/failed response usage is unknown, cache/reasoning presence flags not complete. Legacy zero-fill forbidden.",
+      "definition": "Provider-reported input_tokens; missing usage is unknown, never assumed free.",
+      "aggregation": "sum reported tokens; failed zero-filled legacy events mark coverage partial",
+      "phase0_status": "partially_available"
+    },
+    "input_tokens_per_case": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "tokens_per_case",
+      "source": "model_result.usage.reported_fields",
+      "evidence_files": [
+        "core/yield_rca_core/model_contracts.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py"
+      ],
+      "limitation": "Reliable when reported; missing/failed response usage is unknown, cache/reasoning presence flags not complete. Legacy zero-fill forbidden.",
+      "definition": "input_tokens / observed cases.",
+      "aggregation": "sum tokens / cases with token coverage; expose missing cases",
+      "phase0_status": "partially_available"
+    },
+    "output_tokens": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "tokens",
+      "source": "model_result.usage.reported_fields",
+      "evidence_files": [
+        "core/yield_rca_core/model_contracts.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py"
+      ],
+      "limitation": "Reliable when reported; missing/failed response usage is unknown, cache/reasoning presence flags not complete. Legacy zero-fill forbidden.",
+      "definition": "Provider-reported output_tokens; missing usage is unknown, never assumed free.",
+      "aggregation": "sum reported tokens; failed zero-filled legacy events mark coverage partial",
+      "phase0_status": "partially_available"
+    },
+    "output_tokens_per_case": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "tokens_per_case",
+      "source": "model_result.usage.reported_fields",
+      "evidence_files": [
+        "core/yield_rca_core/model_contracts.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py"
+      ],
+      "limitation": "Reliable when reported; missing/failed response usage is unknown, cache/reasoning presence flags not complete. Legacy zero-fill forbidden.",
+      "definition": "output_tokens / observed cases.",
+      "aggregation": "sum tokens / cases with token coverage; expose missing cases",
+      "phase0_status": "partially_available"
+    },
+    "total_tokens": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "tokens",
+      "source": "model_result.usage.reported_fields",
+      "evidence_files": [
+        "core/yield_rca_core/model_contracts.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py"
+      ],
+      "limitation": "Reliable when reported; missing/failed response usage is unknown, cache/reasoning presence flags not complete. Legacy zero-fill forbidden.",
+      "definition": "Provider-reported total_tokens; missing usage is unknown, never assumed free.",
+      "aggregation": "sum reported tokens; failed zero-filled legacy events mark coverage partial",
+      "phase0_status": "partially_available"
+    },
+    "total_tokens_per_case": {
+      "status": "partial",
+      "previous_status": "partial",
+      "unit": "tokens_per_case",
+      "source": "model_result.usage.reported_fields",
+      "evidence_files": [
+        "core/yield_rca_core/model_contracts.py",
+        "core/yield_rca_core/providers/qwen.py",
+        "core/yield_rca_core/providers/deepseek.py"
+      ],
+      "limitation": "Reliable when reported; missing/failed response usage is unknown, cache/reasoning presence flags not complete. Legacy zero-fill forbidden.",
+      "definition": "total_tokens / observed cases.",
+      "aggregation": "sum tokens / cases with token coverage; expose missing cases",
+      "phase0_status": "partially_available"
+    },
+    "cost": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "currency",
+      "source": "tools/benchmark_record.py:cost_for_call/cost_ratios",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Rates frozen; incomplete cache/tariff gives bounds; missing usage gives null.",
+      "definition": "Total priced call cost including cached/reasoning/billable retry usage where applicable.",
+      "aggregation": "same currency/pricing validity; incomplete usage => partial/null; zero successful denominator => not_applicable",
+      "phase0_status": "missing"
+    },
+    "cost_per_case": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "currency_per_case",
+      "source": "tools/benchmark_record.py:cost_for_call/cost_ratios",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Rates frozen; incomplete cache/tariff gives bounds; missing usage gives null.",
+      "definition": "Total priced cost / selected cases with complete cost coverage.",
+      "aggregation": "same currency/pricing validity; incomplete usage => partial/null; zero successful denominator => not_applicable",
+      "phase0_status": "missing"
+    },
+    "cost_per_successful_rca": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "currency",
+      "source": "tools/benchmark_record.py:cost_for_call/cost_ratios",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Rates frozen; incomplete cache/tariff gives bounds; missing usage gives null.",
+      "definition": "Total experiment cost / cases externally scored as final correct and supported; includes failed-case costs in numerator.",
+      "aggregation": "same currency/pricing validity; incomplete usage => partial/null; zero successful denominator => not_applicable",
+      "phase0_status": "missing"
+    },
+    "cost_per_logical_call": {
+      "status": "partial",
+      "previous_status": "missing",
+      "unit": "currency",
+      "source": "tools/benchmark_record.py:cost_for_call/cost_ratios",
+      "evidence_files": [
+        "tools/model_benchmark_contract.py",
+        "tools/model_benchmark_telemetry.py",
+        "scripts/score_formal_blind_rca.py"
+      ],
+      "limitation": "Rates frozen; incomplete cache/tariff gives bounds; missing usage gives null.",
+      "definition": "Total priced cost / admitted logical calls with complete cost coverage.",
+      "aggregation": "same currency/pricing validity; incomplete usage => partial/null; zero successful denominator => not_applicable",
+      "phase0_status": "missing"
+    },
+    "call_latency_min": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "state.llm_usage[].latency_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "min observed call latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    },
+    "call_latency_median": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "state.llm_usage[].latency_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "median observed call latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    },
+    "call_latency_p50": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "state.llm_usage[].latency_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "p50 observed call latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    },
+    "call_latency_p95": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "state.llm_usage[].latency_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "p95 observed call latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    },
+    "call_latency_max": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "state.llm_usage[].latency_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "max observed call latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    },
+    "case_latency_min": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "execution_metadata.workflow_duration_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "min observed case latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    },
+    "case_latency_median": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "execution_metadata.workflow_duration_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "median observed case latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    },
+    "case_latency_p50": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "execution_metadata.workflow_duration_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "p50 observed case latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    },
+    "case_latency_p95": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "execution_metadata.workflow_duration_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "p95 observed case latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    },
+    "case_latency_max": {
+      "status": "available",
+      "previous_status": "existing",
+      "unit": "ms",
+      "source": "execution_metadata.workflow_duration_ms",
+      "evidence_files": [
+        "core/yield_rca_core/workflow.py",
+        "core/yield_rca_core/model_runtime.py"
+      ],
+      "limitation": "Use complete ledgers, failure coverage, n and cohort. Call latency differs from HTTP latency; suppress P95 for small Pilot.",
+      "definition": "max observed case latency; sample count always retained.",
+      "aggregation": "min/max as named; median/p50 linear interpolation; p95 linear interpolation h=(n-1)*0.95; n=1 all quantiles equal, no reliability claim; missing failures reported",
+      "phase0_status": "available"
+    }
+  }
+}

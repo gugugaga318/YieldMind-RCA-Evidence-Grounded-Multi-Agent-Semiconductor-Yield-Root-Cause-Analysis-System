@@ -1,0 +1,93 @@
+# Local configuration
+
+No `.env` file or credentials are distributed. Create a local `.env` yourself for Docker Compose, or set process environment variables for a host-based run. Never commit credentials.
+
+Set `POSTGRES_PASSWORD` to your own local value before initializing Compose. API keys are only needed for an explicitly enabled real-model run.
+
+```dotenv
+# Local development and Step 15 Docker Compose configuration.
+# Create a local .env using the settings below and set your own passwords.
+# Never commit real secrets.
+
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+
+# Step 11 runtime data source. Leave DATABASE_URL empty to read the existing
+# offline golden seed files. FastAPI never generates Synthetic Fab data.
+YIELD_RCA_DATABASE_URL=
+YIELD_RCA_SEED_DIR=data/seeds/golden_case
+
+# Step 13 PostgreSQL-backed demo. Either variable can be supplied to the demo
+# launcher; use a local, non-production database because the demo resets schema.
+TEST_DATABASE_URL=
+
+# Step 15 Compose settings. POSTGRES_PASSWORD is intentionally local-only and
+# must be changed before any shared deployment.
+POSTGRES_DB=yield_rca
+POSTGRES_USER=yield_rca
+POSTGRES_PASSWORD=
+BACKEND_PORT=8000
+FRONTEND_PORT=5173
+# Supported values: golden_case, multi_case, spc_case
+YIELD_RCA_DATASET=multi_case
+
+# Step 16 Hybrid Agent runtime. Use fake to validate the complete LLM path
+# without cost, then switch to llm after configuring DASHSCOPE_API_KEY.
+YIELD_RCA_AGENT_MODE=deterministic
+# Supported values: fixed, controlled_react, llm_react
+YIELD_RCA_ORCHESTRATION_MODE=fixed
+YIELD_RCA_LLM_PROVIDER=dashscope
+YIELD_RCA_LLM_MODEL=qwen-plus
+YIELD_RCA_LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+YIELD_RCA_LLM_TIMEOUT_SECONDS=60
+YIELD_RCA_LLM_MAX_RETRIES=1
+DASHSCOPE_API_KEY=
+
+# One provider/model per run. To use DeepSeek set provider=deepseek,
+# model=deepseek-flash, base URL=https://api.deepseek.com (all three together).
+# Only DEEPSEEK_API_KEY is read for DeepSeek; Qwen accepts dashscope or qwen.
+DEEPSEEK_API_KEY=
+YIELD_RCA_LLM_MIN_CONTEXT_TOKENS=
+
+# Batch 23.1 leased PostgreSQL Queue Worker. Heartbeat must remain shorter than
+# the lease. Each Job has max_attempts=3; only transient provider/transport
+# failures are retried with bounded exponential backoff.
+YIELD_RCA_WORKER_TARGET=worker
+YIELD_RCA_WORKER_LEASE_SECONDS=180
+YIELD_RCA_WORKER_HEARTBEAT_SECONDS=30
+YIELD_RCA_WORKER_POLL_SECONDS=1
+YIELD_RCA_WORKER_RECOVERY_SECONDS=30
+YIELD_RCA_WORKER_RETRY_BASE_SECONDS=5
+
+# Long Task 4 governed Knowledge retrieval. Keyword is the safe default and
+# does not load local ML models. Hybrid requires the retrieval-runtime image and
+# an explicit embedding-index run after seeding.
+YIELD_RCA_KNOWLEDGE_RETRIEVER_MODE=keyword
+YIELD_RCA_BACKEND_TARGET=runtime
+YIELD_RCA_KNOWLEDGE_EMBEDDING_MODEL=BAAI/bge-m3
+YIELD_RCA_KNOWLEDGE_EMBEDDING_REVISION=5617a9f61b028005a4858fdac845db406aefb181
+YIELD_RCA_KNOWLEDGE_EMBEDDING_DEVICE=auto
+YIELD_RCA_KNOWLEDGE_EMBEDDING_BATCH_SIZE=32
+
+# Keep disabled unless the pinned evaluation report proves a non-regressing
+# gain. A missing calibration artifact intentionally returns null relevance.
+YIELD_RCA_KNOWLEDGE_RERANKER_ENABLED=0
+YIELD_RCA_KNOWLEDGE_RERANKER_MODEL=BAAI/bge-reranker-v2-m3
+YIELD_RCA_KNOWLEDGE_RERANKER_REVISION=953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e
+YIELD_RCA_KNOWLEDGE_RERANKER_DEVICE=auto
+YIELD_RCA_KNOWLEDGE_RERANKER_BATCH_SIZE=16
+YIELD_RCA_KNOWLEDGE_RERANKER_CANDIDATE_K=20
+YIELD_RCA_KNOWLEDGE_RERANKER_LOCAL_PATH=
+YIELD_RCA_KNOWLEDGE_CALIBRATION_ARTIFACT=
+
+# Evaluation V2 promoted causal Scope. Set to 0 for the legacy observed-Module
+# compatibility baseline. When enabled, RCA/historical lookup treats the
+# observed Module as a soft hint and
+# preserves bounded same-step, upstream-route, shared-resource, and global
+# semantic candidate lanes. Python still owns budgets and hard user limits.
+YIELD_RCA_CAUSAL_SCOPE_ENABLED=1
+YIELD_RCA_CAUSAL_SCOPE_CANDIDATE_BUDGET=20
+YIELD_RCA_CAUSAL_SCOPE_LANE_MINIMUM=1
+```
+
+For host-based DeepSeek jobs, set `DEEPSEEK_API_KEY` in both API and worker processes. The frozen Compose file forwards DashScope credentials only; it does not forward a DeepSeek key.

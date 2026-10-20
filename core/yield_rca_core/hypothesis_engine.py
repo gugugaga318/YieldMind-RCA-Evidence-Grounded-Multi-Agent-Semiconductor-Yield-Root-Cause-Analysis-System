@@ -7,6 +7,7 @@ dependency. It is the sole production RCA decision engine after Batch 19.
 from __future__ import annotations
 
 import re
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -24,7 +25,10 @@ from yield_rca_core.causal_hypothesis import CausalHypothesis
 from yield_rca_core.causal_investigation_models import (
     AlternativeSearchStatus,
     CandidateChallenge,
+    CandidateSemanticProfile,
+    CausalLaneRecord,
 )
+from yield_rca_core.evidence_models import Evidence
 from yield_rca_core.evidence_synthesis import build_evidence_synthesis
 from yield_rca_core.models import (
     AgentFinding,
@@ -740,6 +744,51 @@ def _llm_candidate_payload(
     }
 
 
+_MATRIX_REJECTION_PREFIXES = (
+    "The Causal Evidence Matrix found a critical claim/Evidence conflict.",
+    "Causal Evidence Matrix could not be built:",
+)
+
+
+def _synchronize_candidate_matrix_validation(
+    candidate: dict[str, Any],
+    matrix: CausalEvidenceMatrix,
+) -> None:
+    """Keep candidate validation fields consistent with the final Matrix."""
+
+    matrix_consistent = not matrix.has_critical_conflict
+    validation_results = [
+        dict(item)
+        for item in candidate.get("validation_results", [])
+        if isinstance(item, Mapping)
+    ]
+    for result in validation_results:
+        if result.get("gate") == "claim_evidence_consistency":
+            result["outcome"] = "passed" if matrix_consistent else "failed"
+    candidate["validation_results"] = validation_results
+
+    rejection_reasons = [
+        str(reason)
+        for reason in candidate.get("rejection_reasons", [])
+        if not str(reason).startswith(_MATRIX_REJECTION_PREFIXES)
+    ]
+    if not matrix_consistent:
+        rejection_reasons.append(_MATRIX_REJECTION_PREFIXES[0])
+    candidate["rejection_reasons"] = list(dict.fromkeys(rejection_reasons))
+
+    gate_passed = (
+        bool(validation_results)
+        and all(
+            result.get("outcome") == "passed"
+            for result in validation_results
+        )
+        and not candidate.get("contradicting_evidence_ids", [])
+    )
+    candidate["llm_gate_passed"] = gate_passed
+    if candidate.get("status") != "conflicted" and not gate_passed:
+        candidate["status"] = "candidate"
+
+
 @dataclass(frozen=True)
 class HypothesisEngine:
     """Generate, validate, rank, and gate deterministic RCA hypotheses."""
@@ -767,6 +816,13 @@ class HypothesisEngine:
         strict_confirmation: bool = False,
         alternative_search_status: str | None = None,
         candidate_challenges: list[CandidateChallenge] | None = None,
+        context_evidence: Sequence[Evidence] = (),
+        causal_lanes: Sequence[CausalLaneRecord] = (),
+        consumed_discriminators: Collection[tuple[str, str]] = (),
+        competition_brief: Mapping[str, Any] | None = None,
+        candidate_semantic_profiles: Sequence[
+            CandidateSemanticProfile | Mapping[str, Any]
+        ] = (),
     ) -> dict[str, Any]:
         """Return a JSON-safe deterministic hypothesis decision result."""
         by_kind = _findings_by_kind(findings)
@@ -798,6 +854,27 @@ class HypothesisEngine:
             for finding in findings
             for evidence in finding.evidence
         }
+        evidence_by_id.update(
+            {evidence.evidence_id: evidence for evidence in context_evidence}
+        )
+        source_lot_id = next(
+            (
+                str(finding.details.get("source_lot_id"))
+                for finding in findings
+                if finding.details.get("source_lot_id")
+            ),
+            None,
+        )
+        non_supporting_evidence_ids = _unique(
+            [
+                *non_supporting_evidence_ids,
+                *[
+                    evidence.evidence_id
+                    for evidence in context_evidence
+                    if evidence.evidence_type in {"data_missing", "negative_signal"}
+                ],
+            ]
+        )
         candidates: dict[str, dict[str, Any]] = {}
 
         def add(root_cause: str | None, basis: str, score: float) -> None:
@@ -855,8 +932,42 @@ class HypothesisEngine:
             if existing is None or candidate["confidence"] > existing["confidence"]:
                 candidates[root_cause] = candidate
 
+        semantic_profiles_by_candidate_id: dict[
+            str, CandidateSemanticProfile | Mapping[str, Any]
+        ] = {}
+        for raw_profile in candidate_semantic_profiles:
+            candidate_id = (
+                raw_profile.candidate_id
+                if isinstance(raw_profile, CandidateSemanticProfile)
+                else str(raw_profile.get("candidate_id", "")).strip()
+            )
+            if candidate_id:
+                semantic_profiles_by_candidate_id[candidate_id] = raw_profile
+        semantic_profiles_expected = bool(candidate_semantic_profiles) or str(
+            (competition_brief or {}).get("competition_requirement", "")
+        ).strip() in {
+            "alternative_discovery_required",
+            "direction_required",
+            "mechanism_required",
+            "scope_required",
+            "mixed_required",
+        }
+
         matrices_by_root: dict[str, CausalEvidenceMatrix] = {}
         for candidate in candidates.values():
+            hypothesis_id = str(candidate.get("hypothesis_id", "")).strip()
+            semantic_profile: CandidateSemanticProfile | Mapping[str, Any] | None
+            if candidate.get("basis") == "llm_evidence_composition":
+                # An explicit empty mapping means the LLM Candidate was expected
+                # to have scope semantics but none survived validation.  Matrix
+                # must keep that scope unresolved instead of falling back to the
+                # legacy Evidence-coverage inference used by controlled paths.
+                semantic_profile = semantic_profiles_by_candidate_id.get(
+                    hypothesis_id,
+                    {} if semantic_profiles_expected else None,
+                )
+            else:
+                semantic_profile = None
             try:
                 matrix = build_causal_evidence_matrix(
                     CausalHypothesis(
@@ -872,6 +983,8 @@ class HypothesisEngine:
                         ),
                     ),
                     evidence_by_id.values(),
+                    semantic_profile=semantic_profile,
+                    causal_lanes=causal_lanes,
                 )
             except (TypeError, ValueError):
                 continue
@@ -879,8 +992,14 @@ class HypothesisEngine:
             candidate["causal_evidence_matrix"] = matrix.to_dict()
             candidate["causal_matrix_status"] = matrix.status
             candidate["mechanism_support_source"] = matrix.mechanism_support_source
+            if candidate.get("basis") == "llm_evidence_composition":
+                _synchronize_candidate_matrix_validation(candidate, matrix)
 
         matrices = list(matrices_by_root.values())
+        matrix_candidate_ids = [
+            str(candidates[matrix.candidate.root_cause]["hypothesis_id"])
+            for matrix in matrices
+        ]
         competition_status = str(
             alternative_search_status or AlternativeSearchStatus.NOT_SEARCHED.value
         )
@@ -892,6 +1011,12 @@ class HypothesisEngine:
                 matrices,
                 alternative_search_status=competition_status,
                 candidate_challenges=challenges,
+                causal_lanes=causal_lanes,
+                candidate_ids=matrix_candidate_ids,
+                source_lot_id=source_lot_id,
+                consumed_discriminators=consumed_discriminators,
+                competition_brief=competition_brief,
+                candidate_semantic_profiles=candidate_semantic_profiles,
             )
         )
         evidence_gaps.sort(
@@ -907,29 +1032,67 @@ class HypothesisEngine:
             alternative_search_status=competition_status,
         )
         effective_comparison = dict(python_comparison)
+        effective_comparison["python_comparison_explanation"] = python_comparison.get(
+            "comparison_explanation"
+        )
+        comparator_preferred_index: int | None = None
         if candidate_comparison is not None:
             preferred = candidate_comparison.get("preferred_candidate_index")
             if preferred is None or (
-                isinstance(preferred, int) and 0 <= preferred < len(matrices)
+                isinstance(preferred, int)
+                and not isinstance(preferred, bool)
+                and 0 <= preferred < len(matrices)
             ):
-                effective_comparison.update(candidate_comparison)
-        preferred_root: str | None = None
-        # The deterministic comparison is diagnostic by default.  It may
-        # reorder an active Qwen two-candidate decision only after an explicit
-        # comparator result has been supplied; legacy deterministic ranking
-        # remains gate-first and unchanged.
-        preferred_index = (
-            effective_comparison.get("preferred_candidate_index")
+                comparator_preferred_index = preferred
+                for key in (
+                    "comparison_explanation",
+                    "comparison_summary",
+                    "selected_gap_id",
+                    "source",
+                ):
+                    if key in candidate_comparison:
+                        effective_comparison[key] = candidate_comparison[key]
+                effective_comparison["comparator_comparison_explanation"] = (
+                    candidate_comparison.get(
+                        "comparison_explanation",
+                        candidate_comparison.get("comparison_summary"),
+                    )
+                )
+        challenge_selected_gap_ids = list(
+            dict.fromkeys(
+                gap_id
+                for challenge in challenges
+                for gap_id in challenge.distinguishing_gap_ids
+            )
+        )
+        effective_comparison["comparator_selected_gap_id"] = (
+            candidate_comparison.get("selected_gap_id")
             if candidate_comparison is not None
             else None
         )
-        if isinstance(preferred_index, int) and 0 <= preferred_index < len(matrices):
-            preferred_root = matrices[preferred_index].candidate.root_cause
+        effective_comparison["selected_gap_id"] = (
+            challenge_selected_gap_ids[0]
+            if len(challenge_selected_gap_ids) == 1
+            else None
+        )
+        effective_comparison["selected_gap_ids"] = challenge_selected_gap_ids
+        effective_comparison["gap_selection_owner"] = "adversarial_challenge"
 
         mes_strength = _mes_strength(mes)
         fdc_strength = _fdc_strength(fdc)
         defect_wat_strength = _defect_wat_strength(defect_wat)
         conflicting_physics = _has_conflicting_physics(mes, fdc)
+
+        def candidate_challenge(candidate: dict[str, Any]) -> CandidateChallenge | None:
+            hypothesis_id = str(candidate.get("hypothesis_id", ""))
+            return next(
+                (
+                    challenge
+                    for challenge in challenges
+                    if challenge.candidate_id == hypothesis_id
+                ),
+                None,
+            )
 
         def passes_decision_gate(candidate: dict[str, Any]) -> bool:
             if candidate["status"] != "supported" or conflicting_physics:
@@ -946,9 +1109,22 @@ class HypothesisEngine:
                     return False
                 if strict_confirmation:
                     matrix = matrices_by_root.get(str(candidate["root_cause"]))
+                    challenge = candidate_challenge(candidate)
                     return bool(
                         matrix is not None
-                        and confirm_candidate(matrix, strict=True).status == "supported"
+                        and confirm_candidate(
+                            matrix,
+                            strict=True,
+                            alternative_search_status=(
+                                competition_status if competition_status_supplied else None
+                            ),
+                            unexplained_precursor_evidence_ids=(
+                                challenge.unexplained_precursor_evidence_ids
+                                if challenge is not None
+                                else ()
+                            ),
+                        ).status
+                        == "supported"
                     )
                 return True
             if candidate["basis"] == "recipe_change":
@@ -960,24 +1136,184 @@ class HypothesisEngine:
                 and defect_wat_strength >= 0.6
             )
 
-        ranked = sorted(
+        matrix_index_by_root = {
+            matrix.candidate.root_cause: index
+            for index, matrix in enumerate(matrices)
+        }
+        matrix_scores = [int(score) for score in python_comparison.get("scores", [])]
+
+        def candidate_matrix(candidate: dict[str, Any]) -> CausalEvidenceMatrix | None:
+            return matrices_by_root.get(str(candidate["root_cause"]))
+
+        def candidate_matrix_score(candidate: dict[str, Any]) -> int:
+            index = matrix_index_by_root.get(str(candidate["root_cause"]))
+            if index is None or not 0 <= index < len(matrix_scores):
+                return -10_000
+            return matrix_scores[index]
+
+        def candidate_has_unknown_evidence(candidate: dict[str, Any]) -> bool:
+            return any(
+                result.get("gate") == "known_evidence"
+                and result.get("outcome") == "failed"
+                for result in candidate.get("validation_results", [])
+                if isinstance(result, dict)
+            )
+
+        def matrix_safety_rank(candidate: dict[str, Any]) -> int:
+            matrix = candidate_matrix(candidate)
+            if matrix is None or matrix.status == "unavailable":
+                return 3
+            if matrix.has_critical_conflict:
+                return 2
+            if matrix.invalid_evidence_ids or candidate_has_unknown_evidence(candidate):
+                return 1
+            return 0
+
+        legacy_ranked = sorted(
             candidates.values(),
             key=lambda item: (
                 not passes_decision_gate(item),
-                (
-                    -1
-                    if preferred_root is not None
-                    and str(item["root_cause"]) == preferred_root
-                    and passes_decision_gate(item)
-                    else 0
-                ),
                 -float(item["confidence"]),
                 str(item["root_cause"]),
             ),
-        )[:3]
+        )
+        pre_comparison_rank_by_root = {
+            str(candidate["root_cause"]): rank
+            for rank, candidate in enumerate(legacy_ranked, start=1)
+        }
+
+        preference_accepted: bool | None = None
+        preference_rejection_reason: str | None = None
+        qwen_tiebreak_root: str | None = None
+        if comparator_preferred_index is not None:
+            preferred_matrix = matrices[comparator_preferred_index]
+            preferred_root = preferred_matrix.candidate.root_cause
+            preferred_candidate = candidates[preferred_root]
+            preferred_safety_rank = matrix_safety_rank(preferred_candidate)
+            preferred_gate_status = passes_decision_gate(preferred_candidate)
+            comparable_candidates = [
+                candidate
+                for candidate in candidates.values()
+                if passes_decision_gate(candidate) == preferred_gate_status
+                and matrix_safety_rank(candidate) == 0
+            ]
+            best_comparable_score = max(
+                (candidate_matrix_score(candidate) for candidate in comparable_candidates),
+                default=-10_000,
+            )
+            if preferred_matrix.has_critical_conflict:
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_has_critical_conflict"
+            elif (
+                preferred_matrix.invalid_evidence_ids
+                or candidate_has_unknown_evidence(preferred_candidate)
+            ):
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_has_unknown_evidence"
+            elif preferred_matrix.status == "unavailable":
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_matrix_unavailable"
+            elif any(
+                passes_decision_gate(candidate)
+                for candidate in candidates.values()
+            ) and not preferred_gate_status:
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_is_below_decision_gate_tier"
+            elif candidate_matrix_score(preferred_candidate) < best_comparable_score:
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_has_lower_python_matrix_score"
+            elif preferred_safety_rank != 0:
+                preference_accepted = False
+                preference_rejection_reason = "preferred_candidate_is_not_safe_for_ranking"
+            else:
+                preference_accepted = True
+                qwen_tiebreak_root = preferred_root
+
+        comparison_ranking_enabled = candidate_comparison is not None
+        if comparison_ranking_enabled:
+            ranked_all = sorted(
+                candidates.values(),
+                key=lambda item: (
+                    not passes_decision_gate(item),
+                    matrix_safety_rank(item),
+                    -candidate_matrix_score(item),
+                    (
+                        0
+                        if qwen_tiebreak_root is not None
+                        and str(item["root_cause"]) == qwen_tiebreak_root
+                        else 1
+                    ),
+                    -float(item["confidence"]),
+                    str(item["root_cause"]),
+                ),
+            )
+        else:
+            # Controlled and legacy callers retain the pre-comparison order.
+            ranked_all = legacy_ranked
+
+        ranked = ranked_all[:3]
         for rank, candidate in enumerate(ranked, start=1):
             candidate["rank"] = rank
+            candidate["final_rank"] = rank
+            candidate["pre_comparison_rank"] = pre_comparison_rank_by_root[
+                str(candidate["root_cause"])
+            ]
+            candidate["python_matrix_score"] = candidate_matrix_score(candidate)
             candidate["decision_gate_passed"] = passes_decision_gate(candidate)
+
+        python_preferred_index = python_comparison.get("preferred_candidate_index")
+        final_preferred_index = (
+            matrix_index_by_root.get(str(ranked_all[0]["root_cause"]))
+            if comparison_ranking_enabled and ranked_all
+            else python_preferred_index
+        )
+        comparison_author = (
+            "model" if (candidate_comparison or {}).get("source") == "model" else "qwen"
+        )
+        if comparison_ranking_enabled:
+            if preference_accepted and comparator_preferred_index != python_preferred_index:
+                ranking_source = f"python_matrix_with_{comparison_author}_tiebreak"
+            elif preference_accepted:
+                ranking_source = f"python_matrix_{comparison_author}_consistent"
+            elif comparator_preferred_index is not None:
+                ranking_source = f"python_matrix_{comparison_author}_rejected"
+            else:
+                ranking_source = "python_matrix"
+        else:
+            ranking_source = "legacy_gate_confidence"
+        effective_comparison.update(
+            {
+                "preferred_candidate_index": final_preferred_index,
+                "python_preferred_candidate_index": python_preferred_index,
+                "comparator_preferred_candidate_index": comparator_preferred_index,
+                "comparator_preference_accepted": preference_accepted,
+                "comparator_preference_rejection_reason": (
+                    preference_rejection_reason
+                ),
+                "ranking_source": ranking_source,
+                "pre_comparison_ranks": [
+                    {
+                        "candidate_index": matrix_index_by_root.get(
+                            str(candidate["root_cause"])
+                        ),
+                        "root_cause": str(candidate["root_cause"]),
+                        "rank": pre_comparison_rank_by_root[str(candidate["root_cause"])],
+                    }
+                    for candidate in legacy_ranked
+                ],
+                "final_ranks": [
+                    {
+                        "candidate_index": matrix_index_by_root.get(
+                            str(candidate["root_cause"])
+                        ),
+                        "root_cause": str(candidate["root_cause"]),
+                        "rank": rank,
+                        "python_matrix_score": candidate_matrix_score(candidate),
+                    }
+                    for rank, candidate in enumerate(ranked_all, start=1)
+                ],
+            }
+        )
         selected = ranked[0] if ranked else None
         supported = (
             selected is not None
@@ -985,6 +1321,9 @@ class HypothesisEngine:
         )
         selected_matrix = (
             matrices_by_root.get(str(selected["root_cause"])) if selected is not None else None
+        )
+        selected_challenge = (
+            candidate_challenge(selected) if selected is not None else None
         )
         confirmation = (
             confirm_candidate(
@@ -997,6 +1336,12 @@ class HypothesisEngine:
                 strict=strict_confirmation,
                 alternative_search_status=(
                     competition_status if competition_status_supplied else None
+                ),
+                require_causal_chain=strict_confirmation,
+                unexplained_precursor_evidence_ids=(
+                    selected_challenge.unexplained_precursor_evidence_ids
+                    if selected_challenge is not None
+                    else ()
                 ),
             )
             if selected_matrix is not None
@@ -1018,6 +1363,26 @@ class HypothesisEngine:
             "conflicting_physics": conflicting_physics,
             "alternative_search_status": competition_status,
             "candidate_challenges": [item.to_dict() for item in challenges],
+            "causal_chain_completeness": (
+                confirmation.causal_chain_completeness
+                if confirmation is not None
+                else None
+            ),
+            "data_missing_evidence_ids": (
+                list(confirmation.data_missing_evidence_ids)
+                if confirmation is not None
+                else []
+            ),
+            "blocking_data_missing_evidence_ids": (
+                list(confirmation.blocking_data_missing_evidence_ids)
+                if confirmation is not None
+                else []
+            ),
+            "non_blocking_data_missing_evidence_ids": (
+                list(confirmation.non_blocking_data_missing_evidence_ids)
+                if confirmation is not None
+                else []
+            ),
             "conclusion_status": (
                 confirmation.status
                 if confirmation is not None
@@ -1042,7 +1407,14 @@ class HypothesisEngine:
             "input": {
                 "finding_kinds": [finding.finding_kind for finding in findings],
                 "typed_evidence_ids": _unique(
-                    [evidence_id for finding in findings for evidence_id in finding.evidence_ids]
+                    [
+                        *[
+                            evidence_id
+                            for finding in findings
+                            for evidence_id in finding.evidence_ids
+                        ],
+                        *[evidence.evidence_id for evidence in context_evidence],
+                    ]
                 ),
                 "knowledge_validation_present": validation is not None,
                 "external_candidate_count": len(external_candidates or []),
